@@ -20,8 +20,8 @@ BLOG_REGISTRY = [
                   strip = ["^by [^\n].*\n"]),
     WordpressBlog(name = "vkrakovna.wordpress.com",
                   url = "https://vkrakovna.wordpress.com"),
-    WordpressBlog(name = "www.yudkowsky.net",
-                  url = "https://www.yudkowsky.net",
+    WordpressBlog(name = "yudkowsky.net",
+                  url = "https://yudkowsky.net", 
                   strip = ["^\s*Download as PDF\n"]),
     
     MediumBlog(name="deepmind.blog",

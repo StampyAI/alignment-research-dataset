@@ -38,7 +38,7 @@ class AgentModels(AlignmentDataset):
             with open(filename, 'r') as f:
                 text = f.read()
             new_entry = DataEntry({
-                'source': 'GitHub',
+                'source': 'agentmodels.org',
                 'source_filetype': 'markdown',
                 'converted_with': 'not converted',
                 'book_title': 'Modeling Agents with Probabilistic Programs',
