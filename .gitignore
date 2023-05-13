@@ -113,9 +113,9 @@ transcripts/
 waitbutwhy/
 carado.moe/
 *.jsonl
-*.txt
 *.xml
 *.docx
 *.md
 *.txt
+!requirements.txt
 *.epub
