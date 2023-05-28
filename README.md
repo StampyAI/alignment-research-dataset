@@ -105,6 +105,13 @@ As we said in the previous section, all entries have the `text` key which contai
 
 2. `alignment_text`: This is label specific to the arXiv papers. We added papers to the dataset using Allen AI's SPECTER model and included all the papers that got a confidence score of over 75%. However, since we could not verify with certainty that those papers where about alignment, we've decided to create the `alignment_text` key with the value `"pos"` when we manually labeled it as an alignment text and `"unlabeled"` when we have not labeled it yet. Additionally, we've only included the `text` for the `"pos"` entries, not the `"unlabeled"` entries.
 
+## Running the code
+
+To update the stampy portion of the dataset, you will need a Coda token. go to coda.io, log in, and generate an API token in your account settings. Add restrictions: Doc or table, Read only, for the doc with url https://coda.io/d/_dfau7sl2hmG. Then, create a .env file at the root of the alignment research dataset, and write CODA_TOKEN="<coda_token>". It will be accessible in align_data/stampy/stampy.py
+
+
+When wishing to update the whole dataset, run `python3 main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python3 main.py fetch --dataset_name stampy`
+
 ## Contributing
 
 Join us on EleutherAI's [discord server](https://discord.com/invite/zBGx3azzUn) in the #accelerating-alignment channel.
@@ -118,3 +125,4 @@ We would like this dataset be used for good. If you have any ideas on how to hel
 Please use the following citation when using our dataset:
 
 Kirchner, J. H., Smith, L., Thibodeau, J., McDonnell, K., and Reynolds, L. "Understanding AI alignment research: A Systematic Analysis." arXiv preprint arXiv:2022.4338861 (2022).
+

@@ -4,12 +4,19 @@ import logging
 from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
 from tqdm import tqdm
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+CODA_TOKEN = os.environ.get("CODA_TOKEN", "token not found")
+from codaio import Coda, Document
+
 logger = logging.getLogger(__name__)
 
 @dataclass
 class Stampy(AlignmentDataset):
 
-    index_url : str
+    coda_doc_id : str
+    on_site_table : str
     done_key = "entry"
 
     def setup(self):
@@ -17,35 +24,44 @@ class Stampy(AlignmentDataset):
 
     def fetch_entries(self):
         self.setup()
-        entries = dict(requests.get(self.index_url).json())
-        for ii, entry in enumerate(tqdm(entries["results"].keys())):
-            if self._entry_done(entry):
+
+
+        coda = Coda(CODA_TOKEN)
+        doc = Document(self.coda_doc_id, coda=coda)
+        table = doc.get_table(self.on_site_table)
+        entries = table.to_dict() # a list of dicts
+        #
+        # keys for each element of the list of dicts: 
+        # {'Edit Answer', 'Status', 'aisafety.info Link', 'External Source', 'Tags', 'Related IDs', 'Alternate Phrasings', 'Rich Text', 'Doc Last Edited', 'Question', 'Link', 'UI ID', 'Related Answers'}
+        for ii, entry in enumerate(tqdm(entries)):
+            if self._entry_done(entry.get('Question','')):
                 # logger.info(f"Already done {entry}")
                 continue
-            qa_entry = entries["results"][entry]
-            qa_entry["question"] = ' '.join(entry.split("to ")[1:])
-            qa_entry["answer"] = entries["results"][entry]["printouts"]["Answer"]
-            qa_entry["text"] = "Question: " + qa_entry["question"] + "\n\nAnswer: " + entries["results"][entry]["printouts"]["Answer"][0]
-            # if there is more than one answer, add the rest
-            for jj in range(1, len(entries["results"][entry]["printouts"]["Answer"])):
-                qa_entry["text"] += f"\n\nAnswer {str(jj)}: " + entries["results"][entry]["printouts"]["Answer"][jj]
 
+            question = entry.get('Question', '')
+            answer = entry.get('Rich Text', '')  # Assuming 'Answer' is present in each dict
+            url = entry.get('Link', '')
+            date_published = entry.get('Doc Last Edited', '')
+
+            # Creating the text field
+            #text = f"Question: {question}\n\nAnswer: {answer}" note: we don't do this because the title contains the question already
 
             logger.info(f"Processing {ii}")
 
             new_entry = DataEntry({
-                "source" : self.name,
+                "source": self.name,
                 "source_filetype": "text",
-                "url": "n/a",
-                "title": qa_entry["question"],
+                "url": url,
+                "title": question,
                 "authors": "n/a",
-                "date_published": "n/a",
-                "text": qa_entry["text"],
-                "question": qa_entry["question"],
-                "answer": qa_entry["answer"],
-                "entry": entry
+                "date_published": date_published,
+                "text": answer,
+                "question": question,
+                "answer": answer,
+                #"entry": entry  # This is the entire dictionary entry
             })
-            logger.info(f"Processing {entry}")
+
+            logger.info(f"Processing {new_entry}")
             new_entry.add_id()
 
             yield new_entry
