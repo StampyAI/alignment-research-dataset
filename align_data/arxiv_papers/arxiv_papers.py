@@ -24,7 +24,7 @@ class ArxivPapers(AlignmentDataset):
         Load arxiv ids
         """
         self._setup()
-        self.papers_csv_path = self.write_jsonl_path.parent / "raw" / "ai-alignment-papers.csv" 
+        self.papers_csv_path = self.raw_data_path / "ai-alignment-papers.csv"
 
         self.df = pd.read_csv(self.papers_csv_path)
         self.df_arxiv = self.df[self.df["Url"].str.contains(

@@ -2,19 +2,20 @@ from dataclasses import dataclass
 import os
 import fire
 from dataclasses import dataclass
-from typing import List , Union
+from typing import List, Union
 import align_data
-from align_data.common.utils import EntryWriter
+from align_data.common.alignment_dataset import EntryWriter
 from align_data.analysis.count_tokens import count_token
 
 # import logging , sys
 
 # logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
+
 @dataclass
 class AlignmentDataset:
 
-    out_path : str = "data"
+    out_path: str = "data"
 
     def cmd_list(self) -> List[str]:
         """
@@ -25,14 +26,14 @@ class AlignmentDataset:
             print(name)
         return align_data.ALL_DATASETS
 
-    def cmd_fetch(self , name) -> None:
+    def cmd_fetch(self, name) -> None:
         """
         > This function takes a dataset name and writes the entries of that dataset to a file
-        
+
         :param name: The name of the dataset to fetch
         :return: The path to the file that was written to.
         """
-        assert name in align_data.ALL_DATASETS , f"{name} is not a valid dataset name"
+        assert name in align_data.ALL_DATASETS, f"{name} is not a valid dataset name"
         with EntryWriter(name, self.out_path) as writer:
             for entry in align_data.get_dataset(name).fetch_entries():
                 writer.write(entry)
@@ -49,21 +50,24 @@ class AlignmentDataset:
         for name in align_data.ALL_DATASETS:
             print(name)
             self.cmd_fetch(name)
-        
-        return None #merge_all_files(out_dir = self.out_path)
 
-    def cmd_count_tokens(self , merged_dataset_path : str) -> None:
+        return None  #merge_all_files(out_dir = self.out_path)
+
+    def cmd_count_tokens(self, merged_dataset_path: str) -> None:
         """
         This function counts the number of tokens, words, and characters in the dataset
         :return: None
         """
-        assert os.path.exists(merged_dataset_path) , "The path to the merged dataset does not exist"
+        assert os.path.exists(merged_dataset_path), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
 
-def main(command : str , out_path : str = "data" , dataset_name : str = None ) -> Union[str , List[str] , None]:
+
+def main(command: str,
+         out_path: str = "data",
+         dataset_name: str = None) -> Union[str, List[str], None]:
     """
     It downloads the alignment dataset from the internet and saves it to a local directory
-    
+
     :param command: The command to run. Can be one of: list, fetch, fetch_all, count_tokens
     :type command: str
     :param out_path: The path to the directory where the data will be downloaded, defaults to data
@@ -72,20 +76,18 @@ def main(command : str , out_path : str = "data" , dataset_name : str = None ) -
     :type dataset_name: str
     :return: A list of strings.
     """
-
-    assert command in [ "list" , "fetch" , "fetch-all" ] , f"Invalid command: {command}"
-
     al_dataset = AlignmentDataset(out_path)
 
-    if command == "list":
-        return al_dataset.cmd_list()
-    elif command == "fetch":
-        return al_dataset.cmd_fetch(dataset_name)
-    elif command == "fetch-all":
-        return al_dataset.cmd_fetch_all()
-    elif command == "count-tokens":
-        al_dataset.cmd_count_tokens()
-        return None
+    commands = {
+        "list": al_dataset.cmd_list,
+        "fetch": lambda: al_dataset.cmd_fetch(dataset_name),
+        "fetch-all": al_dataset.cmd_fetch_all,
+        "count-tokens": lambda: print(al_dataset.cmd_count_tokens(out_path))
+    }
+
+    assert command in commands, f"Invalid command: {command}"
+    return commands[command]()
+
 
 if __name__ == "__main__":
     fire.Fire(main)
