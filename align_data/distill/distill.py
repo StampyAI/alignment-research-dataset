@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
 import os
 import re
-import logging 
+import logging
 from tqdm import tqdm
 from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
 
@@ -16,9 +16,7 @@ class Distill(AlignmentDataset):
 
     def setup(self):
         self._setup()
-        self.DISTILL_POSTS_DIR = self.write_jsonl_path.parent / "raw" / "distill_posts"
-        self.file_list = os.listdir(self.DISTILL_POSTS_DIR)
-        logger.info(f"Found {len(self.file_list)} files in {self.DISTILL_POSTS_DIR}")
+        self.files_path = self.raw_data_path / "distill_posts"
         logger.info(f"Found {len(self.done_ids)} done files")
 
     def fetch_entries(self):
@@ -29,11 +27,13 @@ class Distill(AlignmentDataset):
                 # logger.info(f"Already done {ii}")
                 continue
             logger.info(f"Fetching {self.name} entry {filename}")
-            with open(os.path.join(self.DISTILL_POSTS_DIR, filename), "r") as f:
-                html = f.read()
-            
+            html = filename.read_text()
+
             yield self.fetch_individual_entries(html)
-                
+
+    @property
+    def file_list(self):
+        return self.files_path.glob('*')
 
     def fetch_individual_entries(self, html):
         soup = BeautifulSoup(html, "html.parser")
@@ -57,7 +57,7 @@ class Distill(AlignmentDataset):
         body = soup.find("d-article")
         if body is None: body = soup.find("dt-article")
 
-        
+
         # the abstract is the first ptag in the body
         try:
             abstract = body.find("p").text.replace("\n", " ")
@@ -91,7 +91,7 @@ class Distill(AlignmentDataset):
 
         # build the json
         new_entry = DataEntry({
-            "url": "n/a", 
+            "url": "n/a",
             "source": "distill",
             "source_type": "html",
             "converted_with": "python",
@@ -106,5 +106,3 @@ class Distill(AlignmentDataset):
         })
         new_entry.add_id()
         return new_entry
-
-

@@ -5,20 +5,20 @@ import jsonlines
 import pandas as pd
 
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
-    
+
 @dataclass
 class AlignmentNewsletter(AlignmentDataset):
-    
+
     COOLDOWN: int = 1
     done_key = "title"
-    
+
     def setup(self) -> None:
         self._setup()
-        self.newsletter_xlsx_path = self.write_jsonl_path.parent / "raw" / "alignment_newsletter.xlsx"
+        self.newsletter_xlsx_path = self.raw_data_path / "alignment_newsletter.xlsx"
         self.df = pd.read_excel(self.newsletter_xlsx_path)
 
     def fetch_entries(self):
@@ -51,5 +51,3 @@ class AlignmentNewsletter(AlignmentDataset):
                    })
             new_entry.add_id()
             yield new_entry
-            
- 
