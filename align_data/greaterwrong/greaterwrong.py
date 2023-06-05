@@ -28,11 +28,8 @@ class GreaterWrong(AlignmentDataset):
     done_key = "url"
 
     def setup(self):
-        self._setup()
+        super().setup()
         self.files_path.mkdir(parents=True, exist_ok=True)
-
-    def fetch_entries(self):
-        self.setup()
         logger.info(
             f"Grabbing most recent links (grabs all links if /{self.name}_urls/ is empty)...")
         self.get_all_links()
@@ -40,35 +37,33 @@ class GreaterWrong(AlignmentDataset):
         logger.info(
             "[Using only the latest urls, change variable url_directory in greaterwrong.py to point at a specific url_folder]"
         )
-        # specify url_directory to the specific url_file you want
 
+    @property
+    def items_list(self):
+        links = []
         url_filename_list = self.get_urls(url_directory="")
-        url_link_prefix_public_facing = "https://www.lesswrong.com" if self.name == "lesswrong" else "https://www.forum.effectivealtruism.org"
-
-        ii = 0
-        for url_filename in tqdm(url_filename_list):
+        for url_filename in url_filename_list:
             with open(url_filename, "r") as file:
-                for url_link in tqdm(file.readlines()):
-                    if self._entry_done(url_link_prefix_public_facing
-                + url_link.rstrip("\n")):
-                        # logger.info(f"Already done {url_link}")
-                        ii += 1
-                        continue
-                    post = self.get_url(self.name , url_link)
-                    if post is None:
-                        post = {
-                            "text" : "n/a",
-                            "url" : url_link_prefix_public_facing
-                + url_link.rstrip("\n"),
-                            "title" : "n/a",
-                            "authors" : "n/a",
-                            "date_published" : "n/a",
-                            "source" : self.name
-                        }
-                    new_entry = DataEntry(post)
-                    new_entry.add_id()
-                    ii += 1
-                    yield new_entry
+                links += file.readlines()
+        return links
+
+    def get_item_key(self, url_link):
+        if self.name == 'lesswrong':
+            return "https://www.lesswrong.com" + url_link.rstrip("\n")
+        return "https://www.forum.effectivealtruism.org" + url_link.rstrip("\n")
+
+    def process_entry(self, url_link):
+        post = self.get_url(self.name, url_link)
+        if post is None:
+            post = {
+                "text" : "n/a",
+                "url" : self.get_item_key(url_link),
+                "title" : "n/a",
+                "authors" : "n/a",
+                "date_published" : "n/a",
+                "source" : self.name
+            }
+        return DataEntry(post)
 
     def get_latest_file(self):
         list_of_files = sorted(

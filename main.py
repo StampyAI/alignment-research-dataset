@@ -4,7 +4,6 @@ import fire
 from dataclasses import dataclass
 from typing import List, Union
 import align_data
-from align_data.common.alignment_dataset import EntryWriter
 from align_data.analysis.count_tokens import count_token
 
 # import logging , sys
@@ -34,11 +33,12 @@ class AlignmentDataset:
         :return: The path to the file that was written to.
         """
         assert name in align_data.ALL_DATASETS, f"{name} is not a valid dataset name"
-        with EntryWriter(name, self.out_path) as writer:
-            for entry in align_data.get_dataset(name).fetch_entries():
-                writer.write(entry)
+        dataset = align_data.get_dataset(name)
+        with dataset.writer(self.out_path) as writer:
+            for entry in dataset.fetch_entries():
+                writer(entry)
 
-        return os.path.join(self.out_path, name + ".jsonl")
+        return dataset.jsonl_path
 
     def cmd_fetch_all(self) -> str:
         """

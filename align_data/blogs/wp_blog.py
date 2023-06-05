@@ -24,22 +24,22 @@ class WordpressBlog(AlignmentDataset):
         strip: list of regexes to strip from the HTML
         max_pages: maximum number of RSS pages to fetch
         """
-        self._setup()
+        super().setup()
         self.feed_url = self.url + "/feed"
         self.cleaner = utils.HtmlCleaner(self.strip)
         self.max_pages = self.max_pages
         self.name = utils.url_to_filename(self.url)
 
-    def fetch_entries(self):
-        self.setup()
-        last_title = ""
-        counter = 0
-        for ii , page in tqdm(enumerate(range(0, self.max_pages))):
-            paged_url = f"{self.feed_url}?paged={page + 1}"
+    def get_item_key(self, item):
+        return item
 
-            if self._entry_done(paged_url):
-                # logger.info(f"Already done {paged_url}")
-                continue
+    @property
+    def items_list(self):
+        return [f"{self.feed_url}?paged={page + 1}" for page in range(0, self.max_pages)]
+
+    def fetch_entries(self):
+        last_title = ""
+        for paged_url in self.unprocessed_items():
             logger.info(f"Fetching {paged_url} (max={self.max_pages})")
             d = feedparser.parse(paged_url)
 
@@ -55,11 +55,6 @@ class WordpressBlog(AlignmentDataset):
             last_title = d["feed"]["title"]
 
             for entry in d["entries"]:
-                if self._entry_done(counter):
-                    # logger.info(f"Already done {counter}")
-                    counter += 1
-                    continue
-
                 content_text = self.cleaner.clean(entry["content"][0]["value"])
                 text = entry["title"] + "\n\n" + content_text
 
@@ -74,4 +69,3 @@ class WordpressBlog(AlignmentDataset):
                 new_entry.add_id()
 
                 yield new_entry
-                counter += 1

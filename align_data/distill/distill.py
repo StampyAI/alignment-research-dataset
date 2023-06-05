@@ -12,30 +12,18 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Distill(AlignmentDataset):
 
-    done_key = None
+    done_key = 'filename'
 
     def setup(self):
-        self._setup()
+        super().setup()
         self.files_path = self.raw_data_path / "distill_posts"
-        logger.info(f"Found {len(self.done_ids)} done files")
-
-    def fetch_entries(self):
-        self.setup()
-        logger.info(f"Fetching {self.name} entries")
-        for ii , filename in enumerate(tqdm(self.file_list)):
-            if self._entry_done(ii):
-                # logger.info(f"Already done {ii}")
-                continue
-            logger.info(f"Fetching {self.name} entry {filename}")
-            html = filename.read_text()
-
-            yield self.fetch_individual_entries(html)
 
     @property
-    def file_list(self):
+    def items_list(self):
         return self.files_path.glob('*')
 
-    def fetch_individual_entries(self, html):
+    def process_entry(self, filename):
+        html = filename.read_text()
         soup = BeautifulSoup(html, "html.parser")
         title = soup.find("title").text
         # find anything with the property 'article:author'
@@ -89,8 +77,7 @@ class Distill(AlignmentDataset):
         body = "".join(word for word in re.split("(\n)", body) if len(word) <= 80)
         body = re.sub(r"(?<!\n)\n(?!\n)|\n{3,}", "\n\n", body)
 
-        # build the json
-        new_entry = DataEntry({
+        return DataEntry({
             "url": "n/a",
             "source": "distill",
             "source_type": "html",
@@ -103,6 +90,5 @@ class Distill(AlignmentDataset):
             "doi": doi,
             "text": body,
             "bibliography_bib": references,
+            'filename': filename.name
         })
-        new_entry.add_id()
-        return new_entry

@@ -1,13 +1,17 @@
+import time
 import hashlib
 import os
 import logging
 from dataclasses import dataclass
 from collections import UserDict
+from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 
 import jsonlines
 import gdown
 import zipfile
+from tqdm import tqdm
 
 INIT_DICT = {
     "source": None,
@@ -18,7 +22,14 @@ INIT_DICT = {
     "url": None,
 }
 
-TEXT_LEN = 1000
+# Used to limit the size of the text used when generating hashes.
+# TODO: Why is this even needed? It doesn't seem likely that any individual entry
+# will be hundreds of MB large, and if not, then why bother with limiting the length of
+# text for hashing? Speed might be an issue, but I'm guessing that I/O, especially network
+# stuff, will be a much larger problem.
+# One possible reason could be dynamic http sites etc. But that's all the more reason to check
+# the whole text, rather than just the header...
+TEXT_LEN = -1
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +42,27 @@ class AlignmentDataset:
     """The name of the dataset"""
     files_path = Path('')
     """The path where data can be found. Usually a folder"""
-    done_ids = []
-    """A collection of ids that have been processed - used internally to sort of provide idempotency"""
-    done_key = None
-    """The key of the entry to use as the id when checking if already processed. When `None` will use indexes"""
+
+    done_key = 'id'
+    """The key of the entry to use as the id when checking if already processed."""
 
     glob = '*.md'
     """How to identify files to be processed when going through a folder for files"""
 
-    def _setup(self) -> None:
-        self.data_path = Path(__file__).parent / '../../data/'
+    COOLDOWN = 0
+    """An optional cool down between processing entries"""
+
+    # Internal housekeeping variables
+    _entry_idx = 0
+    """Used internally for writing debugging info - each file write will increment it"""
+    _outputted_items = set()
+    """A set of the ids of all previously processed items"""
+
+    def __str__(self) -> str:
+        return f"{self.name} dataset will be written to {self.jsonl_path}"
+
+    def __post_init__(self, data_path=Path(__file__).parent / '../../data/'):
+        self.data_path = data_path
         self.raw_data_path = self.data_path / 'raw'
         # make sure the path to the raw data exists
         self.raw_data_path.mkdir(parents=True, exist_ok=True)
@@ -48,43 +70,96 @@ class AlignmentDataset:
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
 
-        self._mark_processed_items()
+        # and the default place to write data
+        self._set_output_paths(self.data_path)
 
-    def _mark_processed_items(self):
-        """Load the output file (if it exists) in order to know which items have already been processed."""
-        self.write_jsonl_path = self.data_path / f"{self.name}.jsonl"
+    def _set_output_paths(self, out_path):
+        self.jsonl_path = Path(out_path) / f"{self.name}.jsonl"
+        self.txt_path = Path(out_path) / f"{self.name}.txt"
 
-        if not self.write_jsonl_path.exists():
-            logger.info(f"No previous data found at {self.write_jsonl_path}")
-            return None
+    def write_entry(self, entry, jsonl_writer, text_writer):
+        jsonl_writer.write(entry.as_dict())
 
-        with jsonlines.open(self.write_jsonl_path, mode='r') as reader:
-            if self.done_key:
-                self.done_ids = [
-                    (self.name, entry[self.done_key]) for entry in reader if self.done_key in entry
-                ]
-            else:
-                self.done_ids = [(self.name, ii) for ii, entry in enumerate(reader)]
+        # Save the entry in plain text, mainly for debugging
+        text = entry["text"].lstrip().replace('\n', '\n    ')
+        text_writer.write(f'[ENTRY {self._entry_idx}]\n    {text}\n\n')
 
-    def __str__(self) -> str:
-        return f"{self.name} dataset will be written to {self.write_jsonl_path}"
+        self._entry_idx += 1
+        self._outputted_items.add(entry[self.done_key])
 
-    def _entry_done(self, entry):
+    @contextmanager
+    def writer(self, out_path=None, overwrite=False):
+        """Returns a function that can be used to write entries to the output file.
+
+        The resulting function expects to only get a single `DataEntry`, which will then
+        be written as a json object.
         """
-        Check if entry is already done
-        """
-        return (self.name, entry) in self.done_ids
+        if overwrite:
+            write_mode = 'w'
+            self._entry_idx = 0
+        else:
+            write_mode = 'a'
 
-    def fetch_entries(self):
-        raise NotImplementedError
+        if out_path:
+            self._set_output_paths(out_path)
+
+        with jsonlines.open(self.jsonl_path, mode=write_mode) as jsonl_writer:
+            with open(self.txt_path, mode=write_mode) as text_writer:
+                yield partial(self.write_entry, jsonl_writer=jsonl_writer, text_writer=text_writer)
 
     def setup(self):
-        raise NotImplementedError
+        self._outputted_items = self._load_outputted_items()
 
     @property
-    def file_list(self):
-        """Returns a generator of files to be processed."""
+    def items_list(self):
+        """Returns a generator of items to be processed."""
         return self.files_path.glob(self.glob)
+
+    def get_item_key(self, item):
+        """Get the identifier of the given `item` so it can be checked to see whether it's been output.
+
+        The default assumption is that the `item` is a Path to a file.
+        """
+        return item.name
+
+    def _load_outputted_items(self):
+        """Load the output file (if it exists) in order to know which items have already been output."""
+        if not self.jsonl_path.exists():
+            logger.info(f"No previous data found at {self.jsonl_path}")
+            return set()
+
+        with jsonlines.open(self.jsonl_path, mode='r') as reader:
+            return {entry.get(self.done_key) for entry in reader}
+
+    def unprocessed_items(self, items=None):
+        """Return a list of all items to be processed.
+
+        This will automatically remove any items that have already been processed,
+        based on the contents of the output file.
+        """
+        self.setup()
+
+        def not_processed(item):
+            return self.get_item_key(item) not in self._outputted_items
+
+        return tqdm(list(filter(not_processed, items or self.items_list)))
+
+    def fetch_entries(self):
+        """Get all entries to be written to the file."""
+        for item in self.unprocessed_items():
+             entry = self.process_entry(item)
+             if not entry:
+                 continue
+
+             entry.add_id()
+             yield entry
+
+             if self.COOLDOWN:
+                 time.sleep(self.COOLDOWN)
+
+    def process_entry(self, entry):
+        """Process a single entry."""
+        raise NotImplementedError
 
 
 @dataclass
@@ -109,7 +184,9 @@ class GdocDataset(AlignmentDataset):
         filename = filename or self.zip_file
 
         with open(filename, 'wb') as output:
-            gdown.download(url=url or self.gdrive_address, output=output, quiet=False)
+            gdown.download(url=url or self.gdrive_address,
+                           output=output,
+                           quiet=False)
 
         logger.info("Unzipping")
         with zipfile.ZipFile(filename, 'r') as zip_ref:
@@ -126,44 +203,6 @@ class GdocDataset(AlignmentDataset):
             output=str(output or self.files_path),
             quiet=False
         )
-
-
-class EntryWriter:
-    def __init__(self, name, path, overwrite=False):
-        """
-        name: name of the blog, used as the file name
-        path: path to save the blog posts
-        """
-        path = Path(path)
-
-        # make sure the path exists
-        path.mkdir(parents=True, exist_ok=True)
-
-        jsonl_file = path / f'{name}.jsonl'
-        txt_file = path / f'{name}.txt'
-
-        write_mode = 'a' if not overwrite else 'w'
-        self.jsonl_writer = jsonlines.open(jsonl_file, mode=write_mode)
-        self.text_writer = open(txt_file, mode=write_mode)
-        self.entry_idx = 0
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.jsonl_writer.close()
-        self.text_writer.close()
-
-    def write(self, entry):
-        # Save the entry in JSONL file
-        self.jsonl_writer.write(entry.toJSON())
-
-        # Save the entry in plain text, mainly for debugging
-        print(f"[ENTRY {self.entry_idx}]", file=self.text_writer)
-        text = '    '.join(('\n'+entry["text"].lstrip()).splitlines(True)) + '\n'
-        print(text, file=self.text_writer)
-
-        self.entry_idx += 1
 
 
 class DataEntry(UserDict):
@@ -186,7 +225,7 @@ class DataEntry(UserDict):
         assert self["id"] == hashlib.md5(
             text_excerpt).hexdigest(), "Entry id does not match text"
 
-    def toJSON(self):
+    def as_dict(self):
         for k, _ in INIT_DICT.items():
             assert self[k] is not None, f"Entry is missing key {k}"
         self._verify_id()
