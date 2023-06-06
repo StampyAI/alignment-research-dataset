@@ -37,7 +37,7 @@ on:
           - yudkowsky.net
 
 jobs:
-  fetch-dataset:
+  build-dataset:
     runs-on: ubuntu-latest
 
     steps:
@@ -55,8 +55,14 @@ jobs:
     - name: Fetch dataset
       run: python main.py fetch -d ${{ inputs.datasource }}
 
-    - name: Setup Huggingface client
-      run: pip install huggingface_hub
+  upload:
+    runs-on: ubuntu-latest
+    needs: build-dataset
 
-    - name: Upload file
-      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} data/${{ inputs.datasource }}.jsonl
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Setup Huggingface client
+        run: pip install huggingface_hub
+
+      - name: Upload file
+        run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} data/${{ inputs.datasource }}.jsonl
