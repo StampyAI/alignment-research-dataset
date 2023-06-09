@@ -1,7 +1,6 @@
 # AI Alignment Research Dataset
-A dataset of alignment research and code to reproduce it. You can download version 1.0 of the dataset [here](https://the-eye.eu/public/AI/Alignment/moirage_alignment-research-dataset/).
 
-For more information about the dataset, have a look at our [paper](https://arxiv.org/abs/2206.02841) or [LessWrong](https://www.lesswrong.com/posts/FgjcHiWvADgsocE34/a-descriptive-not-prescriptive-overview-of-current-ai) post.
+A dataset of alignment research and code to reproduce it. The most current version of the dataset is available on [HuggingFace StampyAI/alignment-research-dataset](https://huggingface.co/datasets/StampyAI/alignment-research-dataset)
 
 ## Sources
 
@@ -18,13 +17,26 @@ git clone https://github.com/moirage/alignment-research-dataset
 cd alignment-research-dataset
 pip install -r requirements.txt
 ```
+
+To get a list of all available datasets:
+
+```bash
+python main.py list
+```
+
+To scrape an individual dataset:
+
+```bash
+python main.py fetch -d {dataset}
+```
+
 You will also need do install [grobid](https://github.com/kermitt2/grobid) on your machine to run some of the scripts. There is some documentation [here](https://grobid.readthedocs.io/en/latest/Install-Grobid/) on how to install it. The config.json file in the root of this repository is for grobid.
 
 ## Using the Dataset
 
 The dataset is in .jsonl format. Each line is a new entry for that dataset. To load the dataset, you can use the `jsonlines` python package. You can load the dataset using the following:
 
-```
+```python
 import jsonlines
 
 dictionary = {}
@@ -45,7 +57,7 @@ For now, if you would like to know the specific keys from each source in the dat
 
 Here's what the data for the arXiv papers looks like:
 
-```
+```json
 {
 "source": "arxiv", # where the dataset comes from
 "source_type": "latex", # the type of file the data was original in
@@ -78,36 +90,37 @@ As we said in the previous section, all entries have the `text` key which contai
 
 1. `source`: this key separates the various keys found in the table in [Sources](##Sources). Here's the set of sources with their corresponding value name:
 
-* 'https://aipulse.org'
-* 'ebook'
-* 'https://qualiacomputing.com'
-* 'alignment forum'
-* 'lesswrong'
-* 'manual'
-* 'arxiv'
-* 'https://deepmindsafetyresearch.medium.com/'
-* 'waitbutwhy.com'
-* 'GitHub'
-* 'https://aiimpacts.org'
-* 'arbital.com'
-* 'carado.moe'
-* 'nonarxiv_papers'
-* 'https://vkrakovna.wordpress.com'
-* 'https://jsteinhardt.wordpress.com'
-* 'audio-transcripts'
-* 'https://intelligence.org'
-* 'youtube'
-* 'reports'
-* 'https://aisafety.camp'
-* 'curriculum'
-* 'https://www.yudkowsky.net'
-* 'distill'
-
-2. `alignment_text`: This is label specific to the arXiv papers. We added papers to the dataset using Allen AI's SPECTER model and included all the papers that got a confidence score of over 75%. However, since we could not verify with certainty that those papers where about alignment, we've decided to create the `alignment_text` key with the value `"pos"` when we manually labeled it as an alignment text and `"unlabeled"` when we have not labeled it yet. Additionally, we've only included the `text` for the `"pos"` entries, not the `"unlabeled"` entries.
+* agentmodels (21 rows)
+* alimpacts.org (235 rows)
+* aipulse.org (23 rows)
+* aisafety.camp (9 rows)
+* arbital (732 rows)
+* arxiv_papers (829 rows)
+* audio_transcripts (37 rows)
+* carado.moe (59 rows)
+* cold.takes (91 rows)
+* deepmind.blog (10 rows)
+* distill (45 rows)
+* eaforum (12.4k rows)
+* gdocs gdrive_ebooks
+* generative.ink (18 rows)
+* gwern_blog (7 rows)
+* intelligence.org (483 rows)
+* jsteinhardt.wordpress.com (39 rows)
+* lesswrong (6.23k rows)
+* markdown.ebooks (4 rows)
+* nonarxiv_papers (198 rows)
+* qualiacomputing.com (289 rows)
+* reports (55 rows)
+* stampy (198 rows)
+* vkrakovna.wordpress.com (43 rows)
+* waitbutwhy (2 rows)
+* www.yudkowsky.net (23 rows)
 
 ## Adding new datasets
 
 Adding a new dataset consists of:
+
 1. Subclassing `AlignmentDataset` to implement any additional functionality needed
 2. Creating an instance of your class somewhere
 3. Adding the instance to `DATASET_REGISTRY` so it can be found
@@ -135,6 +148,7 @@ The basic processing flow is:
 2. `self._load_outputted_items()` - go through `self.jsonl_path` and construct a set of the `self.done_key` values of each item - this is used to skip items that have already been processed
 3. `self.items_list` - returns a list of items to be processed - the default is to use `self.glob` on `self.files_path`
 4. `self.fetch_entries()` - for each of the resulting items:
+
 * extract its key, using `self.get_item_key(item)`
 * check if its key has already been processed - if so, skip it
 * run `self.process_entry(item)` to get a data entry, which is then yielded
@@ -146,14 +160,10 @@ There are Datasets defined for various types of data sources - first check if an
 
 ## Contributing
 
-Join us on EleutherAI's [discord server](https://discord.com/invite/zBGx3azzUn) in the #accelerating-alignment channel.
-
-We are looking for people who want to contribute by adding more AI alignment text to the dataset as well as clean the data. We are currently cleaning audio transcripts that have been created using speech-to-text software, if you would like to contribute, please let us know. We are also hoping to categorize the AI alignment videos in ways that are useful for newcomers. Some initial ideas include useful search tags like required background, topic, how good the content is, and if it's a lecture or conversation.
-
-We would like this dataset be used for good. If you have any ideas on how to help AI alignment researchers in their work, let us know. Even better if you can implement it!
+Join us on [Rob Mile's discord server](https://discord.com/invite/7wjJbFJnSN) in the #stampy-dev channel.
 
 ## Citing the Dataset
 
-Please use the following citation when using our dataset:
+The code is based on https://github.com/moirage/alignment-research-dataset. You can download version 1.0 of the dataset [here](https://the-eye.eu/public/AI/Alignment/moirage_alignment-research-dataset/). For more information, here is the [paper](https://arxiv.org/abs/2206.02841) and [LessWrong](https://www.lesswrong.com/posts/FgjcHiWvADgsocE34/a-descriptive-not-prescriptive-overview-of-current-ai) post. Please use the following citation when using the dataset:
 
 Kirchner, J. H., Smith, L., Thibodeau, J., McDonnell, K., and Reynolds, L. "Understanding AI alignment research: A Systematic Analysis." arXiv preprint arXiv:2022.4338861 (2022).
