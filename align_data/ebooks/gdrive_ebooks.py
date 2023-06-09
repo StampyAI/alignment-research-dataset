@@ -16,11 +16,11 @@ class GDrive(GdocDataset):
     """
 
     done_key = "file_name"
+    glob = '*.epub'
 
     def setup(self):
-        self._setup()
+        super().setup()
 
-        self.glob = '*.epub'
         self.files_path = self.raw_data_path / 'books_text'
 
         if not self.files_path.exists():
@@ -36,34 +36,25 @@ class GDrive(GdocDataset):
             logger.info("Make sure pandoc is configured correctly.")
             os.environ.setdefault("PYPANDOC_PANDOC", self.pandoc_check_path)
 
-    def fetch_entries(self):
-        self.setup()
-        for epub_file in tqdm(self.file_list):
-            if self._entry_done(epub_file.name):
-                # logger.info(f"Already done {epub_file}")
-                continue
+    def process_entry(self, epub_file):
+        logger.info(f"Fetching {self.name} entry {epub_file.name}")
+        try:
+            text = pypandoc.convert_file(epub_file, "plain", extra_args=['--wrap=none'])
+        except Exception as e:
+            logger.error(f"Error converting {epub_file}")
+            logger.error(e)
+            text = "n/a"
 
-            logger.info(f"Fetching {self.name} entry {epub_file}")
-            try:
-                text = pypandoc.convert_file(epub_file, "plain", extra_args=['--wrap=none'])
-            except Exception as e:
-                logger.error(f"Error converting {epub_file}")
-                logger.error(e)
-                text = "n/a"
+        metadata = epub_meta.get_epub_metadata(epub_file)
 
-            metadata = epub_meta.get_epub_metadata(epub_file)
-
-            new_entry = DataEntry({
-                "source": "ebook",
-                "source_filetype": "epub",
-                "converted_with": "pandoc",
-                "title": metadata["title"],
-                "date_published": metadata["publication_date"] if metadata["publication_date"] else "n/a",
-                "chapter_names": [chap["title"] for chap in metadata["toc"]],
-                "text": text,
-                "url": "n/a",
-                "file_name": epub_file.name,
-            })
-
-            new_entry.add_id()
-            yield new_entry
+        return DataEntry({
+            "source": "ebook",
+            "source_filetype": "epub",
+            "converted_with": "pandoc",
+            "title": metadata["title"],
+            "date_published": metadata["publication_date"] if metadata["publication_date"] else "n/a",
+            "chapter_names": [chap["title"] for chap in metadata["toc"]],
+            "text": text,
+            "url": "n/a",
+            "file_name": epub_file.name,
+        })

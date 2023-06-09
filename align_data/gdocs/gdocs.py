@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 class Gdocs(GdocDataset):
 
     done_key = "docx_name"
+    glob = "*.docx"
 
     def setup(self):
-        self._setup()
-        self.glob = "*.docx"
+        super().setup()
 
         self.zip_from_gdrive()
 
@@ -26,37 +26,28 @@ class Gdocs(GdocDataset):
             logger.info("Make sure pandoc is configured correctly.")
             os.environ.setdefault("PYPANDOC_PANDOC", self.pandoc_check_path)
 
-    def fetch_entries(self):
-        self.setup()
-        for docx_filename in tqdm(self.file_list):
-            if self._entry_done(docx_filename.name):
-                # logger.info(f"Already done {docx_filename}")
-                continue
+    def process_entry(self, docx_filename):
+        logger.info(f"Fetching {self.name} entry {docx_filename}")
+        try:
+            text = pypandoc.convert_file(docx_filename, "plain", extra_args=['--wrap=none'])
+        except Exception as e:
+            logger.error(f"Error converting {docx_filename}")
+            logger.error(e)
+            text = "n/a"
 
-            logger.info(f"Fetching {self.name} entry {docx_filename}")
-            try:
-                text = pypandoc.convert_file(docx_filename, "plain", extra_args=['--wrap=none'])
-            except Exception as e:
-                logger.error(f"Error converting {docx_filename}")
-                logger.error(e)
-                text = "n/a"
+        metadata = self._get_metadata(docx_filename)
 
-            metadata = self._get_metadata(docx_filename)
-
-            new_entry = DataEntry({
-                "source": self.name,
-                "source_filetype": "docx",
-                "converted_with": "pandoc",
-                "title": metadata.title,
-                "authors": metadata.author,
-                "date_published": metadata.created if metadata.created else "n/a",
-                "text": text,
-                "url": "n/a",
-                "docx_name": docx_filename.name,
-            })
-
-            new_entry.add_id()
-            yield new_entry
+        return DataEntry({
+            "source": self.name,
+            "source_filetype": "docx",
+            "converted_with": "pandoc",
+            "title": metadata.title,
+            "authors": metadata.author,
+            "date_published": metadata.created if metadata.created else "n/a",
+            "text": text,
+            "url": "n/a",
+            "docx_name": docx_filename.name,
+        })
 
     def _get_metadata(self , docx_filename):
         doc = docx.Document(docx_filename)
