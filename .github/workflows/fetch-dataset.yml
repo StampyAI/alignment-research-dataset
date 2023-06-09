@@ -2,18 +2,11 @@ name: Fetch Alignment Research Dataset
 
 on:
   workflow_dispatch: # allow manual triggering
-
-jobs:
-  fetch-dataset:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    strategy:
-      matrix:
-        datasource:
+    inputs:
+      datasource:
+        description: 'The datasource to process'
+        type: choice
+        options:
           - agentmodels
           - aiimpacts.org
           - aipulse.org
@@ -42,3 +35,34 @@ jobs:
           - vkrakovna.wordpress.com
           - waitbutwhy
           - yudkowsky.net
+
+jobs:
+  build-dataset:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Fetch dataset
+      run: python main.py fetch -d ${{ inputs.datasource }}
+
+  upload:
+    runs-on: ubuntu-latest
+    needs: build-dataset
+
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Setup Huggingface client
+        run: pip install huggingface_hub
+
+      - name: Upload file
+        run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} data/${{ inputs.datasource }}.jsonl
