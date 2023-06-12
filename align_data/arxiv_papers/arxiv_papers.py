@@ -53,13 +53,13 @@ class ArxivPapers(AlignmentDataset):
                 "title": "n/a",
                 "authors": "n/a",
                 "date_published": "n/a",
-                "source": "arxiv",
+                "source": self.name,
                 "text": "n/a",
             })
         else:
             new_entry = DataEntry({
                 "url": self.get_item_key(ids),
-                "source": "arxiv",
+                "source": self.name,
                 "source_type": "html",
                 "converted_with": "markdownify",
                 "title": paper.title,

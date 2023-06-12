@@ -60,7 +60,7 @@ class MediumBlog(AlignmentDataset):
         text = self._get_article(article_url)
 
         return DataEntry({
-            "source": self.url,
+            "source": self.name,
             "source_type": "medium_blog",
             "url": article_url,
             "title": self._to_text(title),
