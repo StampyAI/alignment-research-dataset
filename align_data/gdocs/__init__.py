@@ -5,5 +5,5 @@ from .gdocs import Gdocs
 
 GDOCS_REGISTRY = [
     Gdocs(name = "gdocs",
-        gdrive_address = "https://drive.google.com/uc?id=1gZc-z8kc_rdbIuInw8lqoA8cas2IpDLJ")
+        gdrive_address = "https://drive.google.com/uc?id=18uFLj3Vs8de6LnEE00taJAvPl8dZYRxx")
 ]

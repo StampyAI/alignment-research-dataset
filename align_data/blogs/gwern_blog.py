@@ -35,7 +35,7 @@ class GwernBlog(AlignmentDataset):
         text = self._get_article(post_href)
 
         return DataEntry({
-            "source": "gwern",
+            "source": self.name,
             "url": post_href,
             "title": text.splitlines()[1].split("title: ")[1],
             "authors": "Gwern Branwen",
