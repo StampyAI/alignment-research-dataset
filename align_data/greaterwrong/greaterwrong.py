@@ -20,7 +20,7 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 class GreaterWrong(AlignmentDataset):
 
     """
-    This class allows you to scrape posts and comments from GreaterWrong. 
+    This class allows you to scrape posts and comments from GreaterWrong.
     GreaterWrong contains all the posts from LessWrong (which contains the Alignment Forum) and the EA Forum.
     """
 
@@ -28,12 +28,8 @@ class GreaterWrong(AlignmentDataset):
     done_key = "url"
 
     def setup(self):
-        self._setup()
-        self.output_dir = self.write_jsonl_path.parent / "raw" / self.name
-        self.output_dir.mkdir_p()
-
-    def fetch_entries(self):
-        self.setup()
+        super().setup()
+        self.files_path.mkdir(parents=True, exist_ok=True)
         logger.info(
             f"Grabbing most recent links (grabs all links if /{self.name}_urls/ is empty)...")
         self.get_all_links()
@@ -41,39 +37,37 @@ class GreaterWrong(AlignmentDataset):
         logger.info(
             "[Using only the latest urls, change variable url_directory in greaterwrong.py to point at a specific url_folder]"
         )
-        # specify url_directory to the specific url_file you want
 
+    @property
+    def items_list(self):
+        links = []
         url_filename_list = self.get_urls(url_directory="")
-        url_link_prefix_public_facing = "https://www.lesswrong.com" if self.name == "lesswrong" else "https://www.forum.effectivealtruism.org"
-        
-        ii = 0
-        for url_filename in tqdm(url_filename_list):
-            with open(self.output_dir / f"unprocessed_{self.name}_urls/{url_filename}", "r") as file:
-                for url_link in tqdm(file):
-                    if self._entry_done(url_link_prefix_public_facing
-                + url_link.rstrip("\n")):
-                        # logger.info(f"Already done {url_link}")
-                        ii += 1
-                        continue
-                    post = self.get_url(self.name , url_link)
-                    if post is None:
-                        post = {
-                            "text" : "n/a",
-                            "url" : url_link_prefix_public_facing
-                + url_link.rstrip("\n"),
-                            "title" : "n/a",
-                            "authors" : "n/a",
-                            "date_published" : "n/a",
-                            "source" : self.name
-                        }
-                    new_entry = DataEntry(post)
-                    new_entry.add_id()
-                    ii += 1
-                    yield new_entry
+        for url_filename in url_filename_list:
+            with open(url_filename, "r") as file:
+                links += file.readlines()
+        return links
+
+    def get_item_key(self, url_link):
+        if self.name == 'lesswrong':
+            return "https://www.lesswrong.com" + url_link.rstrip("\n")
+        return "https://www.forum.effectivealtruism.org" + url_link.rstrip("\n")
+
+    def process_entry(self, url_link):
+        post = self.get_url(self.name, url_link)
+        if post is None:
+            post = {
+                "text" : "n/a",
+                "url" : self.get_item_key(url_link),
+                "title" : "n/a",
+                "authors" : "n/a",
+                "date_published" : "n/a",
+                "source" : self.name
+            }
+        return DataEntry(post)
 
     def get_latest_file(self):
         list_of_files = sorted(
-            glob.glob( self.output_dir / f"{self.name}_urls/*")
+            glob.glob( self.files_path / f"{self.name}_urls/*")
         )  # * means all if need specific format then *.csv
         return list_of_files[-1]
 
@@ -105,13 +99,12 @@ class GreaterWrong(AlignmentDataset):
         return url
 
     def get_all_links(self):
-        if not os.path.exists( self.output_dir / f"{self.name}_urls"):
-            os.makedirs(self.output_dir / f"{self.name}_urls/")
+        urls = self.files_path / f"{self.name}_urls"
+        urls.mkdir(parents=True, exist_ok=True)
         today = datetime.datetime.today().strftime("%Y-%m-%d")
-        url_for_today = self.output_dir / f"{self.name}_urls/" + \
-            today + "_links.txt"
+        url_for_today = urls / f"{today}_links.txt"
         # check if there's a url_link for today, return if so
-        if os.path.isfile(url_for_today):
+        if url_for_today.is_file():
             logger.info(f"Already have links for today: {today}")
             return
 
@@ -286,30 +279,26 @@ class GreaterWrong(AlignmentDataset):
         if url_directory:
             url_filename_suffix = url_directory
         else:  # get latest urls
-            url_filename_suffix = self.latest_url_file_name(
-                self.output_dir / f"{self.name}_urls")
+            url_filename_suffix = self.latest_url_file_name(self.files_path / f"{self.name}_urls")
         # Create unproccessed_url directory if it doesn't exist already
-        if not os.path.exists(self.output_dir / f"unprocessed_{self.name}_urls"):
-            os.makedirs(
-                self.output_dir / f"unprocessed_{self.name}_urls")
+        urls_dir = self.files_path / f"unprocessed_{self.name}_urls"
+        urls_dir.mkdir(parents=True, exist_ok=True)
         # Run files in unprocessed if they exist (may contain problem files)
-        unprocessed_urls = os.listdir(
-            self.output_dir / f"unprocessed_{self.name}_urls")
+        unprocessed_urls = list(urls_dir.glob('*'))
         if unprocessed_urls:  # if not empty
             url_filename_list = unprocessed_urls
         else:  # Create files to process
-            url_filename = self.output_dir / f"{self.name}_urls/{url_filename_suffix}"
+            url_filename = self.files_path / f"{self.name}_urls/{url_filename_suffix}"
             with open(url_filename, "r") as file:
                 # Split into separate files for every 1000 urls
-                lines = file.read().splitlines()
+                lines = file.readlines()
                 list_of_url_by_1000 = list(self.chunks(lines, 1000))
                 for index, urls_1000 in enumerate(list_of_url_by_1000):
                     with open(
-                        self.output_dir / f"unprocessed_{self.name}_urls/{index}_{url_filename_suffix}", "w"
+                        self.files_path / f"unprocessed_{self.name}_urls/{index}_{url_filename_suffix}", "w"
                     ) as url_1000_file:
                         url_1000_file.writelines("\n".join(urls_1000))
-            url_filename_list = os.listdir(
-                self.output_dir / f"unprocessed_{self.name}_urls")
+            url_filename_list = urls_dir.glob('*')
         return url_filename_list
 
     def get_url(self, file_prefix , url_link):
@@ -319,7 +308,7 @@ class GreaterWrong(AlignmentDataset):
         elif self.name == "eaforum":
             url_link_prefix_public_facing = "https://www.forum.effectivealtruism.org"
             url_link_prefix = "https://ea.greaterwrong.com"
-        
+
         full_url_link = url_link_prefix + url_link.rstrip("\n")
         r = requests.get(full_url_link)
         time.sleep(self.COOLDOWN_TIME)

@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
 import os
 import re
-import logging 
+import logging
 from tqdm import tqdm
 from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
 
@@ -12,30 +12,18 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Distill(AlignmentDataset):
 
-    done_key = None
+    done_key = 'filename'
 
     def setup(self):
-        self._setup()
-        self.DISTILL_POSTS_DIR = self.write_jsonl_path.parent / "raw" / "distill_posts"
-        self.file_list = os.listdir(self.DISTILL_POSTS_DIR)
-        logger.info(f"Found {len(self.file_list)} files in {self.DISTILL_POSTS_DIR}")
-        logger.info(f"Found {len(self.done_ids)} done files")
+        super().setup()
+        self.files_path = self.raw_data_path / "distill_posts"
 
-    def fetch_entries(self):
-        self.setup()
-        logger.info(f"Fetching {self.name} entries")
-        for ii , filename in enumerate(tqdm(self.file_list)):
-            if self._entry_done(ii):
-                # logger.info(f"Already done {ii}")
-                continue
-            logger.info(f"Fetching {self.name} entry {filename}")
-            with open(os.path.join(self.DISTILL_POSTS_DIR, filename), "r") as f:
-                html = f.read()
-            
-            yield self.fetch_individual_entries(html)
-                
+    @property
+    def items_list(self):
+        return self.files_path.glob('*')
 
-    def fetch_individual_entries(self, html):
+    def process_entry(self, filename):
+        html = filename.read_text()
         soup = BeautifulSoup(html, "html.parser")
         title = soup.find("title").text
         # find anything with the property 'article:author'
@@ -57,7 +45,7 @@ class Distill(AlignmentDataset):
         body = soup.find("d-article")
         if body is None: body = soup.find("dt-article")
 
-        
+
         # the abstract is the first ptag in the body
         try:
             abstract = body.find("p").text.replace("\n", " ")
@@ -89,9 +77,8 @@ class Distill(AlignmentDataset):
         body = "".join(word for word in re.split("(\n)", body) if len(word) <= 80)
         body = re.sub(r"(?<!\n)\n(?!\n)|\n{3,}", "\n\n", body)
 
-        # build the json
-        new_entry = DataEntry({
-            "url": "n/a", 
+        return DataEntry({
+            "url": "n/a",
             "source": "distill",
             "source_type": "html",
             "converted_with": "python",
@@ -103,8 +90,5 @@ class Distill(AlignmentDataset):
             "doi": doi,
             "text": body,
             "bibliography_bib": references,
+            'filename': filename.name
         })
-        new_entry.add_id()
-        return new_entry
-
-

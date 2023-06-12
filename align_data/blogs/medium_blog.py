@@ -34,48 +34,39 @@ class MediumBlog(AlignmentDataset):
     url: str
     done_key = "url"
 
-    def setup(self):
-        self._setup()
+    def get_item_key(self, item):
+        article_url = item.find_all("a")[0]["href"].split("?")[0]
+        return urljoin(self.url, article_url)
 
-    def fetch_entries(self):
-        self.setup()
+    @property
+    def items_list(self):
         logger.info(f"Fetching entries from {self.url}")
         response = requests.get(self.url, allow_redirects=True)
         soup = BeautifulSoup(response.content, "html.parser")
-        self.articles = soup.find_all("article")
-        logger.info(f"Found {len(self.articles)} articles")
+        articles = soup.find_all("article")
+        logger.info(f"Found {len(articles)} articles")
+        return articles
 
-        for ii, article in enumerate(tqdm(self.articles)):
+    def process_entry(self, article):
+        title = article.find("h2")
+        if title is None:
+            return None
+        title = title.contents[0]
 
+        article_url = self.get_item_key(article)
 
-            title = article.find("h2")
-            if title is None:
-                continue
-            title = title.contents[0]
+        logger.info(f"Processing {title}")
 
-            article_url = article.find_all("a")[0]["href"].split("?")[0]
-            article_url = urljoin(self.url, article_url)
+        text = self._get_article(article_url)
 
-            if self._entry_done(article_url):
-                # logger.info(f"Already done {article_url}")
-                continue
-            logger.info(f"Processing {ii}")
-
-
-            text = self._get_article(article_url)
-
-            new_entry = DataEntry({
-                "source": self.url,
-                "source_type": "medium_blog",
-                "url": article_url,
-                "title": self._to_text(title),
-                "date_published": "n/a",
-                "text": text,
-            })
-
-            new_entry.add_id()
-
-            yield new_entry
+        return DataEntry({
+            "source": self.url,
+            "source_type": "medium_blog",
+            "url": article_url,
+            "title": self._to_text(title),
+            "date_published": "n/a",
+            "text": text,
+        })
 
     def _to_text(self, s):
         if type(s) is bs4.element.Tag:

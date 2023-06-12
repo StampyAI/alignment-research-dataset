@@ -24,36 +24,32 @@ class OtherBlog(AlignmentDataset):
     url: str
     class_name: str
     done_key = "url"
+    cleaner = utils.HtmlCleaner(
+        ["You might also like\.\.\..*", "\\n+", "\#\# Create your profile.*"],
+        ["", "\\n", ""],
+        True,
+    )
 
-    def setup(self):
-        self._setup()
-        self.cleaner = utils.HtmlCleaner(
-            ["You might also like\.\.\..*", "\\n+", "\#\# Create your profile.*"],
-            ["", "\\n", ""],
-            True,
-        )
+    def get_item_key(self, item):
+        return item
 
-    def fetch_entries(self):
-        self.setup()
-        post_hrefs = self._selenium_get_post_hrefs(
+    @property
+    def items_list(self):
+        return self._selenium_get_post_hrefs(
             self.url, self.class_name, True
         )
-        for ii, post_href in enumerate(tqdm(post_hrefs)):
-            if self._entry_done(post_href):
-                # logger.info(f"Already done {post_href}")
-                continue
-            content = self._get_article(post_href)
-            text = self.cleaner.clean(content, True)
 
-            new_entry = DataEntry({
-                "text": text,
-                "url": post_href,
-                "title": text.split("\n")[0],
-                "source": self.name,
-                "date_published": "n/a",
-            })
-            new_entry.add_id()
-            yield new_entry
+    def process_entry(self, post_href):
+        content = self._get_article(post_href)
+        text = self.cleaner.clean(content, True)
+
+        return DataEntry({
+            "text": text,
+            "url": post_href,
+            "title": text.split("\n")[0],
+            "source": self.name,
+            "date_published": "n/a",
+        })
 
     def _selenium_get_post_hrefs(
         self,
