@@ -25,7 +25,7 @@ class AgentModels(AlignmentDataset):
 
     def process_entry(self, filename):
         return DataEntry({
-            'source': 'agentmodels.org',
+            'source': self.name,
             'source_filetype': 'markdown',
             'converted_with': 'not converted',
             'book_title': 'Modeling Agents with Probabilistic Programs',

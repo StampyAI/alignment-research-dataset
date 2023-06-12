@@ -31,7 +31,7 @@ class AudioTranscripts(GdocDataset):
         date = date[:4] + "-" + date[4:6] + "-" + date[6:]
 
         return DataEntry({
-            "source": "audio-transcripts",
+            "source": self.name,
             "source_filetype": "audio",
             "url": "n/a",
             "converted_with": "otter-ai",

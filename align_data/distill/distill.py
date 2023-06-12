@@ -79,7 +79,7 @@ class Distill(AlignmentDataset):
 
         return DataEntry({
             "url": "n/a",
-            "source": "distill",
+            "source": self.name,
             "source_type": "html",
             "converted_with": "python",
             "title": title,
