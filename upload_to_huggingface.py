@@ -4,6 +4,7 @@ from pathlib import Path
 import requests
 import gdown
 from gdown.download_folder import _parse_google_drive_file
+import jsonlines
 from huggingface_hub import login
 from huggingface_hub import HfApi
 
@@ -46,7 +47,14 @@ if __name__ == "__main__":
     else:
         data = Path('data/')
         for id, name in get_gdoc_names(GDOCS_FOLDER):
-            gdown.download(f'https://drive.google.com/drive/folders/{id}', str(data / name), quiet=False)
-            upload(api, data / name)
+            gdown.download(f'https://drive.google.com/uc?id={id}', str(data / name), quiet=False)
+            try:
+                # Check that the dowloaded file really contains json lines
+                with jsonlines.open(data / name) as reader:
+                    reader.read()
+            except InvalidLineError as e:
+                print(e)
+            else:
+                upload(api, data / name)
 
     print('done')
