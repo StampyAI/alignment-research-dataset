@@ -163,7 +163,7 @@ There are Datasets defined for various types of data sources - first check if an
 To update the stampy portion of the dataset, you will need a Coda token. go to coda.io, log in, and generate an API token in your account settings. Add restrictions: Doc or table, Read only, for the doc with url https://coda.io/d/_dfau7sl2hmG. Then, create a .env file at the root of the alignment research dataset, and write CODA_TOKEN="<coda_token>". It will be accessible in align_data/stampy/stampy.py
 
 
-When wishing to update the whole dataset, run `python3 main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python3 main.py fetch --dataset_name stampy`
+When wishing to update the whole dataset, run `python main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python main.py fetch --dataset_name stampy`
 
 ## Contributing
 
