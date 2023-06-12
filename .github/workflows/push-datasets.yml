@@ -1,0 +1,26 @@
+name: Synch all uploaded jsonl files to HuggingFace
+
+on:
+  workflow_dispatch: # allow manual triggering
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Setup Huggingface client
+      run: pip install huggingface_hub
+
+    - name: Upload files
+      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} all
