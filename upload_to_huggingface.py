@@ -37,8 +37,9 @@ def get_gdoc_names(url):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or not sys.argv[1]:
         print('Usage: python upload_to_huggingface <token> <file>')
+        sys.exit(2)
     login(sys.argv[1])
     api = HfApi()
 
