@@ -62,4 +62,4 @@ jobs:
         run: pip install huggingface_hub
 
       - name: Upload file
-        run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} data/${{ inputs.datasource }}.jsonl
+        run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
