@@ -1,4 +1,4 @@
-import regex
+import regex as re
 import time
 import logging
 from datetime import datetime
@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from urllib.parse import urljoin
 
 import requests
+import feedparser
 from bs4 import BeautifulSoup
 
 from align_data.common import utils
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class HTMLBlog(AlignmentDataset):
@@ -86,34 +88,18 @@ class HTMLBlog(AlignmentDataset):
     @staticmethod
     def _find_date(items):
         for i in items:
-            if regex.match('\w+ \d{1,2}, \d{4}', i.text):
+            if re.match('\w+ \d{1,2}, \d{4}', i.text):
                 return datetime.strptime(i.text, '%b %d, %Y').date().isoformat()
 
+
 @dataclass
-class ColdTakes(HTMLBlog):
-    title_selector = 'h2'
-    item_selector = ['article']
+class RSSBlog(HTMLBlog):
 
-    cleaner = utils.HtmlCleaner(
-        ["You might also like\.\.\..*", "\\n+", "\#\# Create your profile.*", "\n\xa0Comment/discuss\n", '\nClick lower right to download or find on Apple Podcasts, Spotify, Stitcher, etc.\n'],
-        ["", "\\n", "", "", ''],
-        True,
-    )
+    def get_item_key(self, item):
+        return item
 
-    @staticmethod
-    def _get_published_date(contents):
-        article = contents.find('article')
-        header = article.find('header').extract()
-        return header.find('time').get('datetime')
-
-
-class GenerativeInk(HTMLBlog):
-    title_selector = 'h3'
-    item_selector = ['div', {'class': 'post'}]
-
-    def _get_published_date(self, contents):
-        possible_date_elements = [
-            elem for info in contents.find_all('div', {'class': 'post-info'})
-            for elem in info.children
-        ]
-        return self._find_date(possible_date_elements)
+    @property
+    def items_list(self):
+        logger.info(f"Fetching entries from {self.url}")
+        feed = feedparser.parse(self.url)
+        return [item['link'] for item in feed['entries']]

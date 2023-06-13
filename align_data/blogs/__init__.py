@@ -2,7 +2,7 @@ from .markdown_blogs import MarkdownBlogs
 from .wp_blog import WordpressBlog
 from .medium_blog import MediumBlog
 from .gwern_blog import GwernBlog
-from .html_blog import ColdTakes, GenerativeInk
+from .blogs import ColdTakes, GenerativeInk, CaradoMoe
 
 BLOG_REGISTRY = [
     WordpressBlog(name="aiimpacts.org", url="https://aiimpacts.org"),
@@ -30,9 +30,9 @@ BLOG_REGISTRY = [
         name="generative.ink",
         url="https://generative.ink/posts/",
     ),
-    MarkdownBlogs(
+    CaradoMoe(
         name="carado.moe",
-        gdrive_address="https://drive.google.com/uc?id=1Acom6FGTnulru3_Ek-Qnii8Hg_D-VHoz",
+        url='https://carado.moe/rss.xml',
     ),
     MarkdownBlogs(
         name="waitbutwhy",
