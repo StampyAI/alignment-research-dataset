@@ -1,8 +1,7 @@
-from dataclasses import dataclass
 import re
-from align_data.common.alignment_dataset import GdocDataset, DataEntry
 import logging
-from tqdm import tqdm
+from dataclasses import dataclass
+from align_data.common.alignment_dataset import GdocDataset, DataEntry
 
 logger = logging.getLogger(__name__)
 
