@@ -38,9 +38,9 @@ BLOG_REGISTRY = [
               class_name="post-title"),
     
     MarkdownBlogs(name="carado.moe",
-                  gdrive_address="https://drive.google.com/uc?id=1Acom6FGTnulru3_Ek-Qnii8Hg_D-VHoz",
+                  gdrive_address="https://drive.google.com/uc?id=17CLAtrWNp4WoRLRPyS1pb2K5IQuMtHIH",
                   ),
     MarkdownBlogs(name="waitbutwhy",
-                  gdrive_address="https://drive.google.com/uc?id=1z0kbDd8vDsgOH6vV9z0XBnTQutXFJ6x-",
+                  gdrive_address="https://drive.google.com/uc?id=18T0LcYirruBW4c_fDQMEWAkA2KqSE1of",
                   ),
 ]

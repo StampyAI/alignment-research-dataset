@@ -37,7 +37,7 @@ class AlignmentNewsletter(AlignmentDataset):
         """
         return DataEntry({
             "url": "https://rohinshah.com/alignment-newsletter/",
-            "source": self.name,
+            "source": "alignment newsletter",
             "converted_with": "python",
             "source_type": "google-sheets",
             "venue": str(row.Venue),  # arXiv, Distill, LessWrong, Alignment Forum, ICML 2018, etc

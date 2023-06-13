@@ -4,6 +4,6 @@ from .nonarxiv_papers import NonarxivPapers
 NONARXIV_PAPER_REGISTRY = [
     NonarxivPapers(
         name="nonarxiv_papers",
-        gdrive_address="https://drive.google.com/uc?id=1odRHgveFh2MSUeHY3TRezmnxZQKCsM0E"
+        gdrive_address="https://drive.google.com/uc?id=1_4n-hjCaHdDo-gHbzDgxnKrj1cObzdaD"
     )
 ]

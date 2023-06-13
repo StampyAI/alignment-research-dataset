@@ -48,7 +48,7 @@ class GDrive(GdocDataset):
         metadata = epub_meta.get_epub_metadata(epub_file)
 
         return DataEntry({
-            "source": self.name,
+            "source": "ebook",
             "source_filetype": "epub",
             "converted_with": "pandoc",
             "title": metadata["title"],
