@@ -94,12 +94,16 @@ class HTMLBlog(AlignmentDataset):
 
 @dataclass
 class RSSBlog(HTMLBlog):
-
     def get_item_key(self, item):
         return item
 
     @property
+    def feed_url(self):
+        return self.url
+
+    @property
     def items_list(self):
-        logger.info(f"Fetching entries from {self.url}")
-        feed = feedparser.parse(self.url)
-        return [item['link'] for item in feed['entries']]
+        logger.info(f"Fetching entries from {self.feed_url}")
+        feed = feedparser.parse(self.feed_url)
+        self.items = {item['link']: item for item in feed['entries']}
+        return list(self.items.keys())
