@@ -7,8 +7,6 @@ from .other_blog import OtherBlog
 BLOG_REGISTRY = [
     WordpressBlog(name = "aiimpacts.org",
                   url = "https://aiimpacts.org"),
-    WordpressBlog(name = "aipulse.org",
-                  url = "https://aipulse.org"),
     WordpressBlog(name = "aisafety.camp",
                   url = "https://aisafety.camp"),
     WordpressBlog(name = "intelligence.org",
