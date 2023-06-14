@@ -38,24 +38,32 @@ def get_gdoc_names(url):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or not sys.argv[1]:
-        print('Usage: python upload_to_huggingface <token> <file>')
+        print('Usage: python upload_to_huggingface <token> <datasource name | all>')
         sys.exit(2)
     login(sys.argv[1])
     api = HfApi()
 
+    files = get_gdoc_names(GDOCS_FOLDER)
     if len(sys.argv) > 2 and sys.argv[2] != 'all':
-        upload(api, Path(sys.argv[2]))
-    else:
-        data = Path('data/')
-        for id, name in get_gdoc_names(GDOCS_FOLDER):
-            gdown.download(f'https://drive.google.com/uc?id={id}', str(data / name), quiet=False)
-            try:
-                # Check that the dowloaded file really contains json lines
-                with jsonlines.open(data / name) as reader:
-                    reader.read()
-            except InvalidLineError as e:
-                print(e)
-            else:
-                upload(api, data / name)
+        files = [item for item in files if item[1] == sys.argv[2] + '.jsonl']
+
+    data = Path('data/')
+    for id, name in files:
+        filename = data / name
+
+        # Don't download it if it exists locally
+        if not filename.exists():
+            gdown.download(f'https://drive.google.com/uc?id={id}', str(filename), quiet=False)
+        else:
+            print(f'Using local file at {filename}')
+
+        try:
+            # Check that the dowloaded file really contains json lines
+            with jsonlines.open(filename) as reader:
+                reader.read()
+        except InvalidLineError as e:
+            print(e)
+        else:
+            upload(api, data / name)
 
     print('done')
