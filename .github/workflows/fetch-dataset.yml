@@ -22,9 +22,11 @@ on:
           - gdrive_ebooks
           - generative.ink
           - gwern_blog
+          - import.ai
           - intelligence.org
           - jsteinhardt.wordpress.com
           - markdown.ebooks
+          - ml.safety.newsletter
           - nonarxiv_papers
           - qualiacomputing.com
           - reports

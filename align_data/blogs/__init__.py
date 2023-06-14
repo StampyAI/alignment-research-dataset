@@ -1,8 +1,10 @@
-from .markdown_blogs import MarkdownBlogs
-from .wp_blog import WordpressBlog
-from .medium_blog import MediumBlog
-from .gwern_blog import GwernBlog
-from .blogs import ColdTakes, GenerativeInk, CaradoMoe
+from align_data.blogs.markdown_blogs import MarkdownBlogs
+from align_data.blogs.wp_blog import WordpressBlog
+from align_data.blogs.medium_blog import MediumBlog
+from align_data.blogs.gwern_blog import GwernBlog
+from align_data.blogs.blogs import ColdTakes, GenerativeInk, CaradoMoe
+from align_data.blogs.substack_blog import SubstackBlog
+
 
 BLOG_REGISTRY = [
     WordpressBlog(name="aiimpacts.org", url="https://aiimpacts.org"),
@@ -37,5 +39,13 @@ BLOG_REGISTRY = [
     MarkdownBlogs(
         name="waitbutwhy",
         gdrive_address="https://drive.google.com/uc?id=1z0kbDd8vDsgOH6vV9z0XBnTQutXFJ6x-",
+    ),
+    SubstackBlog(
+        name="import.ai",
+        url="https://importai.substack.com"
+    ),
+    SubstackBlog(
+        name="ml.safety.newsletter",
+        url="https://newsletter.mlsafety.org"
     ),
 ]
