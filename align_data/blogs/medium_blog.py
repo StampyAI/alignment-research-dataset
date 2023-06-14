@@ -1,17 +1,11 @@
 from dataclasses import dataclass
-import requests
-from bs4 import BeautifulSoup
-import bs4
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 import logging
-from urllib.parse import urljoin
-from markdownify import markdownify
-from tqdm import tqdm
+from align_data.blogs.html_blog import HTMLBlog
 
 logger = logging.getLogger(__name__)
 
 @dataclass
-class MediumBlog(AlignmentDataset):
+class MediumBlog(HTMLBlog):
     """
     Fetches articles from a Medium blog.
 
@@ -33,47 +27,14 @@ class MediumBlog(AlignmentDataset):
 
     url: str
     done_key = "url"
+    title_selector = 'h2'
+    source_type = "medium_blog"
 
-    def get_item_key(self, item):
-        article_url = item.find_all("a")[0]["href"].split("?")[0]
-        return urljoin(self.url, article_url)
+    def _get_published_date(self, contents):
+        possible_date_elements = contents.find('article').find('h1').next_sibling.find_all('span')
+        return self._find_date(possible_date_elements)
 
-    @property
-    def items_list(self):
-        logger.info(f"Fetching entries from {self.url}")
-        response = requests.get(self.url, allow_redirects=True)
-        soup = BeautifulSoup(response.content, "html.parser")
-        articles = soup.find_all("article")
-        logger.info(f"Found {len(articles)} articles")
-        return articles
-
-    def process_entry(self, article):
-        title = article.find("h2")
-        if title is None:
-            return None
-        title = title.contents[0]
-
-        article_url = self.get_item_key(article)
-
-        logger.info(f"Processing {title}")
-
-        text = self._get_article(article_url)
-
-        return DataEntry({
-            "source": self.name,
-            "source_type": "medium_blog",
-            "url": article_url,
-            "title": self._to_text(title),
-            "date_published": "n/a",
-            "text": text,
-        })
-
-    def _to_text(self, s):
-        if type(s) is bs4.element.Tag:
-            return s.text
-        return s
-
-    def _get_article(self, url):
-        logger.info("Fetching {}".format(url))
-        article = requests.get(url, allow_redirects=True)
-        return markdownify(article.content)
+    def _get_text(self, contents):
+        article = contents.find('article')
+        article.find('h1').parent.extract()  # remove the header
+        return article.text
