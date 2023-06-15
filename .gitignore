@@ -12,10 +12,12 @@ outtxt/
 *.tex
 error_log.txt
 align_data/lesswrong/urls
-grobid-0.7.1/
+grobid-0.7.*/
 pdf_only/
 grobid_conversion/
 0.7.1.zip
+.ipynb_checkpoints/
+*.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
