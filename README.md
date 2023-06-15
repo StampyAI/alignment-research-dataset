@@ -1,19 +1,57 @@
 # AI Alignment Research Dataset
 
-A dataset of alignment research and code to reproduce it. The most current version of the dataset is available on [HuggingFace StampyAI/alignment-research-dataset](https://huggingface.co/datasets/StampyAI/alignment-research-dataset)
+The AI Alignment Research Dataset is a collection of documents related to AI Alignment and Safety from various books, research papers, and alignment related blog posts. This is a work in progress. Components are still undergoing a cleaning process to be updated more regularly. The most current version is available on [HuggingFace StampyAI/alignment-research-dataset](https://huggingface.co/datasets/StampyAI/alignment-research-dataset). This repository is the code to reproduce it. 
 
 ## Sources
 
-Below, you can find a table of the number of texts in the dataset grouped into various sources. The table is up-to-date with version 1.0 of the dataset (June 4th, 2022).
+The following list of sources may change and items may be renamed:
 
-<img src="./imgs/dataset_sources.PNG" alt="dataset_sources.PNG" width=600 />
+- [agentmodels](https://agentmodels.org/)
+- [aiimpacts.org](https://aiimpacts.org/)
+- [aisafety.camp](https://aisafety.camp/)
+- [arbital](https://arbital.com/)
+- arxiv_papers - alignment research papers from [arxiv](https://arxiv.org/)
+- audio_transcripts - transcripts from interviews with various researchers and other audio recordings
+- [carado.moe](https://carado.moe/)
+- [cold.takes](https://www.cold-takes.com/)
+- [deepmind.blog](https://deepmindsafetyresearch.medium.com/)
+- [distill](https://distill.pub/)
+- [eaforum](https://forum.effectivealtruism.org/) - selected posts
+- gdocs
+- gdrive_ebooks - books include [Superintelligence](https://www.goodreads.com/book/show/20527133-superintelligence), [Human Compatible](https://www.goodreads.com/book/show/44767248-human-compatible), [Life 3.0](https://www.goodreads.com/book/show/34272565-life-3-0), [The Precipice](https://www.goodreads.com/book/show/50485582-the-precipice), and others
+- [generative.ink](https://generative.ink/posts/)
+- [gwern_blog](https://gwern.net/)
+- [intelligence.org](https://intelligence.org/) - MIRI
+- [jsteinhardt.wordpress.com](https://jsteinhardt.wordpress.com/)
+- [lesswrong](https://www.lesswrong.com/) - selected posts
+- markdown.ebooks
+- nonarxiv_papers - other alignment research papers
+- [qualiacomputing.com](https://qualiacomputing.com/)
+- reports
+- [stampy](https://aisafety.info/)
+- [vkrakovna.wordpress.com](https://vkrakovna.wordpress.com)
+- [waitbutwhy](https://waitbutwhy.com/)
+- [yudkowsky.net](https://www.yudkowsky.net/)
+
+## Keys
+
+Not all of the entries contain the same keys, but they all have the following:
+
+- `id` - unique identifier
+- `source` - based on the data source listed in the previous section
+- `title` - title of document
+- `text` - full text of document content
+- `url` - some values may be `'n/a'`, still being updated
+- `date_published` - some `'n/a'`
+
+The values of the keys are still being cleaned up for consistency. Additional keys are available depending on the source document.
 
 ## Development Environment
 
 To set up the development environment, run the following steps:
 
 ```bash
-git clone https://github.com/moirage/alignment-research-dataset
+git clone https://github.com/StampyAI/alignment-research-dataset
 cd alignment-research-dataset
 pip install -r requirements.txt
 ```
@@ -30,94 +68,7 @@ To scrape an individual dataset:
 python main.py fetch -d {dataset}
 ```
 
-You will also need do install [grobid](https://github.com/kermitt2/grobid) on your machine to run some of the scripts. There is some documentation [here](https://grobid.readthedocs.io/en/latest/Install-Grobid/) on how to install it. The config.json file in the root of this repository is for grobid.
-
-## Using the Dataset
-
-The dataset is in .jsonl format. Each line is a new entry for that dataset. To load the dataset, you can use the `jsonlines` python package. You can load the dataset using the following:
-
-```python
-import jsonlines
-
-dictionary = {}
-with jsonlines.open("alignment_texts.jsonl", "r") as reader:
-  for entry in reader:
-    try:
-      # grab contents of each entry here, example:
-      # dictionary[i]['text'] = entry['text']
-    except KeyError:
-      pass
-```
-
-### What Keys are in Each JSON of the Dataset?
-
-The important thing here is that not all of the dataset entries contain all the same keys (though they all have the `text` key). That said, the key names are standardized so you should not run into any issues where `source` in one entry is something like `source_of_entry` in another. We do this because it doens't make sense to say "journal_ref" when we are talking about an audio transcript. So, you will need to make sure you add a `try-except` in your code if you want to grab things other than `text`.
-
-For now, if you would like to know the specific keys from each source in the dataset, please look at the code for that source in [align_data](./align_data).
-
-Here's what the data for the arXiv papers looks like:
-
-```json
-{
-"source": "arxiv", # where the dataset comes from
-"source_type": "latex", # the type of file the data was original in
-"converted_with": "pandoc", # which tool we used to convert the data in .md format
-"paper_version": paper_id,
-"title": title,
-"authors": [str(x) for x in authors], # list of authors
-"date_published": date_published,
-"data_last_modified": data_last_modified,
-"url": url,
-"abstract": abstract,
-"author_comment": author_comment,
-"journal_ref": journal_ref,
-"doi": doi,
-"primary_category": primary_category,
-"categories": categories,
-"citation_level": citation_level, # (0 = curated alignment papers, 1 = citation of curated papers, 2 = citation of citation, etc.)
-"alignment_text": is_alignment_text, # 'pos' is maunally labeled as an alignment paper, 'unlabeled' if unlabeled
-"confidence_score": confidence_scores, # this is a confidence score obtained by using the SPECTER model to classify papers to add to the dataset
-"main_tex_filename": "main.tex", # the main latex file needed to convert the paper
-"text": "lots of text", # this is where you will grab the text contents of each entry in the dataset (in .md format)
-"bibliography_bbl": "string of bbl",
-"bibliography_bib": "string of bib", # more common to have bib than bbl
-}
-```
-
-### The 80/20 for using the dataset
-
-As we said in the previous section, all entries have the `text` key which contains the text content for that entry. Here's some other common keys you might use:
-
-1. `source`: this key separates the various keys found in the table in [Sources](##Sources). Here's the set of sources with their corresponding value name:
-
-* agentmodels (21 rows)
-* alimpacts.org (235 rows)
-* aipulse.org (23 rows)
-* aisafety.camp (9 rows)
-* arbital (732 rows)
-* arxiv_papers (829 rows)
-* audio_transcripts (37 rows)
-* carado.moe (59 rows)
-* cold.takes (91 rows)
-* deepmind.blog (10 rows)
-* distill (45 rows)
-* eaforum (12.4k rows)
-* gdocs gdrive_ebooks
-* generative.ink (18 rows)
-* gwern_blog (7 rows)
-* intelligence.org (483 rows)
-* jsteinhardt.wordpress.com (39 rows)
-* lesswrong (6.23k rows)
-* markdown.ebooks (4 rows)
-* nonarxiv_papers (198 rows)
-* qualiacomputing.com (289 rows)
-* reports (55 rows)
-* stampy (198 rows)
-* vkrakovna.wordpress.com (43 rows)
-* waitbutwhy (2 rows)
-* www.yudkowsky.net (23 rows)
-
-## Adding new datasets
+## New Datasets
 
 Adding a new dataset consists of:
 
@@ -160,7 +111,7 @@ There are Datasets defined for various types of data sources - first check if an
 
 ## Contributing
 
-Join us on [Rob Mile's discord server](https://discord.com/invite/7wjJbFJnSN) in the #stampy-dev channel.
+The this scraper code and dataset is maintained by volunteers at StampyAI / AI Safety Info. [Learn more](https://coda.io/d/AI-Safety-Info_dfau7sl2hmG/Get-involved_susRF#_lufSr) or join us on [Rob Miles AI Discord server](https://discord.gg/vjFSCDyMCy).
 
 ## Citing the Dataset
 
