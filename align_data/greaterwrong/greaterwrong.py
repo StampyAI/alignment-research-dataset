@@ -1,20 +1,202 @@
-from dataclasses import dataclass
 import datetime
-import dateutil.parser as dparser
-import glob
-import time
-import requests
-import re
-import os
-from bs4 import BeautifulSoup
 import logging
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+import requests
+import jsonlines
+from bs4 import BeautifulSoup, Tag
 from tqdm import tqdm
-import sys
+from markdownify import markdownify
 
 from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+
+def extract_author(base_url, a):
+    return {
+        'fullName': a.attrs.get('data-full-name'),
+        'userId': a.attrs.get('data-userid'),
+        'userLink': a.attrs.get('href') and base_url + a.attrs.get('href'),
+        'name': a.text,
+    }
+
+
+def get_attr(elem: Tag, tag: str, selector, attr=None, processor=lambda x: x):
+    """A generic extractor of HTML info, which will also handle the item not existing.
+
+    :param Tag elem: the element to search in
+    :param str tag: the HTML tag to look for, e.g. `div`. Can also be `None`, in which case any tag will work
+    :param dict selector: additional selector to drill down on, e.g. `{'class': 'bla'}`
+    :param str attr: the attribute of the element to extract, e.g. 'href'. Ignored if `None`
+    :param fn processor: an optional transformer to be run on the extracted value for postprocessing
+    """
+    item = elem.find(tag, selector)
+    value = item
+    if attr and item:
+        value = item and item.get(attr)
+    return value and processor(value)
+
+
+def parse_karma(meta_div: Tag):
+    """Extract the karma from the given element.
+
+    :param Tag meta_div: the element to be processed - this is the div containing url, karma, authors etc.
+    :returns: a `(score, karma)` tuple, where `score` is the overall karma, while `karma` is a dict of per site karma
+    """
+    site = get_attr(meta_div, 'a', {'class': 'lw2-link'}, processor=lambda a: a.get('title') or next(a.children))
+    karma_text = get_attr(meta_div, 'span', {'class': 'karma-value'}, processor=lambda d: d.text.strip())
+    if not karma_text:
+        score, karma = None, {}
+    # In the case of this post only being on one server, the karma is provided as a string like "123 points"
+    elif 'point' in karma_text:
+        score = int(karma_text.split()[0].replace('−', '-'))
+        karma = {site: score}
+    # When it's e.g. an alignment forum post, it will have site specific karma, like "LW: 123, AF: 432"
+    elif karma_text:
+        parts = karma_text.replace(':', '').split()
+        karma = {k: int(v) for k, v in zip(parts[::2], parts[1::2])}
+        score = list(karma.values())[0]
+    else:
+        score, karma = None, {}
+    return score, karma
+
+
+def extract_metadata(base_url: str, post: Tag, meta_div=None):
+    """Extract the metadata of the post/comment.
+
+    :param str base_url: the base url of the forum being used, e.g. 'https://lesswrong.com'
+    :param Tag post: the HTML element to process
+    :param Tag meta_div: used if the metadata is in multiple tags. Will use `post` if `None`
+
+    :returns: a dict of extracted metadata values. Values that are empty will be removed
+    """
+    meta_div = meta_div or post
+    score, karma = parse_karma(meta_div)
+
+    metadata = {
+        'title': next(post.children).text,
+        'url': get_attr(meta_div, 'a', {'class': 'lw2-link'}, 'href'),
+        'post_url': get_attr(post, 'a', {'class': 'post-title-link'}, 'href', lambda url: base_url + url),
+        'link_post': get_attr(post, 'a', {'class': 'link-post-link'}, 'href'),
+        'authors': [extract_author(base_url, a) for a in meta_div.findChildren('a', {'class': 'author'})],
+        'date_published': get_attr(
+            meta_div, None, {'class': 'date'},
+            processor=lambda d: datetime.datetime.strptime(d.text.strip(), '%d %b %Y %H:%M %Z').isoformat()
+        ),
+        'votes': get_attr(meta_div, 'span', {'class': 'karma-value'}, 'title', lambda v: int(v.split()[0])),
+        'score': score,
+        'karma': karma,
+        'tags': get_attr(meta_div, 'div', {'id': 'tags'}, processor=lambda d: [a.text.strip() for a in d.find_all('a')]),
+        'words': get_attr(meta_div, 'span', {'class': 'read-time'}, 'title'), #meta_div.find('span', {'class': 'read-time'}).attrs.get('title'),
+    }
+    return {k: v for k, v in metadata.items() if v}
+
+
+def fetch_month_urls(base_url: str, year: int, month: int, delay=1):
+    """Fetch all posts from the given `year` and `month` from `base_url`.
+
+    This will automatically paginate through all available pages.
+    GreaterWrong has a limit of 2000 entries per pagination, which is why this is done per month
+
+    To avoid clobbering the service, `delay` seconds will be waited between each network call.
+
+    :returns: a list of metadata dicts for each post
+    """
+    all_posts = []
+
+    url = f'/archive/{year}/{month}'
+    while url:
+        logger.debug('Fetching items for %s', url)
+        res = requests.get(base_url + url)
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        posts = soup.find_all('h1', {'class': 'listing'})
+        all_posts += [extract_metadata(base_url, post, post.find_next_sibling('div')) for post in posts]
+
+        url = soup.find('a', {'class': 'nav-item-next'})
+        url = url and url.attrs.get('href').replace('#', '')
+
+        time.sleep(delay)
+
+    logger.debug('Found %s posts for %s/%s', len(all_posts), year, month)
+    return all_posts
+
+
+def fetch_all_urls(base_url: str, urls_data_path: Path, start_year: int, delay=1):
+    """Fetch the metadata of all posts from `base_url`, starting from `start_year`.
+
+    This will create a separate data file for each month, starting from the earliest one checked. The resulting
+    files will contain a JSON object per line containing the metadata of each post. If there were no posts in a
+    give month (this happened in the beginning of LW, for example), then an empty file will be created to mark
+    that month as checked. The latest month will always be rechecked, as it's most likely not up to date.
+    """
+    # Any url file that was created contains all urls for that month and so can be skipped. This
+    # assumption only holds if post publication dates cannot be changed, and if posts won't retroactively
+    # appear - both of which seem reasonable. Ignore the latest file though, as it probably won't contain
+    # all urls for that given month
+    known_urls = sorted(urls_data_path.glob('*'))[:-1]
+
+    now = datetime.date.today()
+    # Construct a big list of all months, rather than having nested loops, coz then
+    # tqdm can show a nice loading bar
+    dates = [
+        (year, month)
+        for year in range(start_year, now.year + 1)
+        for month in range(1, 13)
+    ]
+    for year, month in tqdm(dates):
+        data_file = urls_data_path / f'{year}_{month}.jsonl'
+
+        if data_file in known_urls:
+            logger.debug(f'Already processed {data_file.name} - skipping')
+            continue
+
+        try:
+            posts = fetch_month_urls(base_url, year, month, delay)
+        except Exception as e:
+            logger.error(e)
+        else:
+            with jsonlines.open(data_file , mode='w') as writer:
+                writer.write_all(posts)
+
+        # No point in looking for future posts...
+        if year == now.year and month == now.month:
+            break
+
+
+def parse_comments(base_url: str, elem: Tag):
+    """Recursively extract the whole comment tree from the given HTML `elem`."""
+    if not elem or not elem.get('class'):
+        return None
+    if 'comment-thread' in elem.get('class') or 'comments' in elem.get('class'):
+        return list(filter(None, map(lambda x: parse_comments(base_url, x), elem.children)))
+    if 'comment-item' in elem.get('class'):
+        comment = elem.find('div', {'class': 'comment'})
+        metadata = extract_metadata(base_url, comment)
+
+        return {
+            'text': comment.find('div', {'class': 'body-text'}).text,
+            'votes': metadata.get('votes'),
+            'score': metadata.get('score'),
+            'karma': metadata.get('karma'),
+            'url': metadata.get('url'),
+            'date_published': metadata['date_published'],
+            'author': metadata.get('authors', [{}])[0].get('name'),
+            'comments': parse_comments(base_url, elem.find('ul', {'class': 'comment-thread'})),
+        }
+
+    return None
+
+
+def fetch_ai_tags(url):
+    res = requests.get(url + '/tag/ai')
+    soup = BeautifulSoup(res.content, "html.parser")
+    container = soup.find('div', {'class': 'tag-description'}).find('table')
+    return [a.text.strip() for a in container.find_all('a') if a.get('href').startswith('/tag/')]
+
 
 @dataclass
 class GreaterWrong(AlignmentDataset):
@@ -24,375 +206,59 @@ class GreaterWrong(AlignmentDataset):
     GreaterWrong contains all the posts from LessWrong (which contains the Alignment Forum) and the EA Forum.
     """
 
-    COOLDOWN_TIME : int = 1
+    base_url: str
+    start_year: int
+    min_karma: int
+
+    COOLDOWN_TIME : float = 0.5
     done_key = "url"
 
     def setup(self):
         super().setup()
+
+        logger.info(f"Grabbing most recent links (grabs all links if /{self.name}/urls/ is empty)...")
+        self.files_path = self.raw_data_path / self.name / 'urls'
         self.files_path.mkdir(parents=True, exist_ok=True)
-        logger.info(
-            f"Grabbing most recent links (grabs all links if /{self.name}_urls/ is empty)...")
-        self.get_all_links()
-        logger.info("Converting each link to a json with post & comments...")
-        logger.info(
-            "[Using only the latest urls, change variable url_directory in greaterwrong.py to point at a specific url_folder]"
-        )
+        fetch_all_urls(self.base_url, self.files_path, self.start_year, self.COOLDOWN)
+
+        logger.debug("Fetching ai tags...")
+        self.ai_tags = set(fetch_ai_tags(self.base_url))
 
     @property
     def items_list(self):
+        logger.debug("Converting each link to a json with post & comments...")
         links = []
-        url_filename_list = self.get_urls(url_directory="")
-        for url_filename in url_filename_list:
-            with open(url_filename, "r") as file:
-                links += file.readlines()
+        for filename in self.files_path.glob('*'):
+            with jsonlines.open(filename) as reader:
+                links += [
+                    item for item in reader
+                    if item.get('post_url') and item.get('score', 0) >= self.min_karma
+                ]
         return links
 
-    def get_item_key(self, url_link):
-        if self.name == 'lesswrong':
-            return "https://www.lesswrong.com" + url_link.rstrip("\n")
-        return "https://www.forum.effectivealtruism.org" + url_link.rstrip("\n")
+    def get_item_key(self, item):
+        return item['url']
 
-    def process_entry(self, url_link):
-        post = self.get_url(self.name, url_link)
-        if post is None:
-            post = {
-                "text" : "n/a",
-                "url" : self.get_item_key(url_link),
-                "title" : "n/a",
-                "authors" : "n/a",
-                "date_published" : "n/a",
-                "source" : self.name
-            }
-        return DataEntry(post)
+    def process_entry(self, item):
+        res = requests.get(item['post_url'])
+        html = res.text.replace("\u201c", '"').replace("\u201d", '"')
+        soup = BeautifulSoup(html, "html.parser")
 
-    def get_latest_file(self):
-        list_of_files = sorted(
-            glob.glob( self.files_path / f"{self.name}_urls/*")
-        )  # * means all if need specific format then *.csv
-        return list_of_files[-1]
+        post = soup.find('main', {'class': 'post'})
 
-    def url_to_soup(self, url):
-        r = requests.get(url)
-        html = r.content.decode("utf-8")
-        return BeautifulSoup(html, "html.parser")
+        title = post.find('h1')
+        meta_div = title.find_next_sibling('div')
+        metadata = extract_metadata(self.base_url, title, meta_div)
 
-    def add_20_to_url(self, url):
-        current_post_amount = re.findall(r"\d+", url)[0]
-        url = url.replace(current_post_amount, str(
-            int(current_post_amount) + 20))
-        return url
-
-    def subtract_one_day(self, date):
-        new_date = dparser.parse(date) - datetime.timedelta(1)
-        return new_date.strftime("%Y-%m-%d")
-
-    def subtract_days(self, url):
-        # find the first date
-        both_dates = re.findall(r"\d+-\d+-\d+", url)
-        # subtract day
-        first_date = both_dates[0]
-        new_date = self.subtract_one_day(first_date)
-        # first replace the oldest date w/ one day before
-        url = url.replace(first_date, new_date)
-        # Then 2nd w/ first (equivalent to one day before 2nd)
-        url = url.replace(both_dates[1], both_dates[0])
-        return url
-
-    def get_all_links(self):
-        urls = self.files_path / f"{self.name}_urls"
-        urls.mkdir(parents=True, exist_ok=True)
-        today = datetime.datetime.today().strftime("%Y-%m-%d")
-        url_for_today = urls / f"{today}_links.txt"
-        # check if there's a url_link for today, return if so
-        if url_for_today.is_file():
-            logger.info(f"Already have links for today: {today}")
-            return
-
-        # else grab most recent urls
-        logger.info("Grabbing most recent links...")
-        try:
-            latest_file_name = self.get_latest_file()
-            with open(latest_file_name) as previous_file:
-                latest_url = previous_file.readline().rstrip()
-        except:  # empty files
-            logger.info("No previous files, starting from scratch...")
-            latest_url = "n/a"
-
-        with open(url_for_today, "w") as f:
-            if self.name == "lesswrong":
-                initial_url = "https://www.greaterwrong.com/index?view=all&offset=0"
-            elif self.name == "eaforum":
-                initial_url = "https://ea.greaterwrong.com/index?view=all&offset=0"
-            iterations = 0
-            found_latest_url = False
-            while not found_latest_url:
-                iterations += 1
-                if iterations % 100 == 0:
-                    logger.info(f"Currently: {iterations}")
-                try:
-                    # Find All Post Title tags for each page, then the url for the post
-                    soup = self.url_to_soup(initial_url)
-                    posts = soup.findAll(class_="post-title-link")
-                    for linkParent in posts:
-                        link = linkParent.get("href")
-                        if link == latest_url:
-                            found_latest_url = True
-                            break
-                        f.write(link + "\n")
-                    initial_url = self.add_20_to_url(initial_url)
-                    time.sleep(1)
-                except Exception as e:
-                    logger.info(e)
-                    logger.info(f"iterations: {iterations}")
-                    logger.info(f"total files ~= {iterations * 20}")
-                    break
-
-    def chunks(self, lst, n):
-        """Yield successive n-sized chunks from lst."""
-        for i in range(0, len(lst), n):
-            yield lst[i: i + n]
-
-    def get_tag_list(self, soup, separator="/"):
-        tags_html = soup.find("div", {"id": "tags"})
-        tag_list = []
-        if tags_html:
-            for tag in tags_html:
-                tag_list.append(tag.text)
-            return separator.join(tag_list)
-        else:
-            return ""
-
-    def cleanHtml(self, html):
-        res = html
-        res = re.sub("\u201c", '"', res)
-        res = re.sub("\u201d", '"', res)
-        # res = re.sub(r'http\S+', 'ʬ', res)
-        return res
-
-    def latest_url_file_name(self, url_dir=""):
-        url_filenames = sorted(
-            os.listdir(url_dir), reverse=True
-        )  # Do reverse to get latest date first
-        return url_filenames[0]
-
-    def recursive_comment(self, comment):
-        url = comment.select_one(".lw2-link").get("href")
-        commentID_location = url.find("?commentId=") + len("?commentId=")
-        id = url[commentID_location:]
-        date = comment.select_one(".date").text.strip()
-        date = datetime.datetime.strptime(
-            date, "%d %b %Y %H:%M %Z").isoformat()[0:-3]
-        username = comment.select_one(".author").text.strip()
-        karma_temp = comment.select_one(".karma-value")
-        karma_list = karma_temp.text.strip().split(" ")
-        karma = karma_list[0]
-        votes = karma_temp.get("title").split(" ")[0]
-        text = self.add_consistent_newlines(
-            comment.select_one(".body-text.comment-body").text.strip()
-        )
-
-        json_comment = {
-            "id": id,
-            "authors": username,
-            "score": karma,
-            "omega_karma": "",
-            "votes": votes,
-            "url": url,
-            "date_published": date,
-            "text": text,
-            "comments": [],
-        }
-
-        if len(karma_list) > 2:  # eg. LW: 420 AF: 69, list split by spaces
-            json_comment["score"] = karma_list[1]
-            if self.name == "lesswrong":
-                json_comment["omega_karma"] = karma_list[3]
-
-        # recursively apply to subcomments
-        next_comment = comment.select_one(".comment-thread")
-        if next_comment:
-            for sub_comment_parent in next_comment:
-                if len(sub_comment_parent.div.get("class")) > 1:
-                    # print("deleted comment at: ", url, " w/ subcomment", sub_comment_parent)
-                    continue
-                try:
-                    json_subcomment = self.recursive_comment(
-                        sub_comment_parent)
-                    json_comment["comments"].append(json_subcomment)
-                except:
-                    pass
-        return json_comment
-
-    def add_consistent_newlines(self, paragraph):
-        # Add in Consistent Newlines
-        paragraph = paragraph.replace("&newline", "\n")
-        return paragraph
-
-    def encode_html_as_text(self, soup):
-        # Convert different tags into text we would want GPT to learn
-        # for a in soup.select('a'):
-        #     a.insert(len(a), " ʬ")
-        for li in soup.select("li"):
-            li.insert(0, "&newline - ")
-        for blockquote in soup.select("blockquote"):
-            for child in blockquote.children:
-                c = child
-                if c.name != None:
-                    break
-            try:
-                c.insert(0, "> ")
-            except:  # Has no nested children tags, just insert first
-                blockquote.insert(0, "> ")
-        for italics in soup.select("em"):
-            italics.insert(len(italics), "*")
-            italics.insert(0, "*")
-        for italics in soup.select("i"):
-            italics.insert(len(italics), "*")
-            italics.insert(0, "*")
-        for paragraphs in soup.select("p"):
-            paragraphs.insert(len(paragraphs), "&newline")
-        for headings in soup.select("h1"):
-            headings.insert(len(headings), "&newline")
-            headings.insert(0, "# ")
-        for headings in soup.select("h2"):
-            headings.insert(len(headings), "&newline")
-            headings.insert(0, "## ")
-        for headings in soup.select("h3"):
-            headings.insert(len(headings), "&newline")
-            headings.insert(0, "### ")
-        for nav in soup.select("nav"):
-            nav.insert(len(nav), "&newline")
-        for bold in soup.select("b"):
-            bold.insert(len(bold), "**")
-            bold.insert(0, "**")
-        for bold in soup.select("strong"):
-            bold.insert(len(bold), "**")
-            bold.insert(0, "**")
-        # raw latex support
-        for latex in soup.find_all("span", class_="mjx-math"):
-            latex.string = ""
-            latex.insert(0, latex.get("aria-label"))
-        return  # insert is in-place, no need to return soup
-
-    def get_urls(self, url_directory=""):
-        # get specific urls if specified
-        if url_directory:
-            url_filename_suffix = url_directory
-        else:  # get latest urls
-            url_filename_suffix = self.latest_url_file_name(self.files_path / f"{self.name}_urls")
-        # Create unproccessed_url directory if it doesn't exist already
-        urls_dir = self.files_path / f"unprocessed_{self.name}_urls"
-        urls_dir.mkdir(parents=True, exist_ok=True)
-        # Run files in unprocessed if they exist (may contain problem files)
-        unprocessed_urls = list(urls_dir.glob('*'))
-        if unprocessed_urls:  # if not empty
-            url_filename_list = unprocessed_urls
-        else:  # Create files to process
-            url_filename = self.files_path / f"{self.name}_urls/{url_filename_suffix}"
-            with open(url_filename, "r") as file:
-                # Split into separate files for every 1000 urls
-                lines = file.readlines()
-                list_of_url_by_1000 = list(self.chunks(lines, 1000))
-                for index, urls_1000 in enumerate(list_of_url_by_1000):
-                    with open(
-                        self.files_path / f"unprocessed_{self.name}_urls/{index}_{url_filename_suffix}", "w"
-                    ) as url_1000_file:
-                        url_1000_file.writelines("\n".join(urls_1000))
-            url_filename_list = urls_dir.glob('*')
-        return url_filename_list
-
-    def get_url(self, file_prefix , url_link):
-        if self.name == "lesswrong":
-            url_link_prefix_public_facing = "https://www.lesswrong.com"
-            url_link_prefix = "https://www.greaterwrong.com"
-        elif self.name == "eaforum":
-            url_link_prefix_public_facing = "https://www.forum.effectivealtruism.org"
-            url_link_prefix = "https://ea.greaterwrong.com"
-
-        full_url_link = url_link_prefix + url_link.rstrip("\n")
-        r = requests.get(full_url_link)
-        time.sleep(self.COOLDOWN_TIME)
-
-        html = r.content.decode("utf-8")
-        soup = BeautifulSoup(self.cleanHtml(html), "html.parser")
-
-        # encode italics, bold, quotes, etc as text
-        self.encode_html_as_text(soup)
-
-        try:  # Check if missing url
-            post_title = self.add_consistent_newlines(
-                soup.select_one(".post-title").text.strip()[2:]
-            )  # Skip post_title Header_1
-            date = soup.select_one(".date").text.strip()
-            date = datetime.datetime.strptime(
-                date, "%d %b %Y %H:%M %Z"
-            ).isoformat()[0:-3]
-            author = soup.select_one(".author").text.strip()
-            karma_temp = soup.select_one(".karma-value")
-            post_votes = karma_temp.get("title").split(" ")[0]
-            karma_list = karma_temp.text.split(" ")
-            karma = karma_list[0]
-            post_content = self.add_consistent_newlines(
-                soup.select_one(
-                    ".body-text.post-body").text.strip()
-            )
-            tags = self.get_tag_list(soup, "/")
-        except Exception as e:  # Event or missing url
-            logger.error(f"Error: {e}")
-            logger.info(f"Missing url at: {full_url_link}")
+        # Skip this item if it doesn't have at least one AI tag
+        if not self.ai_tags & set(metadata.get('tags', [])):
             return None
 
-        # json object to save text in format
-        json_post_and_comment = {
-                # "id": full_url_link.split("/")[4],
-                "title": post_title,
-                "authors": author,
-                "date_published": date,
-                "score": karma,
-                "omega_karma": "",
-                "votes": post_votes,
-                "tags": tags,
-                "url": url_link_prefix_public_facing
-                + url_link.rstrip("\n"),
-                "text": post_content,
-                "source": file_prefix,  # "lesswrong" or "ea" atm
-                "comments": [],
-            }
-
-        # check for alignment forum
-        if len(karma_list) > 2:  # eg. LW: 420 AF: 69, list split by spaces
-            if self.name == "lesswrong":
-                json_post_and_comment[
-                    "source"
-                ] = "alignment forum"
-                json_post_and_comment["score"] = karma_list[
-                    1
-                ]
-                json_post_and_comment[
-                    "omega_karma"
-                ] = karma_list[3]
-            elif self.name == "eaforum":
-                json_post_and_comment[
-                    "source"
-                ] = "eaforum"
-                json_post_and_comment["score"] = karma_list[
-                    1
-                ]
-        # Grab comments recursively
-        comments = soup.select_one(".comment-thread")
-        if comments:
-            for comment in comments:
-                if len(comment.div.get("class")) > 1:
-                    # print("deleted comment at: ", full_url_link, " w/ ", comment)
-                    continue
-                try:
-                    json_comment = self.recursive_comment(comment)
-                    json_post_and_comment[
-                        "comments"
-                    ].append(json_comment)
-                except Exception as e:
-                    logger.error(f"Error: {e}")
-                    logger.info(f"Missing comment at: {full_url_link}")
-                    pass
-        # Update current post iter since we've actually added 1 post to the json
-        return json_post_and_comment
+        return DataEntry(
+            item,
+            text=markdownify(post.find('div', {'class': 'body-text'}).renderContents()),
+            comments=parse_comments(self.base_url, soup.find('div', {'id': 'comments'})),
+            source=self.name,
+            source_type='greaterwrong',
+            **metadata
+        )
