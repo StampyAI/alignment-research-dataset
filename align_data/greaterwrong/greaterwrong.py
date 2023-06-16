@@ -175,6 +175,9 @@ def parse_comments(base_url: str, elem: Tag):
         return list(filter(None, map(lambda x: parse_comments(base_url, x), elem.children)))
     if 'comment-item' in elem.get('class'):
         comment = elem.find('div', {'class': 'comment'})
+        if 'deleted-comment' in comment.get('class'):
+            return None
+
         metadata = extract_metadata(base_url, comment)
 
         return {
@@ -217,22 +220,32 @@ class GreaterWrong(AlignmentDataset):
         super().setup()
 
         logger.info(f"Grabbing most recent links (grabs all links if /{self.name}/urls/ is empty)...")
+        self.skipped_urls = self.raw_data_path / self.name / 'skipped'
         self.files_path = self.raw_data_path / self.name / 'urls'
         self.files_path.mkdir(parents=True, exist_ok=True)
         fetch_all_urls(self.base_url, self.files_path, self.start_year, self.COOLDOWN)
 
         logger.debug("Fetching ai tags...")
-        self.ai_tags = set(fetch_ai_tags(self.base_url))
+        try:
+            self.ai_tags = set(fetch_ai_tags(self.base_url))
+        except Exception:
+            raise ValueError('Could not fetch tags! Please retry')
 
     @property
     def items_list(self):
         logger.debug("Converting each link to a json with post & comments...")
+        if self.skipped_urls.exists():
+            with open(self.skipped_urls) as f:
+                skipped = {l.strip() for l in f}
+        else:
+            skipped = []
+
         links = []
         for filename in self.files_path.glob('*'):
             with jsonlines.open(filename) as reader:
                 links += [
                     item for item in reader
-                    if item.get('post_url') and item.get('score', 0) >= self.min_karma
+                    if item.get('post_url') and item.get('score', 0) >= self.min_karma and item['post_url'] not in skipped
                 ]
         return links
 
@@ -241,14 +254,15 @@ class GreaterWrong(AlignmentDataset):
 
     def process_entry(self, item):
         # Skip this if the request failed. The idea being that the next scrape will pick it up
+        post_url = item['post_url']
         try:
-            res = requests.get(item['post_url'])
+            res = requests.get(post_url)
         except requests.ConnectTimeout:
-            logger.error('Timeout while fetching %s - skipping for now', item['post_url'])
+            logger.error('Timeout while fetching %s - skipping for now', post_url)
             return None
 
         if res.status_code != 200:
-            logger.error('Got status code of %s while fetching %s - skipping for now', res.status_code, item['post_url'])
+            logger.error('Got status code of %s while fetching %s - skipping for now', res.status_code, post_url)
             return None
 
         html = res.text.replace("\u201c", '"').replace("\u201d", '"')
@@ -262,6 +276,8 @@ class GreaterWrong(AlignmentDataset):
 
         # Skip this item if it doesn't have at least one AI tag
         if not self.ai_tags & set(metadata.get('tags', [])):
+            with open(self.skipped_urls, 'a') as f:
+                f.write(post_url + '\n')
             return None
 
         return DataEntry(
