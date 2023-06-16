@@ -240,7 +240,17 @@ class GreaterWrong(AlignmentDataset):
         return item['url']
 
     def process_entry(self, item):
-        res = requests.get(item['post_url'])
+        # Skip this if the request failed. The idea being that the next scrape will pick it up
+        try:
+            res = requests.get(item['post_url'])
+        except requests.ConnectTimeout:
+            logger.error('Timeout while fetching %s - skipping for now', item['post_url'])
+            return None
+
+        if res.status_code != 200:
+            logger.error('Got status code of %s while fetching %s - skipping for now', res.status_code, item['post_url'])
+            return None
+
         html = res.text.replace("\u201c", '"').replace("\u201d", '"')
         soup = BeautifulSoup(html, "html.parser")
 
