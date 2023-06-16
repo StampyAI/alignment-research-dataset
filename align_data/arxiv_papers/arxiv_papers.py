@@ -25,7 +25,7 @@ class ArxivPapers(AlignmentDataset):
         Load arxiv ids
         """
         self._setup()
-        self.papers_csv_path = self.write_jsonl_path.parent / "raw" / "ai-alignment-papers-new.csv" 
+        self.papers_csv_path = self.write_jsonl_path.parent / "raw" / "ai-alignment-arxiv-papers-new.csv" 
 
         self.df = pd.read_csv(self.papers_csv_path)
         self.df_arxiv = self.df[self.df["Url"].str.contains(
@@ -103,10 +103,8 @@ class ArxivPapers(AlignmentDataset):
             vanity_wrapper = soup.find("div", class_="arxiv-vanity-wrapper")
             if vanity_wrapper is None:
                 return None
-            else:
-                vanity_wrapper = vanity_wrapper.text
-            if "don’t have to squint at a PDF" not in vanity_wrapper:
-                return True
+            vanity_wrapper = vanity_wrapper.text
+            return vanity_wrapper and "don’t have to squint at a PDF" not in vanity_wrapper
         if parser == 'ar5iv':
             ar5iv_error = soup.find("span", class_="ltx_ERROR")
             if ar5iv_error is None: 
@@ -122,11 +120,11 @@ class ArxivPapers(AlignmentDataset):
         """
         Check if markdown is a dud
         """
-        if ("Paper Not Renderable" in markdown) or ("This document may be truncated" in markdown):
-            return True
-        if "don’t have to squint at a PDF" not in markdown:
-            return True
-        return False
+        return (
+            "Paper Not Renderable" in markdown or 
+            "This document may be truncated" in markdown or 
+            "don’t have to squint at a PDF" not in markdown
+        )
     
     def _article_markdown_from_soup(self, soup):
         """
@@ -163,8 +161,7 @@ class ArxivPapers(AlignmentDataset):
             return None
         if not self._is_bad_soup(soup,parser=parser):
             return self._article_markdown_from_soup(soup)
-        else:
-            return None
+        return None
 
 
     def _get_arxiv_link(self, paper_id) -> str:
@@ -178,11 +175,9 @@ class ArxivPapers(AlignmentDataset):
         Strip markdown
         """
         bib = article_soup.find("section", id="bib")
-        if bib is None:
-            return article_soup
-        else:
+        if bib:
             bib.decompose()
-            return article_soup
+        return article_soup
         
     def _strip_markdown(self, s_markdown):
         return s_markdown.split("\nReferences\n")[0].replace("\n\n", "\n")
