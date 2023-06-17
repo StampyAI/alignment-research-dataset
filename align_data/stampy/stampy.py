@@ -22,12 +22,12 @@ class Stampy(AlignmentDataset):
         return table.to_dict() # a list of dicts
 
     def get_item_key(self, entry):
-        return entry.get('Question', '')
+        return entry['Question']
 
     def process_entry(self, entry):
         question = entry['Question'] # raise an error if the entry has no question
         answer = entry['Rich Text']
-        url = entry['Link']
+        url = url = 'https://aisafety.info?state=' + entry['UI ID']
         date_published = entry['Doc Last Edited']
 
         logger.info(f"Processing {question}")
@@ -40,6 +40,4 @@ class Stampy(AlignmentDataset):
             "authors": "n/a",
             "date_published": date_published,
             "text": answer,
-            "question": question,
-            "answer": answer,
         })
