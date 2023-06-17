@@ -21,15 +21,15 @@ def fetch_LW_tags(url):
         headers={'User-Agent': 'Mozilla /5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0'},
     )
     soup = BeautifulSoup(res.content, "html.parser")
-    container = soup.find('div', {'class': 'TagPage-description'}).find('table')
-    return {a.text.strip() for a in container.find_all('a') if '/tag/' in a.get('href')}
+    tags = soup.select('div.TagPage-description .table a')
+    return {a.text.strip() for a in tags if '/tag/' in a.get('href')}
 
 
 def fetch_ea_forum_topics(url):
     res = requests.get(url + '/topics/ai-safety')
     soup = BeautifulSoup(res.content, "html.parser")
-    container = soup.find('div', {'class': 'SidebarSubtagsBox-root'})
-    return {a.text.strip() for a in container.find_all('a') if '/topics/' in a.get('href', '')}
+    links = soup.select('div.SidebarSubtagsBox-root a')
+    return {a.text.strip() for a in links if '/topics/' in a.get('href', '')}
 
 
 def get_allowed_tags(url, name):
@@ -81,7 +81,7 @@ class GreaterWrong(AlignmentDataset):
     def get_item_key(self, item):
         return item['pageUrl']
 
-    def make_query(self, after):
+    def make_query(self, after: str):
         return """{
             posts(input: {
             terms: {
@@ -109,16 +109,14 @@ class GreaterWrong(AlignmentDataset):
                 voteCount
                 commentCount
                 wordCount
-                tags {
-                name
+                  tags {
+                  name
                 }
                 user {
-                username
-                displayName
+                  displayName
                 }
                 coauthors {
-                username
-                displayName
+                  displayName
                 }
                 af
                 htmlBody
@@ -126,7 +124,7 @@ class GreaterWrong(AlignmentDataset):
             }
         }"""
 
-    def fetch_posts(self, query):
+    def fetch_posts(self, query: str):
         res = requests.post(
             f'{self.base_url}/graphql',
             # The GraphQL endpoint returns a 403 if the user agent isn't set... Makes sense, but is annoying
@@ -158,6 +156,10 @@ class GreaterWrong(AlignmentDataset):
             time.sleep(self.COOLDOWN)
 
     def process_entry(self, item):
+        authors = item['coauthors']
+        if item['user']:
+            authors = [item['user']] + authors
+        authors = [a['displayName'] for a in authors]
         return DataEntry({
             'title': item['title'],
             'url': item['pageUrl'],
@@ -172,5 +174,5 @@ class GreaterWrong(AlignmentDataset):
             'words': item['wordCount'],
             'comment_count': item['commentCount'],
             # Some posts don't have authors, for some reaason
-            'authors': ([item['user']] if item['user'] else []) + item['coauthors'],
+            'authors': authors,
         })
