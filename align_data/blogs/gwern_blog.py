@@ -40,9 +40,7 @@ class GwernBlog(HTMLBlog):
 
         # Some pages are returned as markdown, some as HTML, so handle both
         if 'text/html' in article.headers.get('Content-Type'):
-            data_entry = super().process_entry(post_href)
-            data_entry['authors'] =  "Gwern Branwen"
-            return data_entry
+            return super().process_entry(post_href)
 
         return self._process_markdown(post_href, article)
 
@@ -55,7 +53,7 @@ class GwernBlog(HTMLBlog):
             "source": self.name,
             "url": post_href,
             "title": metadata.get('title'),
-            "authors": "Gwern Branwen",
+            "authors": self.authors,
             "date_published": date_published,
             "text": text,
         })

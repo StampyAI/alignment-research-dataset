@@ -22,23 +22,27 @@ BLOG_REGISTRY = [
         url="https://yudkowsky.net",
         strip=["^\s*Download as PDF\n"]
     ),
-    MediumBlog(name="deepmind.blog", url="https://deepmindsafetyresearch.medium.com/"),
-    GwernBlog(name="gwern_blog", url='https://www.gwern.net/'),
+    MediumBlog(name="deepmind.blog", url="https://deepmindsafetyresearch.medium.com/", authors=["DeepMind Safety Research"]),
+    GwernBlog(name="gwern_blog", url='https://www.gwern.net/', authors=["Gwern Branwen"]),
     ColdTakes(
         name="cold.takes",
         url="https://www.cold-takes.com/",
+        authors=['Holden Karnofsky'],
     ),
     GenerativeInk(
         name="generative.ink",
         url="https://generative.ink/posts/",
+        authors=['janus'],
     ),
     CaradoMoe(
         name="carado.moe",
         url='https://carado.moe/rss.xml',
+        authors=['Tamsin Leake'],
     ),
     MarkdownBlogs(
         name="waitbutwhy",
         gdrive_address="https://drive.google.com/uc?id=1z0kbDd8vDsgOH6vV9z0XBnTQutXFJ6x-",
+        authors=['Tim Urban'],
     ),
     SubstackBlog(
         name="import.ai",

@@ -57,4 +57,5 @@ class GDrive(GdocDataset):
             "text": text,
             "url": "n/a",
             "file_name": epub_file.name,
+            "authors": metadata['authors'],
         })
