@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Stampy(AlignmentDataset):
 
-    done_key = "question"
+    done_key = "title"
 
     @property
     def items_list(self):
@@ -27,7 +27,7 @@ class Stampy(AlignmentDataset):
     def process_entry(self, entry):
         question = entry['Question'] # raise an error if the entry has no question
         answer = entry['Rich Text']
-        url = url = 'https://aisafety.info?state=' + entry['UI ID']
+        url = 'https://aisafety.info?state=' + entry['UI ID']
         date_published = entry['Doc Last Edited']
 
         logger.info(f"Processing {question}")
