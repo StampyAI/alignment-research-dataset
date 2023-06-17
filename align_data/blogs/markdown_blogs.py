@@ -1,6 +1,7 @@
 import re
 import logging
 from dataclasses import dataclass
+from typing import List
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ class MarkdownBlogs(GdocDataset):
     and store the markdowns in Gdrive.
     """
 
+    authors: List[str]
     done_key = 'filename'
 
     def setup(self):
@@ -43,7 +45,7 @@ class MarkdownBlogs(GdocDataset):
             "source": self.name,
             "source_type": "markdown",
             "title": title,
-            "authors": "n/a",
+            "authors": self.authors,
             "date_published": str(date),
             "text": text,
             "url": "n/a",

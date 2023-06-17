@@ -65,6 +65,7 @@ class WordpressBlog(AlignmentDataset):
                     "source": self.name,
                     "date_published": "n/a",
                     "paged_url": paged_url,
+                    "authors": [e['name'] for e in entry.get('authors', [])],
                 })
                 new_entry.add_id()
 

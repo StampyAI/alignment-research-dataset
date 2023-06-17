@@ -2,8 +2,9 @@ import regex as re
 import time
 import logging
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urljoin
+from typing import List
 
 import requests
 import feedparser
@@ -23,6 +24,7 @@ class HTMLBlog(AlignmentDataset):
     url: str
     done_key = "url"
 
+    authors: List[str] = field(default_factory=list)
     title_selector = 'h2'
     item_selector = ['article']
     source_type = "blog"
@@ -32,6 +34,9 @@ class HTMLBlog(AlignmentDataset):
         ["", "\\n", ""],
         True,
     )
+
+    def extract_authors(self, article):
+        return self.authors
 
     def extract_title(self, article):
         title = article.find(self.title_selector)
@@ -67,6 +72,7 @@ class HTMLBlog(AlignmentDataset):
             "source": self.name,
             "source_type": "blog",
             "date_published": date_published,
+            "authors": self.extract_authors(contents),
         })
 
     def _get_contents(self, url):
@@ -100,6 +106,9 @@ class RSSBlog(HTMLBlog):
     @property
     def feed_url(self):
         return self.url
+
+    def extract_authors(self, item):
+        return [a['name'] for a in item.get('authors', []) if 'name' in a]
 
     @property
     def items_list(self):

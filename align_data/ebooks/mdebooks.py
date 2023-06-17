@@ -29,7 +29,7 @@ class MDEBooks(GdocDataset):
             "source": self.name,
             "source_type": "markdown",
             "title": title,
-            "authors": authors,
+            "authors": [a.strip() for a in authors.split(',')],
             "date_published": str(date),
             "text": text,
             "url": "n/a",
