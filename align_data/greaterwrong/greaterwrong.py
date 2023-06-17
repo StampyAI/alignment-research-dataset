@@ -162,7 +162,7 @@ class GreaterWrong(AlignmentDataset):
             'title': item['title'],
             'url': item['pageUrl'],
             'date_published': item['postedAt'],
-            'modifiedAt': item['modifiedAt'],
+            'modified_at': item['modifiedAt'],
             'text': markdownify(item['htmlBody']),
             "source": self.name,
             "source_type": "GreaterWrong",
@@ -170,5 +170,7 @@ class GreaterWrong(AlignmentDataset):
             'karma': item['baseScore'],
             'tags': [t['name'] for t in item['tags']],
             'words': item['wordCount'],
-            'authors': [item['user']] + item['coauthors'],
+            'comment_count': item['commentCount'],
+            # Some posts don't have authors, for some reaason
+            'authors': ([item['user']] if item['user'] else []) + item['coauthors'],
         })
