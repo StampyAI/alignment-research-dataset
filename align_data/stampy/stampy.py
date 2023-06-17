@@ -7,6 +7,7 @@ from align_data.stampy.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
 
 logger = logging.getLogger(__name__)
 
+import html
 
 @dataclass
 class Stampy(AlignmentDataset):
@@ -22,11 +23,11 @@ class Stampy(AlignmentDataset):
         return table.to_dict() # a list of dicts
 
     def get_item_key(self, entry):
-        return entry['Question']
+        return html.unescape(entry['Question'])
 
     def process_entry(self, entry):
-        question = entry['Question'] # raise an error if the entry has no question
-        answer = entry['Rich Text']
+        question = html.unescape(entry['Question']) # raise an error if the entry has no question
+        answer = html.unescape(entry['Rich Text'])
         url = 'https://aisafety.info?state=' + entry['UI ID']
         date_published = entry['Doc Last Edited']
 
