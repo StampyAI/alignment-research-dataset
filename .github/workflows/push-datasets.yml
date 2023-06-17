@@ -10,17 +10,18 @@ on:
         options:
           - all
           - agentmodels
-          - aiimpacts.org
-          - aipulse.org
+          - aiimpacts
+          - aipulse
           - aisafety.camp
+          - aisafety.info
           - alignmentforum
           - alignment_newsletter
           - arbital
-          - arxiv_papers
+          - arxiv
           - audio_transcripts
           - carado.moe
-          - cold.takes
-          - deepmind.blog
+          - cold_takes
+          - deepmind_blog
           - distill
           - eaforum
           - gdocs
@@ -28,18 +29,17 @@ on:
           - generative.ink
           - gwern_blog
           - import.ai
-          - intelligence.org
-          - jsteinhardt.wordpress.com
+          - miri
+          - jsteinhardt_blog
           - lesswrong
           - markdown.ebooks
-          - ml.safety.newsletter
+          - ml_safety_newsletter
           - nonarxiv_papers
-          - qualiacomputing.com
+          - qualiacomputing
           - reports
-          - stampy
-          - vkrakovna.wordpress.com
+          - vkrakovna_blog
           - waitbutwhy
-          - yudkowsky.net
+          - yudkowsky_blog
 
 jobs:
   upload:

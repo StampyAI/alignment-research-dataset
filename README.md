@@ -7,31 +7,35 @@ The AI Alignment Research Dataset is a collection of documents related to AI Ali
 The following list of sources may change and items may be renamed:
 
 - [agentmodels](https://agentmodels.org/)
-- [aiimpacts.org](https://aiimpacts.org/)
+- [aiimpacts](https://aiimpacts.org/)
 - [aisafety.camp](https://aisafety.camp/)
+- [aisafety.info](https://aisafety.info/)
+- [alignmentforum](https://www.alignmentforum.org)
+- [alignment_newsletter](https://rohinshah.com/alignment-newsletter/)
 - [arbital](https://arbital.com/)
-- arxiv_papers - alignment research papers from [arxiv](https://arxiv.org/)
+- arxiv - alignment research papers from [arxiv](https://arxiv.org/)
 - audio_transcripts - transcripts from interviews with various researchers and other audio recordings
 - [carado.moe](https://carado.moe/)
-- [cold.takes](https://www.cold-takes.com/)
-- [deepmind.blog](https://deepmindsafetyresearch.medium.com/)
+- [cold_takes](https://www.cold-takes.com/)
+- [deepmind_blog](https://deepmindsafetyresearch.medium.com/)
 - [distill](https://distill.pub/)
 - [eaforum](https://forum.effectivealtruism.org/) - selected posts
 - gdocs
 - gdrive_ebooks - books include [Superintelligence](https://www.goodreads.com/book/show/20527133-superintelligence), [Human Compatible](https://www.goodreads.com/book/show/44767248-human-compatible), [Life 3.0](https://www.goodreads.com/book/show/34272565-life-3-0), [The Precipice](https://www.goodreads.com/book/show/50485582-the-precipice), and others
 - [generative.ink](https://generative.ink/posts/)
 - [gwern_blog](https://gwern.net/)
-- [intelligence.org](https://intelligence.org/) - MIRI
-- [jsteinhardt.wordpress.com](https://jsteinhardt.wordpress.com/)
+- import.ai
+- [jsteinhardt_blog](https://jsteinhardt.wordpress.com/)
 - [lesswrong](https://www.lesswrong.com/) - selected posts
 - markdown.ebooks
+- [miri](https://intelligence.org/) - MIRI
+ml_safety_newsletter
 - nonarxiv_papers - other alignment research papers
-- [qualiacomputing.com](https://qualiacomputing.com/)
+- [qualiacomputing](https://qualiacomputing.com/)
 - reports
-- [stampy](https://aisafety.info/)
-- [vkrakovna.wordpress.com](https://vkrakovna.wordpress.com)
+- [vkrakovna_blog](https://vkrakovna.wordpress.com)
 - [waitbutwhy](https://waitbutwhy.com/)
-- [yudkowsky.net](https://www.yudkowsky.net/)
+- [yudkowsky_blog](https://www.yudkowsky.net/)
 
 ## Keys
 
