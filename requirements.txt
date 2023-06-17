@@ -7,8 +7,6 @@ gdown
 feedparser
 html2text
 markdownify
-selenium
-webdriver_manager
 GitPython
 pypandoc
 epub_meta

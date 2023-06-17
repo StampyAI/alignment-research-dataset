@@ -1,4 +1,4 @@
-name: Fetch Alignment Research Dataset
+name: Synch uploaded jsonl files to HuggingFace
 
 on:
   workflow_dispatch: # allow manual triggering
@@ -6,18 +6,23 @@ on:
       datasource:
         description: 'The datasource to process'
         type: choice
+        default: all
         options:
+          - all
           - agentmodels
           - aiimpacts.org
           - aipulse.org
           - aisafety.camp
+          - alignmentforum
           - alignment_newsletter
           - arbital
+          - arxiv_papers
           - audio_transcripts
           - carado.moe
           - cold.takes
           - deepmind.blog
           - distill
+          - eaforum
           - gdocs
           - gdrive_ebooks
           - generative.ink
@@ -25,6 +30,7 @@ on:
           - import.ai
           - intelligence.org
           - jsteinhardt.wordpress.com
+          - lesswrong
           - markdown.ebooks
           - ml.safety.newsletter
           - nonarxiv_papers
@@ -36,7 +42,7 @@ on:
           - yudkowsky.net
 
 jobs:
-  build-dataset:
+  upload:
     runs-on: ubuntu-latest
 
     steps:
@@ -51,17 +57,8 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Fetch dataset
-      run: python main.py fetch -d ${{ inputs.datasource }}
+    - name: Setup Huggingface client
+      run: pip install huggingface_hub
 
-  upload:
-    runs-on: ubuntu-latest
-    needs: build-dataset
-
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Setup Huggingface client
-        run: pip install huggingface_hub
-
-      - name: Upload file
-        run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
+    - name: Upload files
+      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
