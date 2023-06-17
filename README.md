@@ -1,6 +1,6 @@
 # AI Alignment Research Dataset
 
-The AI Alignment Research Dataset is a collection of documents related to AI Alignment and Safety from various books, research papers, and alignment related blog posts. This is a work in progress. Components are still undergoing a cleaning process to be updated more regularly. The most current version is available on [HuggingFace StampyAI/alignment-research-dataset](https://huggingface.co/datasets/StampyAI/alignment-research-dataset). This repository is the code to reproduce it. 
+The AI Alignment Research Dataset is a collection of documents related to AI Alignment and Safety from various books, research papers, and alignment related blog posts. This is a work in progress. Components are still undergoing a cleaning process to be updated more regularly. The most current version is available on [HuggingFace StampyAI/alignment-research-dataset](https://huggingface.co/datasets/StampyAI/alignment-research-dataset). This repository is the code to reproduce it.
 
 ## Sources
 
@@ -65,7 +65,7 @@ python main.py list
 To scrape an individual dataset:
 
 ```bash
-python main.py fetch -d {dataset}
+python main.py fetch {dataset}
 ```
 
 ## New Datasets
