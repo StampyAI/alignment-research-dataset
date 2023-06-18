@@ -52,7 +52,14 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Fetch dataset
-      run: python main.py fetch -d ${{ inputs.datasource }}
+      run: python main.py fetch ${{ inputs.datasource }}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ inputs.datasource }}
+        path: data/${{ inputs.datasource }}.jsonl
+        retention-days: 1
 
   upload:
     runs-on: ubuntu-latest
@@ -60,8 +67,22 @@ jobs:
 
     if: github.ref == 'refs/heads/main'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
       - name: Setup Huggingface client
-        run: pip install huggingface_hub
+        run: pip install huggingface_hub gdown jsonlines
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ inputs.datasource }}
+          path: data/
 
       - name: Upload file
         run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
