@@ -1,94 +1,31 @@
 from dataclasses import dataclass
-from bs4 import BeautifulSoup
-from markdownify import MarkdownConverter
-import os
-import re
-import logging
-from tqdm import tqdm
-from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
+from markdownify import markdownify
+from align_data.common.html_dataset import RSSDataset
 
-logger = logging.getLogger(__name__)
 
 @dataclass
-class Distill(AlignmentDataset):
+class Distill(RSSDataset):
+    source_type = 'html'
 
-    done_key = 'filename'
+    def extract_authors(self, item):
+        return [a.text for a in item['soup'].select('.authors-affiliations p.author a')]
 
-    def setup(self):
-        super().setup()
-        self.files_path = self.raw_data_path / "distill_posts"
+    def _get_text(self, item):
+        article = item['soup'].find('d-article') or item['soup'].find('dt-article')
+        return self._extract_markdown(article)
 
-    @property
-    def items_list(self):
-        return self.files_path.glob('*')
+    def _extra_values(self, item):
+        soup = item['soup']
 
-    def process_entry(self, filename):
-        html = filename.read_text()
-        soup = BeautifulSoup(html, "html.parser")
-        title = soup.find("title").text
-        # find anything with the property 'article:author'
-        authors = soup.find_all("meta", {"property": "article:author"})
-        # then for each author, get the content
-        authors = [author.get("content") for author in authors]
+        doi_elem = soup.find('h3', string='DOI')
+        doi_elem = doi_elem and doi_elem.find_next_sibling('p')
 
-        # same for dates
-        date = soup.find("meta", {"property": "article:published"})
-        # if content in date is not None, then get the content
-        date_published = date.get("content") if date is not None else None
-
-        # find the href with doi in it
-        doi = soup.find_all("a", {"href": True})
-        doi = [link.get("href") for link in doi if "doi" in link.get("href")]
-        doi = doi[0] if len(doi) > 0 else None
-
-        # the body is in the tag d-article
-        body = soup.find("d-article")
-        if body is None: body = soup.find("dt-article")
-
-
-        # the abstract is the first ptag in the body
-        try:
-            abstract = body.find("p").text.replace("\n", " ")
-        except:
-            abstract = ""
-            pass
-
-        md = MarkdownConverter()
-        markdown_text = md.convert_soup(body)
-        body = markdown_text
-
-        # pull the ol with class references out of the soup
-        references = soup.find("ol", {"class": "references"})
-        if references:
-            # for each reference li, get the the span with the class title
-            references = [
-                {"title": reference.find("span", {"class": "title"}).text}
-                for reference in references.find_all("li")
+        return {
+            'doi': doi_elem and doi_elem.text,
+            'summary': item['summary'],
+            'journal_ref': 'distill-pub',
+            'bibliography': [
+                {'title': el.find('span').text, 'link': el.find('a').get('href')}
+                for el in soup.select('.references li') if el.find('a')
             ]
-            # walk through each li in the references ol, and if it has an a with href, add it to the dict
-            for idx in range(len(references)):
-                reference = references[idx]
-                if reference.get("a") is not None:
-                    reference["link"] = reference.get("a").get("href")
-                references[idx] = reference
-        else:
-            references = None
-
-        body = "".join(word for word in re.split("(\n)", body) if len(word) <= 80)
-        body = re.sub(r"(?<!\n)\n(?!\n)|\n{3,}", "\n\n", body)
-
-        return DataEntry({
-            "url": "n/a",
-            "source": self.name,
-            "source_type": "html",
-            "converted_with": "python",
-            "title": title,
-            "authors": authors,
-            "date_published": str(date_published),
-            "abstract": abstract,
-            "journal_ref": "distill-pub",
-            "doi": doi,
-            "text": body,
-            "bibliography_bib": references,
-            'filename': filename.name
-        })
+        }
