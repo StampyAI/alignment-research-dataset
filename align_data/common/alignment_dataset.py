@@ -2,7 +2,7 @@ import time
 import hashlib
 import os
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, KW_ONLY
 from collections import UserDict
 from contextlib import contextmanager
 from functools import partial
@@ -44,7 +44,15 @@ class AlignmentDataset:
     """The path where data can be found. Usually a folder"""
 
     done_key = 'id'
+
     """The key of the entry to use as the id when checking if already processed."""
+    # Used to extract summaries - if `source_key` is set, the class will be deemed to collect summaries of other
+    # articles.
+    source_key = None
+    """The key of the entry to use as an identifier of the article which it's summarizing - should be an URL"""
+    summary_key = None
+    """The key of the entry containing the summary contents. This is used both to get the summary, but also where
+    it should be put in the target entry."""
 
     glob = '*.md'
     """How to identify files to be processed when going through a folder for files"""
@@ -109,6 +117,29 @@ class AlignmentDataset:
         with jsonlines.open(self.jsonl_path, mode=write_mode) as jsonl_writer:
             with open(self.txt_path, mode=write_mode) as text_writer:
                 yield partial(self.write_entry, jsonl_writer=jsonl_writer, text_writer=text_writer)
+
+    def read_entries(self):
+        """Iterate through all the saved entries."""
+        with jsonlines.open(self.jsonl_path) as f:
+            for line in f:
+                yield line
+
+    def merge_summaries(self, summaries):
+        if not self.summary_key or not self.jsonl_path.exists():
+            return
+
+        updated = 0
+        tmp_file = self.jsonl_path.parent / f'{self.jsonl_path.name}-tmp'
+        with jsonlines.open(tmp_file, 'w') as writer:
+            for line in self.read_entries():
+                url = line.get('url')
+                summary = summaries.get(url, {})
+                line[self.summary_key] = summary
+                updated += bool(summary)
+                writer.write(line)
+
+        logger.info('Updated %s summaries for %s', updated, self.name)
+        tmp_file.rename(self.jsonl_path)
 
     def setup(self):
         self._outputted_items = self._load_outputted_items()

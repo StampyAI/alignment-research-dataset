@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class NonarxivPapers(GdocDataset):
 
+    summary_key = 'summary'
     done_key = "filename"
     glob = "*.xml"
 

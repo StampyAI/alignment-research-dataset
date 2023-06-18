@@ -63,6 +63,7 @@ class GreaterWrong(AlignmentDataset):
 
     limit = 50
     COOLDOWN_TIME : float = 0.5
+    summary_key: str = 'summary'
     done_key = "url"
     lazy_eval = True
 

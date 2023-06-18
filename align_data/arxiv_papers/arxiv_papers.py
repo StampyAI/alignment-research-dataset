@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ArxivPapers(AlignmentDataset):
+    summary_key: str = 'summary'
     COOLDOWN: int = 1
     done_key = "url"
 

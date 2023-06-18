@@ -1,14 +1,23 @@
-from dataclasses import dataclass
 import os
 import fire
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Union
-import align_data
+from align_data import ALL_DATASETS, DATASET_REGISTRY, get_dataset
 from align_data.analysis.count_tokens import count_token
 
 # import logging , sys
 
 # logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+
+def load_file(summaries, dataset):
+    for line in dataset.read_entries():
+        url = line.get(dataset.source_key)
+        summary = line.get(dataset.summary_key)
+        if url and summary:
+            summaries[url][dataset.name] = summary
+    return summaries
 
 
 @dataclass
@@ -19,7 +28,7 @@ class AlignmentDataset:
 
     def list(self) -> List[str]:
         """Returns a list of all the datasets"""
-        return sorted(align_data.ALL_DATASETS)
+        return sorted(ALL_DATASETS)
 
     def fetch(self, name, rebuild=False) -> None:
         """
@@ -29,8 +38,8 @@ class AlignmentDataset:
         :param bool rebuild: Whether to remove the previous build before running
         :return: The path to the file that was written to.
         """
-        assert name in align_data.ALL_DATASETS, f"{name} is not a valid dataset name"
-        dataset = align_data.get_dataset(name)
+        assert name in ALL_DATASETS, f"{name} is not a valid dataset name"
+        dataset = get_dataset(name)
 
         if rebuild:
             dataset.jsonl_path.unlink(missing_ok=True)
@@ -50,11 +59,33 @@ class AlignmentDataset:
         :param bool rebuild: Whether to remove the previous build before running
         :return: The path to the merged file.
         """
-        for name in align_data.ALL_DATASETS:
+        for name in ALL_DATASETS:
             print(name)
             self.fetch(name, rebuild)
 
         return None  #merge_all_files(out_dir = self.out_path)
+
+    def merge_summaries(self, *names):
+        """Update all source materials with summaries if they have any.
+
+        Some datasets are actual alignment content, e.g. arXiv articles, while other datasets are mainly
+        summaries of other articles, e.g. the alignment newsletter. This command merges the two, adding all
+        summaries to all found entries. In theory it's possible for a single article to have multiple different
+        summaries, therefore the summaries are added as a dict of <source>: <summary>
+        """
+        summaries = defaultdict(lambda: dict())
+        for dataset in DATASET_REGISTRY:
+            if dataset.source_key and dataset.summary_key:
+                summaries = load_file(summaries, dataset)
+
+        if names:
+            datasets = [get_dataset(name) for name in names]
+        else:
+            datasets = DATASET_REGISTRY
+
+        for dataset in datasets:
+            if not dataset.source_key and dataset.summary_key:
+                dataset.merge_summaries(summaries)
 
     def count_tokens(self, merged_dataset_path: str) -> None:
         """

@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Arbital(AlignmentDataset):
+    summary_key: str = 'summary'
 
     ARBITAL_SUBSPACES = ['ai_alignment', 'math', 'rationality']
     done_key = "alias"

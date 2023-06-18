@@ -25,6 +25,8 @@ class HTMLBlog(AlignmentDataset):
     done_key = "url"
 
     authors: List[str] = field(default_factory=list)
+    summary_key = 'summary'
+
     title_selector = 'h2'
     item_selector = ['article']
     source_type = "blog"

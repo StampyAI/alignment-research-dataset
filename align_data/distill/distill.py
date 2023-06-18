@@ -6,6 +6,8 @@ from align_data.common.html_dataset import RSSDataset
 @dataclass
 class Distill(RSSDataset):
     source_type = 'html'
+    done_key = 'filename'
+    summary_key = 'summary'
 
     def extract_authors(self, item):
         return [a.text for a in item['soup'].select('.authors-affiliations p.author a')]
