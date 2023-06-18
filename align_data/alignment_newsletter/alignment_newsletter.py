@@ -47,7 +47,7 @@ class AlignmentNewsletter(AlignmentDataset):
             "prerequisites": str(row.Prerequisites),
             "read_more": str(row[13]),
             "title": str(row.Title),
-            "authors": str(row.Authors),
+            "authors": [i.strip() for i in str(row.Authors).split(',')],
             "date_published": 'n/a' if pd.isna(row.Year) else str(int(row.Year)),
             "text": str(row.Summary),
         })
