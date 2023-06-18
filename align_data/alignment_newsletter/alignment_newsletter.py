@@ -6,7 +6,6 @@ import pandas as pd
 
 from dataclasses import dataclass
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AlignmentNewsletter(AlignmentDataset):
 
-    COOLDOWN: int = 1
     done_key = "title"
 
     def setup(self) -> None:
@@ -36,7 +34,7 @@ class AlignmentNewsletter(AlignmentDataset):
         summarizer, opinion, prerequisites, read_more, title, authors, date_published, text
         """
         return DataEntry({
-            "url": "https://rohinshah.com/alignment-newsletter/",
+            "url": row.URL or 'n/a',
             "source": self.name,
             "converted_with": "python",
             "source_type": "google-sheets",
@@ -50,6 +48,6 @@ class AlignmentNewsletter(AlignmentDataset):
             "read_more": str(row[13]),
             "title": str(row.Title),
             "authors": str(row.Authors),
-            "date_published": row.Year,
+            "date_published": 'n/a' if pd.isna(row.Year) else str(int(row.Year)),
             "text": str(row.Summary),
         })
