@@ -1,3 +1,4 @@
+from datetime import datetime
 from calendar import c
 from dataclasses import dataclass, field
 import logging
@@ -37,6 +38,10 @@ class WordpressBlog(AlignmentDataset):
     def items_list(self):
         return [f"{self.feed_url}?paged={page + 1}" for page in range(0, self.max_pages)]
 
+    @staticmethod
+    def _get_published_date(item):
+        return datetime.strptime(item['published'], '%a, %d %b %Y %H:%M:%S %z').isoformat()
+
     def fetch_entries(self):
         last_title = ""
         for paged_url in self.unprocessed_items():
@@ -60,10 +65,11 @@ class WordpressBlog(AlignmentDataset):
 
                 new_entry = DataEntry({
                     "text": text,
-                    "url": self.url,
+                    "url": entry['link'],
                     "title": text.split("\n")[0],
                     "source": self.name,
-                    "date_published": "n/a",
+                    "source_type": "wordpress",
+                    "date_published": self._get_published_date(entry),
                     "paged_url": paged_url,
                     "authors": [e['name'] for e in entry.get('authors', [])],
                 })

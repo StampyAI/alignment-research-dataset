@@ -36,7 +36,7 @@ BLOG_REGISTRY = [
     ),
     CaradoMoe(
         name="carado.moe",
-        url='https://carado.moe/rss.xml',
+        url='https://carado.moe',
         authors=['Tamsin Leake'],
     ),
     MarkdownBlogs(

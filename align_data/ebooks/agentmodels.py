@@ -17,11 +17,20 @@ class AgentModels(AlignmentDataset):
     done_key = "title"
 
     def setup(self):
-        base_dir = self.raw_data_path / 'agentmodels.org'
-        if not base_dir.exists():
+        self.base_dir = self.raw_data_path / 'agentmodels.org'
+        if not self.base_dir.exists():
             logger.info("Cloning repo")
-            Repo.clone_from(self.repo, base_dir)
-        self.files_path = base_dir / 'chapters'
+            Repo.clone_from(self.repo, self.base_dir)
+        self.repository = Repo(self.base_dir)
+        self.files_path = self.base_dir / 'chapters'
+
+    def _get_published_date(self, filename):
+        try:
+            last_commit = next(self.repository.iter_commits(paths=f'chapters/{filename.name}'))
+            return last_commit.committed_datetime.isoformat()
+        except Exception as e:
+            logger.error(f'Error getting last modification date for {filename.name}: {e}')
+        return "2016-01-08T10:50:56-8:00"  # date of the initial commit
 
     def process_entry(self, filename):
         return DataEntry({
@@ -30,8 +39,8 @@ class AgentModels(AlignmentDataset):
             'converted_with': 'not converted',
             'book_title': 'Modeling Agents with Probabilistic Programs',
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
-            'date_published': '2016',
+            'date_published': self._get_published_date(filename),
             'title': filename.name,
-            'url': self.repo,
+            'url': f'{self.repo[:-4]}/blob/gh-pages/chapters/{filename.name}',
             'text': filename.read_text(),
         })
