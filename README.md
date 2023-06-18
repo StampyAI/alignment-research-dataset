@@ -56,16 +56,30 @@ cd alignment-research-dataset
 pip install -r requirements.txt
 ```
 
+The available CLI options are list, fetch, fetch-all, and count-tokens.
+
 To get a list of all available datasets:
 
-```bash
+```sh
 python main.py list
 ```
 
-To scrape an individual dataset:
+To fetch a specific dataset, replace [DATASET_NAME] with the name of the dataset you want to fetch. The optional `--rebuild` parameter allows you to remove the previous build before running, scraping everything from scratch. Otherwise, only the new files will be scraped.
 
-```bash
-python main.py fetch {dataset}
+```sh
+python main.py fetch [DATASET_NAME] --rebuild
+```
+
+The command to fetch all datasets is below. Again, the optional `--rebuild` parameter allows you to scrape everything from scratch.
+
+```sh
+python main.py fetch-all --rebuild
+```
+
+To get a summary of the merged dataset, Replace [MERGED_DATASET_PATH] with the path to the merged dataset file.
+
+```sh
+python main.py count-tokens [MERGED_DATASET_PATH]
 ```
 
 ## New Datasets
@@ -111,7 +125,7 @@ There are Datasets defined for various types of data sources - first check if an
 
 ## Contributing
 
-The this scraper code and dataset is maintained by volunteers at StampyAI / AI Safety Info. [Learn more](https://coda.io/d/AI-Safety-Info_dfau7sl2hmG/Get-involved_susRF#_lufSr) or join us on [Rob Miles AI Discord server](https://discord.gg/vjFSCDyMCy).
+The scraper code and dataset are maintained by [StampyAI](http://stampy.ai) / [AI Safety Info](http://aisafety.info). [Learn more](https://coda.io/d/AI-Safety-Info_dfau7sl2hmG/Get-involved_susRF#_lufSr) or join us on [Rob Miles AI Discord server](https://discord.gg/vjFSCDyMCy).
 
 ## Citing the Dataset
 
