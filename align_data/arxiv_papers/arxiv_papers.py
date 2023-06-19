@@ -38,8 +38,8 @@ class ArxivPapers(AlignmentDataset):
         """
         try:
             search = arxiv.Search(id_list=[paper_id], max_results=1)
-        except Exception as e:
-            logger.error(e)
+        except ConnectionResetError as e:
+            logger.error(f'{e}')
             return None
         return next(search.results())
 
@@ -64,8 +64,8 @@ class ArxivPapers(AlignmentDataset):
             markdown = self.process_id(ids)
             try:
                 paper = self._get_arxiv_metadata(ids)
-            except Exception as e:
-                logger.error(e)
+            except ConnectionResetError as e:
+                logger.error(f'{e}')
                 paper = None
             if markdown is None or paper is None:
                 logger.info(f"Skipping {ids}")
@@ -149,15 +149,15 @@ class ArxivPapers(AlignmentDataset):
         logger.info(f"Fetching {link}")
         try:
             r = requests.get(link, timeout=5 * self.COOLDOWN)
-        except Exception as e:
-            logger.error(e)
+        except ValueError as e:
+            logger.error(f'{e}')
             return None
         if "//arxiv.org" in r.url:
             return None
         try:
             soup = BeautifulSoup(r.content, features="xml")
-        except Exception as e:
-            logger.error(e)
+        except ValueError as e:
+            logger.error(f'{e}')
             return None
         if not self._is_bad_soup(soup,parser=parser):
             return self._article_markdown_from_soup(soup)
