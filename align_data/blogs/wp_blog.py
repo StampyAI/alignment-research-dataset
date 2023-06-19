@@ -17,6 +17,7 @@ class WordpressBlog(AlignmentDataset):
     url: str
     strip: List = field(default_factory=lambda: [])
     max_pages: int = 2000
+    summary_key = 'summary'
     done_key = 'paged_url'
 
     def setup(self):

@@ -15,6 +15,9 @@ class AlignmentNewsletter(AlignmentDataset):
 
     done_key = "title"
 
+    source_key = 'url'
+    summary_key = 'text'
+
     def setup(self) -> None:
         super().setup()
         self.newsletter_xlsx_path = self.raw_data_path / "alignment_newsletter.xlsx"

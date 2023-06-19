@@ -11,25 +11,29 @@ on:
           - aiimpacts
           - aipulse
           - aisafety.camp
+          - aisafety.info
+          - alignmentforum
+          - alignment_newsletter
           - arbital
           - audio_transcripts
           - carado.moe
           - cold_takes
           - deepmind_blog
           - distill
+          - eaforum
           - gdocs
           - gdrive_ebooks
           - generative.ink
           - gwern_blog
-          - import.ai
+          - importai
           - miri
           - jsteinhardt_blog
+          - lesswrong
           - markdown.ebooks
           - ml_safety_newsletter
           - nonarxiv_papers
           - qualiacomputing
           - reports
-          - aisafety.info
           - vkrakovna_blog
           - waitbutwhy
           - yudkowsky_blog
