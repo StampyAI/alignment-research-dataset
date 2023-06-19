@@ -28,7 +28,7 @@ on:
           - gdrive_ebooks
           - generative.ink
           - gwern_blog
-          - import.ai
+          - importai
           - miri
           - jsteinhardt_blog
           - lesswrong

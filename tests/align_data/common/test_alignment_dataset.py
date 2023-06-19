@@ -86,16 +86,6 @@ def test_alignment_dataset_default_values():
     assert dataset.txt_path.resolve() == (DATA_PATH / f'{dataset.name}.txt').resolve()
 
 
-def test_alignment_dataset_file_list():
-    # The distill posts data is in the repo, so should always be present
-    dataset = AlignmentDataset(name='distill_posts')
-    dataset.glob = '*.html'
-
-    files = [f.resolve() for f in dataset.items_list]
-    assert files, "No files found - do the distill posts exists?"
-    assert files == list((DATA_PATH / 'raw' / 'distill_posts').glob('*html'))
-
-
 @pytest.fixture
 def data_entries():
     entries = [

@@ -45,7 +45,7 @@ BLOG_REGISTRY = [
         authors=['Tim Urban'],
     ),
     SubstackBlog(
-        name="import.ai",
+        name="importai",
         url="https://importai.substack.com"
     ),
     SubstackBlog(

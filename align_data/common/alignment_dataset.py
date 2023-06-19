@@ -2,7 +2,7 @@ import time
 import hashlib
 import os
 import logging
-from dataclasses import dataclass, KW_ONLY
+from dataclasses import dataclass
 from collections import UserDict
 from contextlib import contextmanager
 from functools import partial

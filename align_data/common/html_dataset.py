@@ -2,7 +2,7 @@ import regex as re
 import time
 import logging
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, KW_ONLY
 from urllib.parse import urljoin
 from typing import List
 
@@ -26,6 +26,10 @@ class HTMLDataset(AlignmentDataset):
     done_key = "url"
 
     authors: List[str] = field(default_factory=list)
+    _: KW_ONLY
+    source_key: str = None
+    summary_key: str = None
+
     title_selector = 'h2'
     item_selector = ['article']
     source_type = "blog"

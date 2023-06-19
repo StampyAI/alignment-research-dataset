@@ -50,16 +50,19 @@ class AlignmentDataset:
 
         return dataset.jsonl_path
 
-    def fetch_all(self, rebuild=False) -> str:
+    def fetch_all(self, rebuild=False, skip='') -> str:
         """
         It downloads all the datasets, moves the alignment_newsletter.jsonl file to the processed
         folder, deletes the alignment_newsletter.jsonl file, adds the alignment_newsletter_summaries to
         the datasets, and merges all the files
 
         :param bool rebuild: Whether to remove the previous build before running
+        :params str|tuple skip: a comma separated list of datasources to be skipped
         :return: The path to the merged file.
         """
         for name in ALL_DATASETS:
+            if name in skip:
+                continue
             print(name)
             self.fetch(name, rebuild)
 
