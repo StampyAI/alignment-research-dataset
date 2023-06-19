@@ -137,7 +137,7 @@ class AlignmentDataset:
             for line in self.read_entries():
                 url = line.get('url')
                 summary = summaries.get(url, {})
-                line[self.summary_key] = summary
+                line[self.summary_key] += list(summary.values())
                 updated += bool(summary)
                 writer.write(line)
 
