@@ -52,6 +52,9 @@ class AlignmentDataset:
     COOLDOWN = 0
     """An optional cool down between processing entries"""
 
+    lazy_eval = False
+    """Whether to lazy fetch items. This is nice in that it will start processing, but messes up the progress bar."""
+
     # Internal housekeeping variables
     _entry_idx = 0
     """Used internally for writing debugging info - each file write will increment it"""
@@ -142,7 +145,13 @@ class AlignmentDataset:
         def not_processed(item):
             return self.get_item_key(item) not in self._outputted_items
 
-        return tqdm(list(filter(not_processed, items or self.items_list)))
+        filtered = filter(not_processed, items or self.items_list)
+
+        # greedily fetch all items if not lazy eval. This makes the progress bar look nice
+        if not self.lazy_eval:
+            filtered = list(filtered)
+
+        return tqdm(filtered)
 
     def fetch_entries(self):
         """Get all entries to be written to the file."""

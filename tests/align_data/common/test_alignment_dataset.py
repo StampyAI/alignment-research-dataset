@@ -25,7 +25,7 @@ def test_data_entry_id_from_text():
 
     assert entry == dict({
         'date_published': None,
-        'id': 'ea36fcd25d96821e1455adec6e5d9a3a',
+        'id': '457c21e0ecabebcb85c12022d481d9f4',
         'source': None,
         'title': None,
         'url': None,
@@ -46,7 +46,7 @@ def test_data_entry_none_text():
 
 
 def test_data_entry_verify_id_passes():
-    entry = DataEntry({'text': 'once upon a time', 'id': 'ea36fcd25d96821e1455adec6e5d9a3a'})
+    entry = DataEntry({'text': 'once upon a time', 'id': '457c21e0ecabebcb85c12022d481d9f4'})
     entry._verify_id()
 
 
@@ -58,8 +58,8 @@ def test_data_entry_verify_id_passes():
     ({'id': '123', 'text': None}, 'Entry is missing text'),
 
     ({'id': '123', 'text': 'winter wonderland'}, 'Entry id does not match text'),
-    ({'id': 'ea36fcd25d96821e1455adec6e5d9a3a', 'text': 'winter wonderland'}, 'Entry id does not match text'),
-    ({'id': 'ea36fcd25d96821e1455adec6e5d9a3a', 'text': 'Once upon a time'}, 'Entry id does not match text'),
+    ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'text': 'winter wonderland'}, 'Entry id does not match text'),
+    ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'text': 'Once upon a time'}, 'Entry id does not match text'),
 ))
 def test_data_entry_verify_id_fails(data, error):
     entry = DataEntry(data)
@@ -91,7 +91,7 @@ def test_alignment_dataset_file_list():
     dataset = AlignmentDataset(name='distill_posts')
     dataset.glob = '*.html'
 
-    files = [f.resolve() for f in dataset.file_list]
+    files = [f.resolve() for f in dataset.items_list]
     assert files, "No files found - do the distill posts exists?"
     assert files == list((DATA_PATH / 'raw' / 'distill_posts').glob('*html'))
 
