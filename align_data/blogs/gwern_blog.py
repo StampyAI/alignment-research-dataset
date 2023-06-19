@@ -3,13 +3,13 @@ import logging
 from dataclasses import dataclass
 
 from align_data.common.alignment_dataset import DataEntry
-from align_data.blogs.html_blog import HTMLBlog
+from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class GwernBlog(HTMLBlog):
+class GwernBlog(HTMLDataset):
     """
     Fetches articles from a different blog by collecting links to articles from an index page.
     """

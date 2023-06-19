@@ -46,11 +46,11 @@ class Arbital(AlignmentDataset):
         return DataEntry({
             'title': page['title'] if 'title' in page else 'n/a',
             'text': page['text'] if 'text' in page else 'n/a',
-            'date_published': page['pageCreatedAt'] if 'pageCreatedAt' in page else 'n/a',
-            'url': 'n/a',
+            'date_published': page.get('editCreatedAt') or page.get('pageCreatedAt') or 'n/a',
+            'url': f'https://arbital.com/p/{page["alias"]}',
             'source': self.name,
             'source_filetype': 'text',
-            'authors': 'n/a',
+            'authors': [],
             'alias': alias,
         })
 

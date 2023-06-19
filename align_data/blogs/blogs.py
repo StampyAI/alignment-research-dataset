@@ -1,11 +1,12 @@
 import regex as re
 from dataclasses import dataclass
+from markdownify import markdownify
 from align_data.common import utils
-from align_data.blogs.html_blog import HTMLBlog, RSSBlog
+from align_data.common.html_dataset import HTMLDataset, RSSDataset
 
 
 @dataclass
-class ColdTakes(HTMLBlog):
+class ColdTakes(HTMLDataset):
     title_selector = 'h2'
     item_selector = ['article']
 
@@ -22,7 +23,7 @@ class ColdTakes(HTMLBlog):
         return header.find('time').get('datetime')
 
 
-class GenerativeInk(HTMLBlog):
+class GenerativeInk(HTMLDataset):
     title_selector = 'h3'
     item_selector = ['div', {'class': 'post'}]
 
@@ -34,20 +35,8 @@ class GenerativeInk(HTMLBlog):
         return self._find_date(possible_date_elements)
 
 
-class CaradoMoe(RSSBlog):
-    @staticmethod
-    def _get_text(contents):
+class CaradoMoe(RSSDataset):
+    def _get_text(self, item):
+        contents = item['soup']
         meta = contents.find('p', {'class': 'postmeta'})
-        return meta.find_next_sibling('div').text
-
-    @staticmethod
-    def _get_published_date(contents):
-        meta = contents.find('p', {'class': 'postmeta'})
-        date = re.search('\d{4}-\d{2}-\d{2}', meta.text)
-        if date:
-            return date.group(0)
-        return 'n/a'
-
-    @staticmethod
-    def _get_title(contents):
-        return contents.find('h2').text
+        return self._extract_markdown(meta.find_next_sibling('div'))

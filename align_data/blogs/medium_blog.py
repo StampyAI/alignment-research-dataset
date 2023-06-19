@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 import logging
-from align_data.blogs.html_blog import HTMLBlog
+from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)
 
 @dataclass
-class MediumBlog(HTMLBlog):
+class MediumBlog(HTMLDataset):
     """
     Fetches articles from a Medium blog.
 
