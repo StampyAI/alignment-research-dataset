@@ -22,7 +22,7 @@ BLOG_REGISTRY = [
         url="https://yudkowsky.net",
         strip=["^\s*Download as PDF\n"]
     ),
-    MediumBlog(name="deepmind.blog", url="https://deepmindsafetyresearch.medium.com/", authors=["DeepMind Safety Research"]),
+    MediumBlog(name="deepmind_blog", url="https://deepmindsafetyresearch.medium.com/", authors=["DeepMind Safety Research"]),
     GwernBlog(name="gwern_blog", url='https://www.gwern.net/', authors=["Gwern Branwen"]),
     ColdTakes(
         name="cold_takes",
