@@ -8,32 +8,31 @@ on:
         type: choice
         options:
           - agentmodels
-          - aiimpacts.org
-          - aipulse.org
+          - aiimpacts
+          - aipulse
           - aisafety.camp
-          - alignment_newsletter
           - arbital
           - audio_transcripts
           - carado.moe
-          - cold.takes
-          - deepmind.blog
+          - cold_takes
+          - deepmind_blog
           - distill
           - gdocs
           - gdrive_ebooks
           - generative.ink
           - gwern_blog
           - import.ai
-          - intelligence.org
-          - jsteinhardt.wordpress.com
+          - miri
+          - jsteinhardt_blog
           - markdown.ebooks
-          - ml.safety.newsletter
+          - ml_safety_newsletter
           - nonarxiv_papers
-          - qualiacomputing.com
+          - qualiacomputing
           - reports
-          - stampy
-          - vkrakovna.wordpress.com
+          - aisafety.info
+          - vkrakovna_blog
           - waitbutwhy
-          - yudkowsky.net
+          - yudkowsky_blog
 
 jobs:
   build-dataset:

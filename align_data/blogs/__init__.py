@@ -7,25 +7,25 @@ from align_data.blogs.substack_blog import SubstackBlog
 
 
 BLOG_REGISTRY = [
-    WordpressBlog(name="aiimpacts.org", url="https://aiimpacts.org"),
+    WordpressBlog(name="aiimpacts", url="https://aiimpacts.org"),
     WordpressBlog(name="aisafety.camp", url="https://aisafety.camp"),
-    WordpressBlog(name="intelligence.org", url="https://intelligence.org"),
-    WordpressBlog(name="jsteinhardt.wordpress.com", url="https://jsteinhardt.wordpress.com"),
+    WordpressBlog(name="miri", url="https://intelligence.org"),
+    WordpressBlog(name="jsteinhardt_blog", url="https://jsteinhardt.wordpress.com"),
     WordpressBlog(
-        name="qualiacomputing.com",
+        name="qualiacomputing",
         url="https://qualiacomputing.com",
         strip=["^by [^\n].*\n"]
     ),
-    WordpressBlog(name="vkrakovna.wordpress.com", url="https://vkrakovna.wordpress.com"),
+    WordpressBlog(name="vkrakovna_blog", url="https://vkrakovna.wordpress.com"),
     WordpressBlog(
-        name="yudkowsky.net",
+        name="yudkowsky_blog",
         url="https://yudkowsky.net",
         strip=["^\s*Download as PDF\n"]
     ),
-    MediumBlog(name="deepmind.blog", url="https://deepmindsafetyresearch.medium.com/", authors=["DeepMind Safety Research"]),
+    MediumBlog(name="deepmind_blog", url="https://deepmindsafetyresearch.medium.com/", authors=["DeepMind Safety Research"]),
     GwernBlog(name="gwern_blog", url='https://www.gwern.net/', authors=["Gwern Branwen"]),
     ColdTakes(
-        name="cold.takes",
+        name="cold_takes",
         url="https://www.cold-takes.com/",
         authors=['Holden Karnofsky'],
     ),
@@ -49,7 +49,7 @@ BLOG_REGISTRY = [
         url="https://importai.substack.com"
     ),
     SubstackBlog(
-        name="ml.safety.newsletter",
+        name="ml_safety_newsletter",
         url="https://newsletter.mlsafety.org"
     ),
 ]
