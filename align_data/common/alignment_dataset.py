@@ -120,6 +120,9 @@ class AlignmentDataset:
 
     def read_entries(self):
         """Iterate through all the saved entries."""
+        if not self.jsonl_path.exists():
+            return []
+
         with jsonlines.open(self.jsonl_path) as f:
             for line in f:
                 yield line
