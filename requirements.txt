@@ -3,7 +3,6 @@ tqdm
 jsonlines
 path
 requests
-beautifulsoup4
 gdown
 feedparser
 html2text
