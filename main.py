@@ -11,7 +11,7 @@ from align_data.analysis.count_tokens import count_token
 # logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
-def load_file(summaries, dataset):
+def add_summaries(summaries, dataset):
     for line in dataset.read_entries():
         url = line.get(dataset.source_key)
         summary = line.get(dataset.summary_key)
@@ -79,7 +79,7 @@ class AlignmentDataset:
         summaries = defaultdict(lambda: dict())
         for dataset in DATASET_REGISTRY:
             if dataset.source_key and dataset.summary_key:
-                summaries = load_file(summaries, dataset)
+                add_summaries(summaries, dataset)
 
         if names:
             datasets = [get_dataset(name) for name in names]

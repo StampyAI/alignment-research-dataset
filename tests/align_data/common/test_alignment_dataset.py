@@ -86,6 +86,21 @@ def test_alignment_dataset_default_values():
     assert dataset.txt_path.resolve() == (DATA_PATH / f'{dataset.name}.txt').resolve()
 
 
+def test_alignment_dataset_file_list(tmp_path):
+    dataset = AlignmentDataset(name='bla')
+    dataset.glob = '*.bla'
+    dataset.files_path = tmp_path
+
+    for i in range(5):
+        (Path(tmp_path) / f'test{i}.bla').touch()
+
+    for i in range(5, 10):
+        (Path(tmp_path) / f'test{i}.txt').touch()
+
+    files = [f.resolve() for f in dataset.items_list]
+    assert files == list(Path(tmp_path).glob('*bla'))
+
+
 @pytest.fixture
 def data_entries():
     entries = [
