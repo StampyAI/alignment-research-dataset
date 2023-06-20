@@ -24,7 +24,7 @@ The following list of sources may change and items may be renamed:
 - gdrive_ebooks - books include [Superintelligence](https://www.goodreads.com/book/show/20527133-superintelligence), [Human Compatible](https://www.goodreads.com/book/show/44767248-human-compatible), [Life 3.0](https://www.goodreads.com/book/show/34272565-life-3-0), [The Precipice](https://www.goodreads.com/book/show/50485582-the-precipice), and others
 - [generative.ink](https://generative.ink/posts/)
 - [gwern_blog](https://gwern.net/)
-- [import.ai](https://importai.substack.com)
+- [importai](https://importai.substack.com)
 - [jsteinhardt_blog](https://jsteinhardt.wordpress.com/)
 - [lesswrong](https://www.lesswrong.com/) - selected posts
 - markdown.ebooks
@@ -47,6 +47,8 @@ Not all of the entries contain the same keys, but they all have the following:
 - `text` - full text of document content
 - `url` - some values may be `'n/a'`, still being updated
 - `date_published` - some `'n/a'`
+- `authors` - list of author names, may be empty
+- `summary` - list of human written summaries from various newsletters, may be empty
 
 The values of the keys are still being cleaned up for consistency. Additional keys are available depending on the source document.
 
