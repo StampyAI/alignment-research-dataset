@@ -19,3 +19,4 @@ openpyxl
 seaborn
 matplotlib
 codaio
+python-dotenv
