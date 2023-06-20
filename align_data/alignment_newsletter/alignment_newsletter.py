@@ -5,51 +5,62 @@ import jsonlines
 import pandas as pd
 
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
-from tqdm import tqdm
+from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
 logger = logging.getLogger(__name__)
-    
+
+
 @dataclass
 class AlignmentNewsletter(AlignmentDataset):
-    
-    COOLDOWN: int = 1
+
     done_key = "title"
-    
+
+    source_key = 'url'
+    summary_key = 'text'
+
     def setup(self) -> None:
-        self._setup()
-        self.newsletter_xlsx_path = self.write_jsonl_path.parent / "raw" / "alignment_newsletter.xlsx"
+        super().setup()
+        self.newsletter_xlsx_path = self.raw_data_path / "alignment_newsletter.xlsx"
         self.df = pd.read_excel(self.newsletter_xlsx_path)
 
-    def fetch_entries(self):
+    def get_item_key(self, row):
+        return row.Title
+
+    @property
+    def items_list(self):
+        return self.df.itertuples()
+
+    def process_entry(self, row):
         """
         For each row in the dataframe, create a new entry with the following fields: url, source,
         converted_with, source_type, venue, newsletter_category, highlight, newsletter_number,
         summarizer, opinion, prerequisites, read_more, title, authors, date_published, text
         """
-        self.setup()
-        for ii , row in tqdm(self.df.iterrows()):
-            if self._entry_done(row['Title']):
-                # logger.info(f"Already done {row['Title']}")
-                continue
-            new_entry = DataEntry({"url": "https://rohinshah.com/alignment-newsletter/",
-                   "source": "alignment newsletter",
-                   "converted_with": "python",
-                   "source_type": "google-sheets",
-                   "venue": str(row["Venue"]),  # arXiv, Distill, LessWrong, Alignment Forum, ICML 2018, etc
-                   "newsletter_category": str(row["Category"]),
-                   "highlight": True if row["Highlight?"] == "Highlight" else False,
-                   "newsletter_number": str(row["Email"]),
-                   "summarizer": str(row["Summarizer"]),
-                   "opinion": str(row["My opinion"]),
-                   "prerequisites": str(row["Prerequisites"]),
-                   "read_more": str(row["Read more"]),
-                   "title": str(row["Title"]),
-                   "authors": str(row["Authors"]),
-                   "date_published": row["Year"],
-                   "text": str(row["Summary"]),
-                   })
-            new_entry.add_id()
-            yield new_entry
-            
- 
+        if not row.Summary or pd.isna(row.Summary):
+            return None
+
+        def handle_na(v, cast=None):
+            if not v or pd.isna(v):
+                return None
+            if cast:
+                return cast(v)
+            return v
+
+        return DataEntry({
+            "url": handle_na(row.URL) or 'n/a',
+            "source": handle_na(self.name),
+            "converted_with": "python",
+            "source_type": "google-sheets",
+            "venue": handle_na(row.Venue, str),  # arXiv, Distill, LessWrong, Alignment Forum, ICML 2018, etc
+            "newsletter_category": handle_na(row.Category, str),
+            "highlight": row[2] == "Highlight",
+            "newsletter_number": handle_na(row.Email, str),
+            "summarizer": handle_na(row.Summarizer, str),
+            "opinion": handle_na(row[11], str),
+            "prerequisites": handle_na(row.Prerequisites, str),
+            "read_more": handle_na(row[13], str),
+            "title": handle_na(row.Title, str),
+            "authors": [i.strip() for i in str(row.Authors).split(',')],
+            "date_published": str(handle_na(row.Year, int) or 'n/a'),
+            "text": handle_na(row.Summary, str),
+        })

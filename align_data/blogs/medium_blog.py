@@ -1,17 +1,11 @@
 from dataclasses import dataclass
-import requests
-from bs4 import BeautifulSoup
-import bs4
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 import logging
-from urllib.parse import urljoin
-from markdownify import markdownify
-from tqdm import tqdm
+from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)
 
 @dataclass
-class MediumBlog(AlignmentDataset):
+class MediumBlog(HTMLDataset):
     """
     Fetches articles from a Medium blog.
 
@@ -33,56 +27,14 @@ class MediumBlog(AlignmentDataset):
 
     url: str
     done_key = "url"
+    title_selector = 'h2'
+    source_type = "medium_blog"
 
-    def setup(self):
-        self._setup()
+    def _get_published_date(self, contents):
+        possible_date_elements = contents.find('article').find('h1').next_sibling.find_all('span')
+        return self._find_date(possible_date_elements)
 
-    def fetch_entries(self):
-        self.setup()
-        logger.info(f"Fetching entries from {self.url}")
-        response = requests.get(self.url, allow_redirects=True)
-        soup = BeautifulSoup(response.content, "html.parser")
-        self.articles = soup.find_all("article")
-        logger.info(f"Found {len(self.articles)} articles")
-
-        for ii, article in enumerate(tqdm(self.articles)):
-
-
-            title = article.find("h2")
-            if title is None:
-                continue
-            title = title.contents[0]
-
-            article_url = article.find_all("a")[0]["href"].split("?")[0]
-            article_url = urljoin(self.url, article_url)
-
-            if self._entry_done(article_url):
-                # logger.info(f"Already done {article_url}")
-                continue
-            logger.info(f"Processing {ii}")
-
-
-            text = self._get_article(article_url)
-
-            new_entry = DataEntry({
-                "source": self.url,
-                "source_type": "medium_blog",
-                "url": article_url,
-                "title": self._to_text(title),
-                "date_published": "n/a",
-                "text": text,
-            })
-
-            new_entry.add_id()
-
-            yield new_entry
-
-    def _to_text(self, s):
-        if type(s) is bs4.element.Tag:
-            return s.text
-        return s
-
-    def _get_article(self, url):
-        logger.info("Fetching {}".format(url))
-        article = requests.get(url, allow_redirects=True)
-        return markdownify(article.content)
+    def _get_text(self, contents):
+        article = contents.find('article')
+        article.find('h1').parent.extract()  # remove the header
+        return article.text

@@ -1,0 +1,91 @@
+name: Fetch Alignment Research Dataset
+
+on:
+  workflow_dispatch: # allow manual triggering
+    inputs:
+      datasource:
+        description: 'The datasource to process'
+        type: choice
+        options:
+          - agentmodels
+          - aiimpacts
+          - aipulse
+          - aisafety.camp
+          - aisafety.info
+          - alignmentforum
+          - alignment_newsletter
+          - arbital
+          - audio_transcripts
+          - carado.moe
+          - cold_takes
+          - deepmind_blog
+          - distill
+          - eaforum
+          - gdocs
+          - gdrive_ebooks
+          - generative.ink
+          - gwern_blog
+          - importai
+          - miri
+          - jsteinhardt_blog
+          - lesswrong
+          - markdown.ebooks
+          - ml_safety_newsletter
+          - nonarxiv_papers
+          - qualiacomputing
+          - reports
+          - vkrakovna_blog
+          - waitbutwhy
+          - yudkowsky_blog
+
+jobs:
+  build-dataset:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Fetch dataset
+      run: python main.py fetch ${{ inputs.datasource }}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ inputs.datasource }}
+        path: data/${{ inputs.datasource }}.jsonl
+        retention-days: 1
+
+  upload:
+    runs-on: ubuntu-latest
+    needs: build-dataset
+
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Setup Huggingface client
+        run: pip install huggingface_hub gdown jsonlines
+
+      - name: Download a single artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ inputs.datasource }}
+          path: data/
+
+      - name: Upload file
+        run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}

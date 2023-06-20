@@ -1,0 +1,64 @@
+name: Synch uploaded jsonl files to HuggingFace
+
+on:
+  workflow_dispatch: # allow manual triggering
+    inputs:
+      datasource:
+        description: 'The datasource to process'
+        type: choice
+        default: all
+        options:
+          - all
+          - agentmodels
+          - aiimpacts
+          - aipulse
+          - aisafety.camp
+          - aisafety.info
+          - alignmentforum
+          - alignment_newsletter
+          - arbital
+          - arxiv
+          - audio_transcripts
+          - carado.moe
+          - cold_takes
+          - deepmind_blog
+          - distill
+          - eaforum
+          - gdocs
+          - gdrive_ebooks
+          - generative.ink
+          - gwern_blog
+          - importai
+          - miri
+          - jsteinhardt_blog
+          - lesswrong
+          - markdown.ebooks
+          - ml_safety_newsletter
+          - nonarxiv_papers
+          - qualiacomputing
+          - reports
+          - vkrakovna_blog
+          - waitbutwhy
+          - yudkowsky_blog
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Setup Huggingface client
+      run: pip install huggingface_hub
+
+    - name: Upload files
+      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}

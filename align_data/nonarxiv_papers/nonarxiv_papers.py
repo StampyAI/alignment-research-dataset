@@ -1,75 +1,50 @@
 from dataclasses import dataclass
-import gdown
 import logging
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
-import zipfile
+from align_data.common.alignment_dataset import GdocDataset, DataEntry
 import grobid_tei_xml
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
 @dataclass
-class NonarxivPapers(AlignmentDataset):
+class NonarxivPapers(GdocDataset):
 
-    gdrive_url : str
+    summary_key = 'summary'
     done_key = "filename"
+    glob = "*.xml"
 
     def setup(self):
-        self._setup()
+        super().setup()
 
-        self.local_out = self.write_jsonl_path.parent / 'raw'
+        self.files_path = self.raw_data_path / 'nonarxiv_teis'
+        if not self.files_path.exists():
+            self.zip_from_gdrive(path=self.raw_data_path)
 
-        if not (self.local_out / "nonarxiv_teis.zip").exists():
-            logger.info("Downloading everything...")
-            self.pull_from_gdrive()
+    @property
+    def zip_file(self):
+        return self.raw_data_path / "nonarxiv_teis.zip"
 
-        logger.info("Unzipping")
-        with zipfile.ZipFile(self.local_out / "nonarxiv_teis.zip", 'r') as zip_ref:
-            zip_ref.extractall(self.local_out)
+    def process_entry(self, filename):
+        logger.info(f"Processing {filename.name}")
+        try:
+            xml_text = filename.read_text()
+            doc_dict = grobid_tei_xml.parse_document_xml(xml_text).to_dict()
+            authors = [xx["full_name"].strip(' !') for xx in doc_dict["header"]["authors"]]
 
-    def pull_from_gdrive(self):
-        gdown.download(
-            url=self.gdrive_url,
-            output=self.local_out / "nonarxiv_teis.zip",
-            quiet=False,
-        )
+            logger.info(f"Doc: {list(doc_dict.keys())}")
 
-    def fetch_entries(self):
-        self.setup()
-        for ii, filename in enumerate(tqdm((self.local_out / "nonarxiv_teis").files("*.xml"))):
-            if self._entry_done(filename):
-                # logger.info(f"Already done {filename}")
-                continue
+            return DataEntry({
+                "title": doc_dict["header"]["title"],
+                "abstract": doc_dict["abstract"],
+                "text": doc_dict["body"],
+                "date_published": "n/a",
+                "url": "n/a",
+                "authors": list(filter(None, authors)),
+                "source": self.name,
+                "source_filetype": "pdf",
+                "filename": filename.name,
+            })
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            logger.info('Skipping %s', filename.name)
 
-            logger.info(f"Processing {filename}")
-            xml_text = open(filename, "r").read()
-            try:
-                doc_dict = grobid_tei_xml.parse_document_xml(xml_text).to_dict()
-
-                logger.info(f"Doc: {list(doc_dict.keys())}")
-                new_entry = DataEntry({
-                    "source": self.name,
-                    "source_filetype": "pdf",
-                    "abstract": doc_dict["abstract"],
-                    "authors": [xx["full_name"] for xx in doc_dict["header"]["authors"]],
-                    "title": doc_dict["header"]["title"],
-                    "text": doc_dict["body"],
-                    "date_published": "n/a",
-                    "url": "n/a",
-                    "filename": filename,
-                })
-            except Exception as e:
-                logger.error(f"Error: {e}")
-                new_entry = DataEntry({
-                    "source": self.name,
-                    "source_filetype": "pdf",
-                    "authors": "n/a",
-                    "title": "n/a",
-                    "text": "n/a",
-                    "date_published": "n/a",
-                    "url": "n/a",
-                    "filename": filename,
-                })
-            
-            new_entry.add_id()
-            yield new_entry
+        return None

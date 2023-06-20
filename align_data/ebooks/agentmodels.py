@@ -17,36 +17,30 @@ class AgentModels(AlignmentDataset):
     done_key = "title"
 
     def setup(self):
-        self._setup()
-        self.raw_path = self.write_jsonl_path.parent / 'raw'
-        self._get_files()
-
-    def _get_files(self):
-        if not self.raw_path.exists:
-            self.raw_path.mkdir()
-        if not (self.raw_path / 'agentmodels.org').exists():
+        self.base_dir = self.raw_data_path / 'agentmodels.org'
+        if not self.base_dir.exists():
             logger.info("Cloning repo")
-            Repo.clone_from(self.repo, self.raw_path / 'agentmodels.org')
-        self.repo_path = self.raw_path / 'agentmodels.org' / 'chapters'
+            Repo.clone_from(self.repo, self.base_dir)
+        self.repository = Repo(self.base_dir)
+        self.files_path = self.base_dir / 'chapters'
 
-    def fetch_entries(self):
-        self.setup()
-        for ii, filename in enumerate(tqdm(self.repo_path.files('*.md'))):
-            if self._entry_done(filename.name):
-                # logger.info(f"Already done {filename.name}")
-                continue
-            with open(filename, 'r') as f:
-                text = f.read()
-            new_entry = DataEntry({
-                'source': 'agentmodels.org',
-                'source_filetype': 'markdown',
-                'converted_with': 'not converted',
-                'book_title': 'Modeling Agents with Probabilistic Programs',
-                'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
-                'date_published': '2016',
-                'title': filename.name,
-                'url': self.repo,
-                'text': text
-            })
-            new_entry.add_id()
-            yield new_entry
+    def _get_published_date(self, filename):
+        try:
+            last_commit = next(self.repository.iter_commits(paths=f'chapters/{filename.name}'))
+            return last_commit.committed_datetime.isoformat()
+        except Exception as e:
+            logger.error(f'Error getting last modification date for {filename.name}: {e}')
+        return "2016-01-08T10:50:56-8:00"  # date of the initial commit
+
+    def process_entry(self, filename):
+        return DataEntry({
+            'source': self.name,
+            'source_filetype': 'markdown',
+            'converted_with': 'not converted',
+            'book_title': 'Modeling Agents with Probabilistic Programs',
+            'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
+            'date_published': self._get_published_date(filename),
+            'title': filename.name,
+            'url': f'{self.repo[:-4]}/blob/gh-pages/chapters/{filename.name}',
+            'text': filename.read_text(),
+        })

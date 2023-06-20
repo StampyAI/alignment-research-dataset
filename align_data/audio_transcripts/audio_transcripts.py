@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import gdown
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import GdocDataset, DataEntry
 import zipfile
 import os
 import logging
@@ -10,52 +10,67 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 @dataclass
-class AudioTranscripts(AlignmentDataset):
+class AudioTranscripts(GdocDataset):
 
-    otter_zip_url: str
-    done_key = None
+    done_key = 'filename'
 
     def setup(self):
-        self._setup()
-        self.transcript_path = self.write_jsonl_path.parent / 'raw' / "transcripts" / "transcripts"
-        if not os.path.exists(self.transcript_path):
-            self.transcript_path.mkdir_p()
-            self._pull_from_gdrive()
-        self.file_list = [xx for xx in self.transcript_path.files('*.md')]
+        super().setup()
 
-    def _pull_from_gdrive(self):
-        logger.info("Pulling from gdrive")
-        gdown.download(url=self.otter_zip_url,
-                       output=self.write_jsonl_path.parent / "transcripts.zip",
-                       quiet=False)
-        logger.info("Unzipping")
-        with zipfile.ZipFile(self.write_jsonl_path.parent / "transcripts.zip", 'r') as zip_ref:
-            zip_ref.extractall(self.transcript_path)
+        self.files_path = self.raw_data_path / 'transcripts'
+        if not self.files_path.exists():
+            self.files_path.mkdir(parents=True, exist_ok=True)
+            self.zip_from_gdrive(path=self.raw_data_path)
 
-    def fetch_entries(self):
-        self.setup()
-        for ii, filename in enumerate(tqdm(self.file_list)):
-            if self._entry_done(ii):
-                # logger.info(f"Already done {ii}")
-                continue
+    @staticmethod
+    def extract_authors(text):
+        """Attempt to extract the authors from the text.
 
-            logger.info(f"Processing {filename}")
-            text = open(os.path.join(self.transcript_path,
-                        'transcripts', filename), "r").read()
-            title = filename.split(".")[0]
+        The first line tends to be the title, which tends to contain info about who's talking,
+        so do some black magic to try to guess at the names
+        """
+        firstline = text.split('\n')[0].strip('# ')
+        # e.g. 'Interview with AI Researchers individuallyselected_84py7 by Vael Gates'
+        if firstline.startswith('Interview with '):
+            return firstline.split(' by ')[1:]
+        # e.g. 'Alex Turner on Will Advanced AIs Tend To Seek Power by Jeremie Harris on the  Towards Data Science Podcast'
+        if ' by Jeremie Harris on the Towards Data Science Podcast' in firstline:
+            person = firstline.split(' on ')[0]
+            return [person, 'Jeremie Harris']
+        # e.g. 'Markus Anderljung and Ben Garfinkel Fireside chat on AI governance - EA Forum'
+        if re.search('[^)] - EA Forum$', firstline):
+            return re.findall("(?:^|(?:and ))([A-Z]\w+ (?:\w+')?[A-Z]\w+)", firstline)
+        # e.g. 'The AI revolution and international politics (Allan Dafoe) - EA Forum'
+        if res := re.search('\((.*?)\) - EA Forum$', firstline):
+            return [res.group(1)]
+        # e.g. 'Iason Gabriel on Foundational Philosophical Questions in AI Alignment - Future of Life Institute'
+        if re.search('^([A-Z]\w+ )+[oO]n', firstline):
+            return [re.search('^(.*?) [oO]n', firstline).group(1)]
+        # e.g. 'AGI Safety and Alignment with Robert Miles on the Machine Ethics Podcast'
+        if res := re.search(' with (.*?) [oO]n', firstline):
+            return [res.group((1))]
+        # e.g. 'Rohin Shah: What\xe2\x80\x99s been happening in AI alignment?'
+        if res := re.search('^(.*?):', firstline):
+            return [res.group(1)]
 
-            date = re.search(r"\d{4}\d{2}\d{2}", filename).group(0)
-            date = date[:4] + "-" + date[4:6] + "-" + date[6:]
+        return None
 
-            new_entry = DataEntry({
-                "source": "audio-transcripts",
-                "source_filetype": "audio",
-                "url": "n/a",
-                "converted_with": "otter-ai",
-                "title": title,
-                "authors": "unknown",
-                "date_published": str(date),
-                "text": text,
-            })
-            new_entry.add_id()
-            yield new_entry
+    def process_entry(self, filename):
+        logger.info(f"Processing {filename.name}")
+        text = filename.read_text()
+        title = filename.stem
+
+        date = re.search(r"\d{4}\d{2}\d{2}", str(filename)).group(0)
+        date = date[:4] + "-" + date[4:6] + "-" + date[6:]
+
+        return DataEntry({
+            "source": self.name,
+            "source_filetype": "audio",
+            "url": "n/a",
+            "converted_with": "otter-ai",
+            "title": title,
+            "authors": self.extract_authors(text),
+            "date_published": str(date),
+            "text": text,
+            'filename': filename.name,
+        })

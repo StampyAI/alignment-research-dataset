@@ -1,15 +1,15 @@
-from dataclasses import dataclass
 import requests
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 import logging
-import time
-from tqdm import tqdm 
+from dataclasses import dataclass
+
+from align_data.common.alignment_dataset import DataEntry
+from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class GwernBlog(AlignmentDataset):
+class GwernBlog(HTMLDataset):
     """
     Fetches articles from a different blog by collecting links to articles from an index page.
     """
@@ -17,41 +17,70 @@ class GwernBlog(AlignmentDataset):
     COOLDOWN: int = 1
     done_key = "url"
 
-    def setup(self):
-        self._setup()
-        self.post_hrefs = ['https://www.gwern.net/Scaling-hypothesis.page',
-                           'https://www.gwern.net/Tanks.page',
-                           'https://www.gwern.net/Clippy.page',
-                           'https://www.gwern.net/Complexity-vs-AI.page',
-                           'https://www.gwern.net/Tool-AI.page',
-                           'https://www.gwern.net/Backstop.page',
-                           'https://www.gwern.net/Hyperbolic-Time-Chamber.page']
+    def get_item_key(self, item):
+        return item
 
-    def fetch_entries(self):
-        self.setup()
-        for ii, post_href in enumerate(tqdm(self.post_hrefs)):
-            if self._entry_done(post_href):
-                # logger.info(f"Already done {post_href}")
-                continue
-            text = self._get_article(post_href)
+    @property
+    def items_list(self):
+        return [
+            'https://www.gwern.net/Scaling-hypothesis.page',
+            'https://www.gwern.net/Tanks.page',
+            'https://www.gwern.net/Clippy.page',
+            'https://www.gwern.net/complexity.page',
+            'https://www.gwern.net/Tool-AI.page',
+            'https://www.gwern.net/Backstop.page',
+            'https://www.gwern.net/Hyperbolic-Time-Chamber.page'
+        ]
 
-            new_entry = DataEntry({
-                "source": "gwern",
-                "url": post_href,
-                "title": text.splitlines()[1].split("title: ")[1],
-                "authors": "Gwern Branwen",
-                "date_published": "n/a",
-                "text": text,
-            })
+    def process_entry(self, post_href):
+        article = self._get_article(post_href)
+        if article.status_code != 200:
+            logger.error(f'Could not fetch {post_href}')
+            return None
 
-            new_entry.add_id()
+        # Some pages are returned as markdown, some as HTML, so handle both
+        if 'text/html' in article.headers.get('Content-Type'):
+            return super().process_entry(post_href)
 
-            # {'text':text,"article_url": self.url,"title": text.split('\n')[0]}
-            yield new_entry
+        return self._process_markdown(post_href, article)
 
-            time.sleep(self.COOLDOWN)
+    def _process_markdown(self, post_href, article):
+        text = article.text
+        metadata = self._get_metadata(text)
+        date_published = metadata.get('modified') or metadata.get('created') or 'n/a'
+
+        return DataEntry({
+            "source": self.name,
+            "url": post_href,
+            "title": metadata.get('title'),
+            "authors": self.authors,
+            "date_published": date_published,
+            "text": text,
+        })
+
+    @staticmethod
+    def _get_metadata(text):
+        header = text.split('...')[0]
+        def extract(item):
+            parts = item.split(': ')
+            if len(parts) > 1:
+                return (parts[0], ': '.join(parts[1:]))
+            return None
+
+        return dict(filter(None, map(extract, header.splitlines())))
 
     def _get_article(self, url):
         logger.info("Fetching {}".format(url))
-        article = requests.get(url, allow_redirects=True)
-        return article.text
+        return requests.get(url, allow_redirects=True)
+
+    @staticmethod
+    def _get_title(contents):
+        return contents.find('header').find('h1').text
+
+    @staticmethod
+    def _get_published_date(contents):
+        # Get the latest date - Gwern often updates stuff
+        return list(contents.find('span', {'class': 'page-date-range'}).children)[-1].text
+
+    def _get_text(self, contents):
+        return self.cleaner.clean(contents.find('div', {'id': 'markdownBody'}).text)

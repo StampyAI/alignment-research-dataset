@@ -17,9 +17,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ArxivPapers(AlignmentDataset):
+    summary_key: str = 'summary'
     COOLDOWN: int = 1
     done_key = "url"
 
+<<<<<<< HEAD
     def setup(self) -> None:
         """
         Load arxiv ids
@@ -32,6 +34,8 @@ class ArxivPapers(AlignmentDataset):
             "arxiv.org/abs") == True].drop_duplicates(subset="Url", keep="first")
         self.arxiv_ids = [xx.split('/abs/')[1] for xx in self.df_arxiv.Url]
 
+=======
+>>>>>>> main
     def _get_arxiv_metadata(self, paper_id) -> arxiv.Result:
         """
         Get metadata from arxiv
@@ -43,24 +47,11 @@ class ArxivPapers(AlignmentDataset):
             return None
         return next(search.results())
 
-    def fetch_entries(self) -> None:
-        """
-        Fetch entries
-            - Check if entry is already done
-            - Get metadata from arxiv
-            - Get markdown from arxiv-vanity
-            - Strip markdown
-            - Write to jsonl
-        output:
-            - jsonl file with entries
-        """
-        self.setup()
-        for ii, ids in enumerate(tqdm(self.arxiv_ids)):
-            logger.info(f"Processing {ids}")
-            if self._entry_done(self._get_arxiv_link(ids)):
-                # logger.info(f"Already done {self._get_arxiv_link(ids)}")
-                continue
+    @property
+    def items_list(self):
+        self.papers_csv_path = self.raw_data_path / "ai-alignment-papers.csv"
 
+<<<<<<< HEAD
             markdown = self.process_id(ids)
             try:
                 paper = self._get_arxiv_metadata(ids)
@@ -97,6 +88,49 @@ class ArxivPapers(AlignmentDataset):
             new_entry.add_id()
             yield new_entry
             time.sleep(self.COOLDOWN)
+=======
+        self.df = pd.read_csv(self.papers_csv_path)
+        self.df_arxiv = self.df[self.df["Url"].str.contains(
+            "arxiv.org/abs") == True].drop_duplicates(subset="Url", keep="first")
+
+        return [xx.split('/abs/')[1] for xx in self.df_arxiv.Url]
+
+    def process_entry(self, ids) -> None:
+        logger.info(f"Processing {ids}")
+
+        markdown = self.process_id(ids)
+
+        paper = self._get_arxiv_metadata(ids)
+        if markdown is None or paper is None:
+            logger.info(f"Skipping {ids}")
+            new_entry = DataEntry({
+                "url": self.get_item_key(ids),
+                "title": "n/a",
+                "authors": "n/a",
+                "date_published": "n/a",
+                "source": self.name,
+                "text": "n/a",
+            })
+        else:
+            new_entry = DataEntry({
+                "url": self.get_item_key(ids),
+                "source": self.name,
+                "source_type": "html",
+                "converted_with": "markdownify",
+                "title": paper.title,
+                "authors": [str(x) for x in paper.authors],
+                "date_published": str(paper.published),
+                "data_last_modified": str(paper.updated),
+                "abstract": paper.summary.replace("\n", " "),
+                "author_comment": paper.comment,
+                "journal_ref": paper.journal_ref,
+                "doi": paper.doi,
+                "primary_category": paper.primary_category,
+                "categories": paper.categories,
+                "text": markdown,
+            })
+        return new_entry
+>>>>>>> main
 
     def _is_bad_soup(self, soup, parser='vanity') -> bool:
         if parser == 'vanity':
@@ -164,7 +198,7 @@ class ArxivPapers(AlignmentDataset):
         return None
 
 
-    def _get_arxiv_link(self, paper_id) -> str:
+    def get_item_key(self, paper_id) -> str:
         """
         Get arxiv link
         """
