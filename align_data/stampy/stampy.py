@@ -1,3 +1,4 @@
+import sys
 import re
 import logging
 from dataclasses import dataclass
@@ -15,6 +16,13 @@ import html
 class Stampy(AlignmentDataset):
 
     done_key = "title"
+
+    def setup(self):
+        if not CODA_TOKEN:
+            print(f'No CODA_TOKEN found! Please provide a valid Read token for the {CODA_DOC_ID} table')
+            sys.exit(1)
+
+        super().setup()
 
     @property
     def items_list(self):
@@ -44,7 +52,7 @@ class Stampy(AlignmentDataset):
             "source_filetype": "markdown",
             "url": url,
             "title": question,
-            "authors": [],
+            "authors": ['Stampy aisafety.info'],
             "date_published": date_published,
             "text": answer,
         })
