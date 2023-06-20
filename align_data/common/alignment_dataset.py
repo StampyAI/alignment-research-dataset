@@ -115,7 +115,7 @@ class AlignmentDataset:
             self._set_output_paths(out_path)
 
         with jsonlines.open(self.jsonl_path, mode=write_mode) as jsonl_writer:
-            with open(self.txt_path, mode=write_mode) as text_writer:
+            with open(self.txt_path, mode=write_mode, errors="backslashreplace") as text_writer:
                 yield partial(self.write_entry, jsonl_writer=jsonl_writer, text_writer=text_writer)
 
     def read_entries(self):

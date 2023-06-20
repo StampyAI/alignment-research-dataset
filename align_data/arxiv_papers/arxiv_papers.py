@@ -21,74 +21,21 @@ class ArxivPapers(AlignmentDataset):
     COOLDOWN: int = 1
     done_key = "url"
 
-<<<<<<< HEAD
-    def setup(self) -> None:
-        """
-        Load arxiv ids
-        """
-        self._setup()
-        self.papers_csv_path = self.write_jsonl_path.parent / "raw" / "ai-alignment-arxiv-papers-new.csv" 
-
-        self.df = pd.read_csv(self.papers_csv_path)
-        self.df_arxiv = self.df[self.df["Url"].str.contains(
-            "arxiv.org/abs") == True].drop_duplicates(subset="Url", keep="first")
-        self.arxiv_ids = [xx.split('/abs/')[1] for xx in self.df_arxiv.Url]
-
-=======
->>>>>>> main
     def _get_arxiv_metadata(self, paper_id) -> arxiv.Result:
         """
         Get metadata from arxiv
         """
         try:
             search = arxiv.Search(id_list=[paper_id], max_results=1)
-        except ConnectionResetError as e:
-            logger.error(f'{e}')
+        except Exception as e:
+            logger.error(e)
             return None
         return next(search.results())
 
     @property
     def items_list(self):
-        self.papers_csv_path = self.raw_data_path / "ai-alignment-papers.csv"
+        self.papers_csv_path = self.raw_data_path / "ai-alignment-arxiv-papers-new.csv"
 
-<<<<<<< HEAD
-            markdown = self.process_id(ids)
-            try:
-                paper = self._get_arxiv_metadata(ids)
-            except ConnectionResetError as e:
-                logger.error(f'{e}')
-                paper = None
-            if markdown is None or paper is None:
-                logger.info(f"Skipping {ids}")
-                new_entry = DataEntry({
-                    "url": self._get_arxiv_link(ids),
-                    "title": "n/a",
-                    "authors": "n/a",
-                    "date_published": "n/a",
-                    "source": "arxiv",
-                    "text": "n/a",
-                })
-            else:
-                new_entry = DataEntry({"url": self._get_arxiv_link(ids),
-                                   "source": "arxiv",
-                                   "source_type": "html",
-                                   "converted_with": "markdownify",
-                                   "title": paper.title,
-                                   "authors": [str(x) for x in paper.authors],
-                                   "date_published": str(paper.published),
-                                   "data_last_modified": str(paper.updated),
-                                   "abstract": paper.summary.replace("\n", " "),
-                                   "author_comment": paper.comment,
-                                   "journal_ref": paper.journal_ref,
-                                   "doi": paper.doi,
-                                   "primary_category": paper.primary_category,
-                                   "categories": paper.categories,
-                                   "text": markdown,
-                                   })
-            new_entry.add_id()
-            yield new_entry
-            time.sleep(self.COOLDOWN)
-=======
         self.df = pd.read_csv(self.papers_csv_path)
         self.df_arxiv = self.df[self.df["Url"].str.contains(
             "arxiv.org/abs") == True].drop_duplicates(subset="Url", keep="first")
@@ -130,7 +77,7 @@ class ArxivPapers(AlignmentDataset):
                 "text": markdown,
             })
         return new_entry
->>>>>>> main
+
 
     def _is_bad_soup(self, soup, parser='vanity') -> bool:
         if parser == 'vanity':
@@ -159,7 +106,7 @@ class ArxivPapers(AlignmentDataset):
             "This document may be truncated" in markdown or 
             "don’t have to squint at a PDF" not in markdown
         )
-    
+
     def _article_markdown_from_soup(self, soup):
         """
         Get markdown of the article from BeautifulSoup object of the page
