@@ -1,46 +1,50 @@
-from dataclasses import dataclass
-import requests
+import re
 import logging
-from align_data.common.alignment_dataset import AlignmentDataset , DataEntry
-from tqdm import tqdm
+from dataclasses import dataclass
+from codaio import Coda, Document
+
+from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.stampy.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
 
 logger = logging.getLogger(__name__)
+
+import html
+
 
 @dataclass
 class Stampy(AlignmentDataset):
 
-    index_url : str
-    done_key = "entry"
+    done_key = "title"
 
     @property
     def items_list(self):
-        entries = dict(requests.get(self.index_url).json())
-        return entries["results"].keys()
+        coda = Coda(CODA_TOKEN)
+        doc = Document(CODA_DOC_ID, coda=coda)
+        logger.info('Fetching table: %s', CODA_DOC_ID)
+        table = doc.get_table(ON_SITE_TABLE)
+        return table.to_dict() # a list of dicts
 
-    def get_item_key(self, item):
-        return item
+    def get_item_key(self, entry):
+        return html.unescape(entry['Question'])
 
     def process_entry(self, entry):
-        qa_entry = entries["results"][entry]
-        qa_entry["question"] = ' '.join(entry.split("to ")[1:])
-        qa_entry["answer"] = entries["results"][entry]["printouts"]["Answer"]
-        qa_entry["text"] = "Question: " + qa_entry["question"] + "\n\nAnswer: " + entries["results"][entry]["printouts"]["Answer"][0]
-        # if there is more than one answer, add the rest
-        for jj in range(1, len(entries["results"][entry]["printouts"]["Answer"])):
-            qa_entry["text"] += f"\n\nAnswer {str(jj)}: " + entries["results"][entry]["printouts"]["Answer"][jj]
+        def clean_text(text):
+            text = html.unescape(text)
+            return re.sub(r'\(/\?state=(\w+)\)', r'(http://aisafety.info?state=\1)', text)
 
+        question = clean_text(entry['Question']) # raise an error if the entry has no question
+        answer = clean_text(entry['Rich Text'])
+        url = 'https://aisafety.info?state=' + entry['UI ID']
+        date_published = entry['Doc Last Edited']
 
-        logger.info(f"Processing {ii}")
+        logger.info(f"Processing {question}")
 
         return DataEntry({
-            "source" : self.name,
-            "source_filetype": "text",
-            "url": "n/a",
-            "title": qa_entry["question"],
-            "authors": "n/a",
-            "date_published": "n/a",
-            "text": qa_entry["text"],
-            "question": qa_entry["question"],
-            "answer": qa_entry["answer"],
-            "entry": entry
+            "source": self.name,
+            "source_filetype": "markdown",
+            "url": url,
+            "title": question,
+            "authors": [],
+            "date_published": date_published,
+            "text": answer,
         })
