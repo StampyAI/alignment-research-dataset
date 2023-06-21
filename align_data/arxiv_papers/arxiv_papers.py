@@ -34,7 +34,7 @@ class ArxivPapers(AlignmentDataset):
 
     @property
     def items_list(self):
-        self.papers_csv_path = self.raw_data_path / "ai-alignment-arxiv-papers-new.csv"
+        self.papers_csv_path = self.raw_data_path / "ai-alignment-arxiv-papers.csv"
 
         self.df = pd.read_csv(self.papers_csv_path)
         self.df_arxiv = self.df[self.df["Url"].str.contains(
