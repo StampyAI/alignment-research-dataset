@@ -8,6 +8,7 @@ import pandas as pd
 
 from dataclasses import dataclass
 from markdownify import markdownify
+from bs4 import BeautifulSoup
 from tqdm import tqdm
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
@@ -33,7 +34,7 @@ class ArxivPapers(AlignmentDataset):
 
     @property
     def items_list(self):
-        self.papers_csv_path = self.raw_data_path / "ai-alignment-papers.csv"
+        self.papers_csv_path = self.raw_data_path / "ai-alignment-arxiv-papers.csv"
 
         self.df = pd.read_csv(self.papers_csv_path)
         self.df_arxiv = self.df[self.df["Url"].str.contains(
@@ -77,11 +78,72 @@ class ArxivPapers(AlignmentDataset):
             })
         return new_entry
 
-    def _get_vanity_link(self, paper_id) -> str:
+
+    def _is_bad_soup(self, soup, parser='vanity') -> bool:
+        if parser == 'vanity':
+            vanity_wrapper = soup.find("div", class_="arxiv-vanity-wrapper")
+            if vanity_wrapper is None:
+                return None
+            vanity_wrapper = vanity_wrapper.text
+            return vanity_wrapper and "don’t have to squint at a PDF" not in vanity_wrapper
+        if parser == 'ar5iv':
+            ar5iv_error = soup.find("span", class_="ltx_ERROR")
+            if ar5iv_error is None: 
+                return False
+            else: 
+                ar5iv_error = ar5iv_error.text
+            if "document may be truncated or damaged" in ar5iv_error:
+                return True
+        return False
+
+
+    def _is_dud(self, markdown) -> bool:
         """
-        Get arxiv vanity link
+        Check if markdown is a dud
         """
-        return f"https://www.arxiv-vanity.com/papers/{paper_id}"
+        return (
+            "Paper Not Renderable" in markdown or 
+            "This document may be truncated" in markdown or 
+            "don’t have to squint at a PDF" not in markdown
+        )
+
+    def _article_markdown_from_soup(self, soup):
+        """
+        Get markdown of the article from BeautifulSoup object of the page
+        """
+        article = soup.article
+        if article is None:
+            return None
+        article = self._remove_bib_from_article_soup(article)
+        markdown = markdownify(str(article))
+        return markdown
+
+
+    def _get_parser_markdown(self, paper_id, parser="vanity") -> str:
+        """
+        Get markdown from the parser website, arxiv-vanity or ar5iv.org
+        """
+        if parser == "vanity":
+            link = f"https://www.arxiv-vanity.com/papers/{paper_id}"
+        elif parser == "ar5iv":
+            link = f"https://ar5iv.org/abs/{paper_id}"
+        logger.info(f"Fetching {link}")
+        try:
+            r = requests.get(link, timeout=5 * self.COOLDOWN)
+        except ValueError as e:
+            logger.error(f'{e}')
+            return None
+        if "//arxiv.org" in r.url:
+            return None
+        try:
+            soup = BeautifulSoup(r.content, features="xml")
+        except ValueError as e:
+            logger.error(f'{e}')
+            return None
+        if not self._is_bad_soup(soup,parser=parser):
+            return self._article_markdown_from_soup(soup)
+        return None
+
 
     def get_item_key(self, paper_id) -> str:
         """
@@ -89,38 +151,27 @@ class ArxivPapers(AlignmentDataset):
         """
         return f"https://arxiv.org/abs/{paper_id}"
 
-    def _strip_markdown(self, markdown) -> str:
+    def _remove_bib_from_article_soup(self, article_soup) -> str:
         """
         Strip markdown
         """
-        s_markdown = markdown.split("don’t have to squint at a PDF")[1]
+        bib = article_soup.find("section", id="bib")
+        if bib:
+            bib.decompose()
+        return article_soup
+        
+    def _strip_markdown(self, s_markdown):
         return s_markdown.split("\nReferences\n")[0].replace("\n\n", "\n")
-
-    def _is_dud(self, markdown) -> bool:
-        """
-        Check if markdown is a dud
-        """
-        if "Paper Not Renderable" in markdown:
-            return True
-        if "don’t have to squint at a PDF" not in markdown:
-            return True
-        return False
 
     def process_id(self, paper_id) -> str:
         """
         Process arxiv id
         """
-        v_link = self._get_vanity_link(paper_id)
-        logger.info(f"Fetching {v_link}")
-        try:
-            r = requests.get(v_link, timeout=5 * self.COOLDOWN)
-        except Exception as e:
-            logger.error(e)
+        markdown = self._get_parser_markdown(paper_id, parser="vanity")
+        if markdown is None:
+            markdown = self._get_parser_markdown(paper_id, parser="ar5iv")
+        if markdown is None:
             return None
-        markdown = markdownify(r.content)
-        if self._is_dud(markdown):
-            return None
-
         mardown_excerpt = markdown.replace('\n', '')[:100]
         logger.info(f"Stripping markdown, {mardown_excerpt}")
         s_markdown = self._strip_markdown(markdown)
