@@ -1,6 +1,7 @@
 import re
 import logging
 import requests
+from datetime import datetime, timezone
 
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 from dataclasses import dataclass
@@ -86,7 +87,6 @@ def extract_text(text):
     parts = [i for i in re.split('([\[\]()])', text) if i]
     return markdownify_text([], zip(parts, parts[1:] + [None]))
 
-
 @dataclass
 class Arbital(AlignmentDataset):
     summary_key: str = 'summary'
@@ -124,7 +124,7 @@ class Arbital(AlignmentDataset):
             return DataEntry({
                 'title': page['title'] if 'title' in page else 'n/a',
                 'text': text,
-                'date_published': page.get('editCreatedAt') or page.get('pageCreatedAt') or 'n/a',
+                'date_published': self._get_published_date(page),
                 'url': f'https://arbital.com/p/{page.get("alias") or alias}',
                 'source': self.name,
                 'source_filetype': 'text',
@@ -143,6 +143,13 @@ class Arbital(AlignmentDataset):
         data = f'{{"pageAlias":"{subspace}"}}'
         response = requests.post('https://arbital.com/json/explore/', headers=headers, data=data).json()
         return list(response['pages'].keys())
+    
+    @staticmethod
+    def _get_published_date(page):
+        date_published = page.get('editCreatedAt') or page.get('pageCreatedAt') or 'n/a'
+        if date_published != 'n/a':
+            date_published = datetime.strptime(date_published, '%Y-%m-%d %H:%M:%S').isoformat()
+        return date_published
 
     def get_page(self, alias):
         headers = self.headers.copy()

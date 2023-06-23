@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import logging
+from datetime import datetime
 from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,9 @@ class MediumBlog(HTMLDataset):
 
     def _get_published_date(self, contents):
         possible_date_elements = contents.find('article').find('h1').next_sibling.find_all('span')
-        return self._find_date(possible_date_elements)
+        date = self._find_date(possible_date_elements)
+        date_published = datetime.strptime(date, "%Y-%m-%d").isoformat()
+        return date_published
 
     def _get_text(self, contents):
         article = contents.find('article')

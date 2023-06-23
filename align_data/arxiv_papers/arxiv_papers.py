@@ -66,7 +66,7 @@ class ArxivPapers(AlignmentDataset):
                 "converted_with": "markdownify",
                 "title": paper.title,
                 "authors": [str(x) for x in paper.authors],
-                "date_published": str(paper.published),
+                "date_published": paper.published.isoformat(), # paper.published is a datetime.datetime obj
                 "data_last_modified": str(paper.updated),
                 "abstract": paper.summary.replace("\n", " "),
                 "author_comment": paper.comment,

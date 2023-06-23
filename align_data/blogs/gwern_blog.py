@@ -1,6 +1,7 @@
 import requests
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 
 from align_data.common.alignment_dataset import DataEntry
 from align_data.common.html_dataset import HTMLDataset
@@ -47,14 +48,13 @@ class GwernBlog(HTMLDataset):
     def _process_markdown(self, post_href, article):
         text = article.text
         metadata = self._get_metadata(text)
-        date_published = metadata.get('modified') or metadata.get('created') or 'n/a'
-
+        
         return DataEntry({
             "source": self.name,
             "url": post_href,
             "title": metadata.get('title'),
             "authors": self.authors,
-            "date_published": date_published,
+            "date_published": self._get_published_date(metadata),
             "text": text,
         })
 
@@ -77,10 +77,14 @@ class GwernBlog(HTMLDataset):
     def _get_title(contents):
         return contents.find('header').find('h1').text
 
+
     @staticmethod
-    def _get_published_date(contents):
-        # Get the latest date - Gwern often updates stuff
-        return list(contents.find('span', {'class': 'page-date-range'}).children)[-1].text
+    def _get_published_date(metadata):
+        date_published = metadata.get('modified') or metadata.get('created') or 'n/a'
+        if date_published != 'n/a':
+            date_published = datetime.strptime(date_published, "%Y-%m-%d").isoformat()
+        return date_published
+
 
     def _get_text(self, contents):
         return self.cleaner.clean(contents.find('div', {'id': 'markdownBody'}).text)

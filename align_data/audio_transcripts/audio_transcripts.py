@@ -1,11 +1,8 @@
 from dataclasses import dataclass
-import gdown
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
-import zipfile
-import os
 import logging
 import re
-from tqdm import tqdm
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +51,21 @@ class AudioTranscripts(GdocDataset):
             return [res.group(1)]
 
         return None
+    
+    @staticmethod
+    def _get_published_date(filename):
+        try:   
+            date_published = re.search(r"\d{4}\d{2}\d{2}", str(filename)).group(0)
+            date_published = datetime.strptime(date_published, "%Y%m%d").isoformat()
+        except:
+            date_published = 'n/a'
+        return date_published
+
 
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")
         text = filename.read_text()
         title = filename.stem
-
-        date = re.search(r"\d{4}\d{2}\d{2}", str(filename)).group(0)
-        date = date[:4] + "-" + date[4:6] + "-" + date[6:]
 
         return DataEntry({
             "source": self.name,
@@ -70,7 +74,7 @@ class AudioTranscripts(GdocDataset):
             "converted_with": "otter-ai",
             "title": title,
             "authors": self.extract_authors(text),
-            "date_published": str(date),
+            "date_published": self._get_published_date(filename),
             "text": text,
             'filename': filename.name,
         })

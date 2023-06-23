@@ -43,7 +43,7 @@ class Gdocs(GdocDataset):
             "converted_with": "pandoc",
             "title": metadata.title,
             "authors": [metadata.author] if metadata.author else [],
-            "date_published": metadata.created if metadata.created else "n/a",
+            "date_published": metadata.created or "n/a",
             "text": text,
             "url": "n/a",
             "docx_name": docx_filename.name,

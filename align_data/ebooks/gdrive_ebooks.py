@@ -52,10 +52,17 @@ class GDrive(GdocDataset):
             "source_filetype": "epub",
             "converted_with": "pandoc",
             "title": metadata["title"],
-            "date_published": metadata["publication_date"] if metadata["publication_date"] else "n/a",
+            "date_published": self._get_published_date(metadata),
             "chapter_names": [chap["title"] for chap in metadata["toc"]],
             "text": text,
             "url": "n/a",
             "file_name": epub_file.name,
             "authors": metadata['authors'],
         })
+
+    @staticmethod
+    def _get_published_date(metadata):
+        date_published = metadata["publication_date"] if metadata["publication_date"] else "n/a"
+        if date_published != 'n/a':
+            print(date_published)
+        return date_published
