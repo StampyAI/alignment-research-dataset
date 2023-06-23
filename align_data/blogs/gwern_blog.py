@@ -51,6 +51,7 @@ class GwernBlog(HTMLDataset):
 
         return DataEntry({
             "source": self.name,
+            "source_type": self.source_type,
             "url": post_href,
             "title": metadata.get('title'),
             "authors": self.authors,
