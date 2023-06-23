@@ -35,7 +35,7 @@ class Reports(GdocDataset):
                 "title": doc_dict["header"]["title"],
                 "text": doc_dict["body"],
                 "source": self.name,
-                "source_filetype": "pdf",
+                "source_type": "pdf",
                 "date_published": "n/a",
                 "url": "n/a",
                 "filename": filename.name,

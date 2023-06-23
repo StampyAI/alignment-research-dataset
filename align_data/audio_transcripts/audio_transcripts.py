@@ -65,7 +65,7 @@ class AudioTranscripts(GdocDataset):
 
         return DataEntry({
             "source": self.name,
-            "source_filetype": "audio",
+            "source_type": "audio",
             "url": "n/a",
             "converted_with": "otter-ai",
             "title": title,

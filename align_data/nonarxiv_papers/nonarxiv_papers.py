@@ -40,7 +40,7 @@ class NonarxivPapers(GdocDataset):
                 "url": "n/a",
                 "authors": list(filter(None, authors)),
                 "source": self.name,
-                "source_filetype": "pdf",
+                "source_type": "pdf",
                 "filename": filename.name,
             })
         except Exception as e:
