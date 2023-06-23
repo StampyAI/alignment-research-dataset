@@ -21,6 +21,8 @@ INIT_DICT = {
     "date_published": None,
     "title": None,
     "url": None,
+    "summary": lambda: [],
+    "authors": lambda: [],
 }
 
 # Used to limit the size of the text used when generating hashes.
@@ -253,9 +255,9 @@ class DataEntry(UserDict):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for k, v in INIT_DICT.items():
+        for k, default in INIT_DICT.items():
             if k not in self:
-                self[k] = v
+                self[k] = default and default()
 
     def add_id(self):
         assert self["text"] is not None, "Entry is missing text"

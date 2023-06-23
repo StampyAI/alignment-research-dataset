@@ -53,7 +53,7 @@ class AudioTranscripts(GdocDataset):
         if res := re.search('^(.*?):', firstline):
             return [res.group(1)]
 
-        return None
+        return []
 
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")

@@ -15,6 +15,8 @@ def test_data_entry_default_fields():
         'url': None,
         'id': None,
         'text': None,
+        'summary': [],
+        'authors': [],
     }
 
 
@@ -29,6 +31,8 @@ def test_data_entry_id_from_text():
         'source': None,
         'title': None,
         'url': None,
+        'summary': [],
+        'authors': [],
         }, **data
     )
 

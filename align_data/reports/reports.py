@@ -28,9 +28,10 @@ class Reports(GdocDataset):
         xml_text = filename.read_text()
         try:
             doc_dict = grobid_tei_xml.parse_document_xml(xml_text).to_dict()
+            abstract = doc_dict.get("abstract")
             logger.info(f"Doc: {list(doc_dict.keys())}")
             return DataEntry({
-                "abstract": doc_dict["abstract"],
+                "summary": [abstract] if abstract else [],
                 "authors": [xx["full_name"] for xx in doc_dict["header"]["authors"]],
                 "title": doc_dict["header"]["title"],
                 "text": doc_dict["body"],
