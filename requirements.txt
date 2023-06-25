@@ -20,4 +20,4 @@ seaborn
 matplotlib
 codaio
 python-dotenv
-pytest
+PyPDF2
