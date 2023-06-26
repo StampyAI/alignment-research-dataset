@@ -1,4 +1,3 @@
-from align_data.blogs.markdown_blogs import MarkdownBlogs
 from align_data.blogs.wp_blog import WordpressBlog
 from align_data.blogs.medium_blog import MediumBlog
 from align_data.blogs.gwern_blog import GwernBlog
@@ -38,11 +37,6 @@ BLOG_REGISTRY = [
         name="carado.moe",
         url='https://carado.moe',
         authors=['Tamsin Leake'],
-    ),
-    MarkdownBlogs(
-        name="waitbutwhy",
-        gdrive_address="https://drive.google.com/uc?id=1z0kbDd8vDsgOH6vV9z0XBnTQutXFJ6x-",
-        authors=['Tim Urban'],
     ),
     SubstackBlog(
         name="importai",

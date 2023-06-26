@@ -29,16 +29,16 @@ on:
           - generative.ink
           - gwern_blog
           - importai
-          - miri
+          - individual_docs
           - jsteinhardt_blog
           - lesswrong
           - markdown.ebooks
+          - miri
           - ml_safety_newsletter
           - nonarxiv_papers
           - qualiacomputing
           - reports
           - vkrakovna_blog
-          - waitbutwhy
           - yudkowsky_blog
 
 jobs:

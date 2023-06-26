@@ -7,7 +7,7 @@ from .gsheets import GSheets
 GDOCS_REGISTRY = [
     Gdocs(name="gdocs", gdrive_address="https://drive.google.com/uc?id=18uFLj3Vs8de6LnEE00taJAvPl8dZYRxx"),
     GSheets(
-        name='special_docs',
+        name='individual_docs',
         sheet_id='980957638',
         spreadsheet_id='1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI',
         mappings = {
