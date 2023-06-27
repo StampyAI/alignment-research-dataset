@@ -58,7 +58,7 @@ class MarkdownBlogs(GdocDataset):
         
     @staticmethod
     def _get_title(filename):
-        try:
-            return re.search(r"^#\s(.*)\n$", filename.read_text(), re.MULTILINE).group(1)        
-        except:
-            return filename.stem
+        res = re.search(r"^#\s(.*)\n$", filename.read_text(), re.MULTILINE)
+        if res:
+            return res.group(1)    
+        return filename.stem

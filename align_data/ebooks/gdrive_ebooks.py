@@ -5,7 +5,6 @@ import epub_meta
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
 import logging
 from path import Path
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class GDrive(GdocDataset):
 
         self.weblink_pattern = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
 
-        self.pandoc_check_path = Path(os.getcwd()) / "/pandoc/pandoc"
+        self.pandoc_check_path = Path(os.getcwd()) / 'pandoc' / 'pandoc' #/ "/pandoc/pandoc"
 
         if self.pandoc_check_path.exists():
             logger.info("Make sure pandoc is configured correctly.")
@@ -62,7 +61,7 @@ class GDrive(GdocDataset):
 
     @staticmethod
     def _get_published_date(metadata):
-        date_published = metadata["publication_date"] if metadata["publication_date"] else "n/a"
-        if date_published != 'n/a':
-            print(date_published)
-        return date_published
+        date_published = metadata["publication_date"]
+        if date_published:
+            return date_published
+        return 'n/a'

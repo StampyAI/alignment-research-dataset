@@ -146,10 +146,10 @@ class Arbital(AlignmentDataset):
     
     @staticmethod
     def _get_published_date(page):
-        date_published = page.get('editCreatedAt') or page.get('pageCreatedAt') or 'n/a'
-        if date_published != 'n/a':
-            date_published = datetime.strptime(date_published, '%Y-%m-%d %H:%M:%S').isoformat()
-        return date_published
+        date_published = page.get('editCreatedAt') or page.get('pageCreatedAt')
+        if date_published:
+            return datetime.strptime(date_published, '%Y-%m-%d %H:%M:%S').isoformat()
+        return 'n/a'
 
     def get_page(self, alias):
         headers = self.headers.copy()

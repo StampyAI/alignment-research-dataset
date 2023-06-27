@@ -20,3 +20,4 @@ seaborn
 matplotlib
 codaio
 python-dotenv
+pytest

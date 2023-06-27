@@ -80,10 +80,10 @@ class GwernBlog(HTMLDataset):
 
     @staticmethod
     def _get_published_date(metadata):
-        date_published = metadata.get('modified') or metadata.get('created') or 'n/a'
-        if date_published != 'n/a':
-            date_published = datetime.strptime(date_published, "%Y-%m-%d").isoformat()
-        return date_published
+        date_published = metadata.get('modified') or metadata.get('created')
+        if date_published:
+            return datetime.strptime(date_published, "%Y-%m-%d").isoformat()
+        return 'n/a'
 
 
     def _get_text(self, contents):
