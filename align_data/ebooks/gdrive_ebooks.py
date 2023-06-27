@@ -62,6 +62,4 @@ class GDrive(GdocDataset):
     @staticmethod
     def _get_published_date(metadata):
         date_published = metadata["publication_date"]
-        if date_published:
-            return date_published
-        return 'n/a'
+        return date_published or 'n/a'
