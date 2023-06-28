@@ -70,7 +70,7 @@ class WordpressBlog(AlignmentDataset):
                     "url": entry['link'],
                     "title": text.split("\n")[0],
                     "source": self.name,
-                    "source_type": "wordpress",
+                    "source_type": "blog",
                     "date_published": self._get_published_date(entry),
                     "paged_url": paged_url,
                     "authors": [e['name'] for e in entry.get('authors', [])],

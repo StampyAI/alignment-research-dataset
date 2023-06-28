@@ -49,8 +49,7 @@ class AudioTranscripts(GdocDataset):
         # e.g. 'Rohin Shah: What\xe2\x80\x99s been happening in AI alignment?'
         if res := re.search('^(.*?):', firstline):
             return [res.group(1)]
-
-        return None
+        return []
     
     @staticmethod
     def _get_published_date(filename):
@@ -69,7 +68,7 @@ class AudioTranscripts(GdocDataset):
 
         return DataEntry({
             "source": self.name,
-            "source_filetype": "audio",
+            "source_type": "audio",
             "url": "n/a",
             "converted_with": "otter-ai",
             "title": title,

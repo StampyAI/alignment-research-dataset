@@ -40,7 +40,7 @@ class Gdocs(GdocDataset):
 
         return DataEntry({
             "source": self.name,
-            "source_filetype": "docx",
+            "source_type": "docx",
             "converted_with": "pandoc",
             "title": metadata.title,
             "authors": [metadata.author] if metadata.author else [],

@@ -58,7 +58,7 @@ class Stampy(AlignmentDataset):
 
         return DataEntry({
             "source": self.name,
-            "source_filetype": "markdown",
+            "source_type": "markdown",
             "url": url,
             "title": question,
             "authors": ['Stampy aisafety.info'],

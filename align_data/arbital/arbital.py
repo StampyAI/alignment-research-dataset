@@ -128,7 +128,7 @@ class Arbital(AlignmentDataset):
                 'date_published': self._get_published_date(page),
                 'url': f'https://arbital.com/p/{page.get("alias") or alias}',
                 'source': self.name,
-                'source_filetype': 'text',
+                'source_type': 'text',
                 'authors': self.extract_authors(page),
                 'alias': alias,
                 'tags': list(filter(None, map(self.get_title, page['tagIds']))),

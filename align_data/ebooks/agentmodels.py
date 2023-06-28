@@ -18,7 +18,7 @@ class AgentModels(AlignmentDataset):
 
     def setup(self):
         self.base_dir = self.raw_data_path / 'agentmodels.org'
-        if not self.base_dir.exists():
+        if not self.base_dir.exists() or not list(self.base_dir.glob('*')):
             logger.info("Cloning repo")
             Repo.clone_from(self.repo, self.base_dir)
         self.repository = Repo(self.base_dir)
@@ -36,8 +36,8 @@ class AgentModels(AlignmentDataset):
     def process_entry(self, filename):
         return DataEntry({
             'source': self.name,
+            'source_type': 'markdown',
             'source_filetype': 'markdown',
-            'converted_with': 'not converted',
             'book_title': 'Modeling Agents with Probabilistic Programs',
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
             'date_published': self._get_published_date(filename),
