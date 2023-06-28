@@ -3,6 +3,8 @@ import re
 import logging
 from dataclasses import dataclass
 from codaio import Coda, Document
+from datetime import timezone
+from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 from align_data.stampy.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
@@ -34,6 +36,14 @@ class Stampy(AlignmentDataset):
 
     def get_item_key(self, entry):
         return html.unescape(entry['Question'])
+    
+    @staticmethod
+    def _get_published_date(entry):
+        date_published = entry['Doc Last Edited']
+        if date_published:
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return 'n/a'
 
     def process_entry(self, entry):
         def clean_text(text):
@@ -43,7 +53,6 @@ class Stampy(AlignmentDataset):
         question = clean_text(entry['Question']) # raise an error if the entry has no question
         answer = clean_text(entry['Rich Text'])
         url = 'https://aisafety.info?state=' + entry['UI ID']
-        date_published = entry['Doc Last Edited']
 
         logger.info(f"Processing {question}")
 
@@ -53,6 +62,6 @@ class Stampy(AlignmentDataset):
             "url": url,
             "title": question,
             "authors": ['Stampy aisafety.info'],
-            "date_published": date_published,
+            "date_published": self._get_published_date(entry),
             "text": answer,
         })

@@ -2,7 +2,7 @@ import re
 import logging
 from dataclasses import dataclass
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
 
 logger = logging.getLogger(__name__)
@@ -50,12 +50,15 @@ class MarkdownBlogs(GdocDataset):
     
     @staticmethod
     def _get_published_date(text):
-        try:
-            date = re.search(r"^\d{4}-\d{2}-\d{2}", text, re.MULTILINE).group(0)
-            return datetime.strptime(date, "%Y-%m-%d").isoformat()
-        except:
-            return 'n/a'
+        date_str = re.search(r"^\d{4}-\d{2}-\d{2}", text, re.MULTILINE)
         
+        if not date_str:
+            return 'n/a'
+            
+        date_str = date_str.group(0)
+        dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
     @staticmethod
     def _get_title(filename):
         res = re.search(r"^#\s(.*)\n$", filename.read_text(), re.MULTILINE)

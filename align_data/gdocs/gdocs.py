@@ -5,7 +5,8 @@ import pypandoc
 from path import Path
 import os
 import docx
-from tqdm import tqdm
+from datetime import datetime, timezone
+from dateutil.parser import parse
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,20 @@ class Gdocs(GdocDataset):
             "converted_with": "pandoc",
             "title": metadata.title,
             "authors": [metadata.author] if metadata.author else [],
-            "date_published": metadata.created or "n/a",
+            "date_published": self._get_published_date(metadata),
             "text": text,
             "url": "n/a",
             "docx_name": docx_filename.name,
         })
+    
+    @staticmethod
+    def _get_published_date(metadata):
+        date_published = metadata.created
+        if date_published:
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return 'n/a'
+
 
     def _get_metadata(self , docx_filename):
         doc = docx.Document(docx_filename)

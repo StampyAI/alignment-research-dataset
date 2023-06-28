@@ -25,6 +25,7 @@ class AgentModels(AlignmentDataset):
         self.files_path = self.base_dir / 'chapters'
 
     def _get_published_date(self, filename):
+        #TODO: make agentmodels be scrapable, and update this to be in the correct format
         try:
             last_commit = next(self.repository.iter_commits(paths=f'chapters/{filename.name}'))
             return last_commit.committed_datetime.isoformat()

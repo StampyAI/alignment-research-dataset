@@ -1,7 +1,8 @@
 import requests
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import DataEntry
 from align_data.common.html_dataset import HTMLDataset
@@ -82,7 +83,8 @@ class GwernBlog(HTMLDataset):
     def _get_published_date(metadata):
         date_published = metadata.get('modified') or metadata.get('created')
         if date_published:
-            return datetime.strptime(date_published, "%Y-%m-%d").isoformat()
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         return 'n/a'
 
 

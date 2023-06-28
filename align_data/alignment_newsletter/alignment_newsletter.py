@@ -28,9 +28,10 @@ class AlignmentNewsletter(AlignmentDataset):
     @staticmethod
     def _get_published_date(year):
         if not year or pd.isna(year):
-            return None
-        return datetime(int(year), 1, 1, tzinfo=timezone.utc).isoformat()
-
+            return 'n/a'
+        dt = datetime(int(year), 1, 1, tzinfo=timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        
     @property
     def items_list(self):
         return self.df.itertuples()
@@ -66,6 +67,6 @@ class AlignmentNewsletter(AlignmentDataset):
             "read_more": handle_na(row[13], str),
             "title": handle_na(row.Title, str),
             "authors": [i.strip() for i in str(row.Authors).split(',')],
-            "date_published": self._get_published_date(row.Year) or 'n/a',
+            "date_published": self._get_published_date(row.Year),
             "text": handle_na(row.Summary, str),
         })

@@ -3,9 +3,12 @@ import os
 import pypandoc
 import epub_meta
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
-import logging
 from path import Path
 
+from datetime import datetime, timezone
+from dateutil.parser import parse
+
+import logging
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -62,4 +65,7 @@ class GDrive(GdocDataset):
     @staticmethod
     def _get_published_date(metadata):
         date_published = metadata["publication_date"]
-        return date_published or 'n/a'
+        if date_published:
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return 'n/a'

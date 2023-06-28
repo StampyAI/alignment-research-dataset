@@ -4,6 +4,8 @@ from markdownify import markdownify
 from align_data.common import utils
 from align_data.common.html_dataset import HTMLDataset, RSSDataset
 
+from datetime import datetime, timezone
+from dateutil.parser import parse
 
 @dataclass
 class ColdTakes(HTMLDataset):
@@ -20,7 +22,9 @@ class ColdTakes(HTMLDataset):
     def _get_published_date(contents):
         article = contents.find('article')
         header = article.find('header').extract()
-        return header.find('time').get('datetime')
+        date = header.find('time').get('datetime')
+        dt = parse(date).astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class GenerativeInk(HTMLDataset):
@@ -32,7 +36,9 @@ class GenerativeInk(HTMLDataset):
             elem for info in contents.find_all('div', {'class': 'post-info'})
             for elem in info.children
         ]
-        return self._find_date(possible_date_elements)
+        date = self._find_date(possible_date_elements)
+        dt = parse(date).astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class CaradoMoe(RSSDataset):

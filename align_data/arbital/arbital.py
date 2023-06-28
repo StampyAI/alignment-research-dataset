@@ -2,6 +2,7 @@ import re
 import logging
 import requests
 from datetime import datetime, timezone
+from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 from dataclasses import dataclass
@@ -148,7 +149,8 @@ class Arbital(AlignmentDataset):
     def _get_published_date(page):
         date_published = page.get('editCreatedAt') or page.get('pageCreatedAt')
         if date_published:
-            return datetime.strptime(date_published, '%Y-%m-%d %H:%M:%S').isoformat()
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         return 'n/a'
 
     def get_page(self, alias):

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import re
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,11 @@ class MDEBooks(GdocDataset):
     
     @staticmethod
     def _get_published_date(filename):
-        date_published = re.search(r"\d{4}-\d{2}-\d{2}", filename.name).group(0)
-        date_published = datetime.strptime(date_published, "%Y-%m-%d").isoformat()
-        return date_published 
-
+        date_str = re.search(r"\d{4}-\d{2}-\d{2}", filename.name)
+        
+        if not date_str:
+            return 'n/a'
+        
+        date_str = date_str.group(0)
+        dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")

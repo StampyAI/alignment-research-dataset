@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +54,12 @@ class AudioTranscripts(GdocDataset):
     
     @staticmethod
     def _get_published_date(filename):
-        try:   
-            date_published = re.search(r"\d{4}\d{2}\d{2}", str(filename)).group(0)
-            date_published = datetime.strptime(date_published, "%Y%m%d").isoformat()
-        except:
-            date_published = 'n/a'
-        return date_published
+        date_str = re.search(r"\d{4}\d{2}\d{2}", str(filename))
+        if not date_str:
+            return 'n/a'
+        date_str = date_str.group(0)
+        dt = datetime.strptime(date_str, "%Y%m%d").astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
     def process_entry(self, filename):
