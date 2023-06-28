@@ -1,7 +1,8 @@
 import regex as re
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from dateutil.parser import parse
 from dataclasses import dataclass, field, KW_ONLY
 from urllib.parse import urljoin
 from typing import List
@@ -104,7 +105,8 @@ class HTMLDataset(AlignmentDataset):
     def _find_date(items):
         for i in items:
             if re.match('\w+ \d{1,2}, \d{4}', i.text):
-                return datetime.strptime(i.text, '%b %d, %Y').date().isoformat()
+                dt = datetime.strptime(i.text, '%b %d, %Y').astimezone(timezone.utc)
+                return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _extract_markdown(self, element):
         return markdownify(str(element))
@@ -130,9 +132,10 @@ class RSSDataset(HTMLDataset):
         return item['title']
 
     def _get_published_date(self, item):
-        published = item.get('published') or item.get('pubDate')
-        if published:
-            return datetime.strptime(published, self.date_format).isoformat()
+        date_published = item.get('published') or item.get('pubDate')
+        if date_published:
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         return 'n/a'
 
     @staticmethod
