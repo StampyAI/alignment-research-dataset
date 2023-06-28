@@ -83,6 +83,7 @@ class GreaterWrong(AlignmentDataset):
     def get_item_key(self, item):
         return item['pageUrl']
     
+    @staticmethod
     def _get_published_date(item):
         date_published = item['postedAt']
         if date_published:

@@ -2,7 +2,7 @@ from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 from dataclasses import dataclass
 from git import Repo
 import logging
-from tqdm import tqdm
+from datetime import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -25,19 +25,14 @@ class AgentModels(AlignmentDataset):
         self.files_path = self.base_dir / 'chapters'
 
     def _get_published_date(self, filename):
-        #TODO: make agentmodels be scrapable, and update this to be in the correct format
-        try:
-            last_commit = next(self.repository.iter_commits(paths=f'chapters/{filename.name}'))
-            return last_commit.committed_datetime.isoformat()
-        except Exception as e:
-            logger.error(f'Error getting last modification date for {filename.name}: {e}')
-        return "2016-01-08T10:50:56-8:00"  # date of the initial commit
+        last_commit = next(self.repository.iter_commits(paths=f'chapters/{filename.name}'))
+        dt = last_commit.committed_datetime.astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def process_entry(self, filename):
         return DataEntry({
             'source': self.name,
             'source_type': 'markdown',
-            'source_filetype': 'markdown',
             'book_title': 'Modeling Agents with Probabilistic Programs',
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
             'date_published': self._get_published_date(filename),
