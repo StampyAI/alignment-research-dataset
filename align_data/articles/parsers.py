@@ -13,12 +13,12 @@ from PyPDF2.errors import PdfReadError
 logger = logging.getLogger(__name__)
 
 
-def fetch(url):
+def fetch(url, method='get'):
     """Fetch the given `url`.
 
     This function is to have a single place to manage headers etc.
     """
-    return requests.get(
+    return getattr(requests, method)(
         url, allow_redirects=True,
         headers={
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
@@ -44,7 +44,7 @@ def sci_hub_pdf(identifier):
     return src
 
 
-def extract_pdf(link):
+def fetch_pdf(link):
     """Return the contents of the pdf file at `link` as a markdown string.
 
     :param str link: the URL to check for a pdf file
@@ -53,7 +53,6 @@ def extract_pdf(link):
     if res.status_code >= 400:
         logger.error('Could not fetch the pdf file at %s - are you sure that link is correct?', link)
 
-    # Handle cases like 'application/pdf; header=present'
     content_type = {c_type.strip().lower() for c_type in res.headers.get('Content-Type').split(';')}
     if not content_type & {'application/octet-stream', 'application/pdf'}:
         return {'error': f'Wrong content type retrieved: {content_type} - {link}'}
@@ -63,7 +62,7 @@ def extract_pdf(link):
         return {'text': '\n'.join(page.extract_text() for page in pdf_reader.pages)}
     except PdfReadError as e:
         logger.error('Could not read PDF file: %s', e)
-        error = str(e)
+        return {'error': str(e)}
 
     filenames = [
         i.strip().split('=')[1]
@@ -146,7 +145,7 @@ def get_doi(doi):
     """
     if 'arXiv' in doi:
         link = get_arxiv_link(doi)
-        pdf = (link and extract_pdf(link))
+        pdf = (link and fetch_pdf(link))
         if pdf and 'text' in pdf:
             return {
                 'text': pdf['text'],
@@ -156,7 +155,7 @@ def get_doi(doi):
             }
 
     if link := sci_hub_pdf(doi):
-        if pdf := extract_pdf(link):
+        if pdf := fetch_pdf(link):
             if 'text' in pdf:
                 return {
                     'text': pdf,
@@ -171,21 +170,6 @@ def get_doi(doi):
 def doi_getter(url):
     """Extract the DOI from the given `url` and fetch the contents of its article."""
     return get_doi(urlparse(url).path.lstrip('/'))
-
-
-def get_google_drive_pdf(link):
-    file_id = link.split('/')[-2]
-    pdf = extract_pdf(f'https://drive.google.com/uc?id={file_id}')
-    if not pdf:
-        return {'error': 'Could not read pdf from google drive'}
-    if 'error' not in pdf:
-        return {
-            'text': pdf.get('text'),
-            'source_url': link,
-            'data_source': 'pdf',
-            'downloaded_from': 'google drive',
-        }
-    return pdf
 
 
 def get_pdf_from_page(*link_selectors):
@@ -212,9 +196,9 @@ def get_pdf_from_page(*link_selectors):
         # Some pages keep link to google drive previews of pdf files, which need to be
         # mangled to get the URL of the actual pdf file
         if 'drive.google.com' in link and '/view' in link:
-            return get_google_drive_pdf(link)
+            return extract_gdrive_contents(link)
 
-        pdf = extract_pdf(link)
+        pdf = fetch_pdf(link)
         if not pdf:
             return {'error': f'Could not fetch pdf from {link}'}
         if 'error' in pdf:
@@ -242,6 +226,32 @@ def google_doc(url: str) -> str:
             'text': MarkdownConverter().convert_soup(body).strip(),
         }
     return {'error': 'Could not extract text from google doc'}
+
+
+def extract_gdrive_contents(link):
+    file_id = link.split('/')[-2]
+    url = f'https://drive.google.com/uc?id={file_id}'
+    res = fetch(url, 'head')
+    if res.status_code >= 400:
+        logger.error('Could not fetch the pdf file at %s - are you sure that link is correct?', link)
+        return {'error': 'Could not read file from google drive'}
+
+    result = {
+        'source_url': link,
+        'downloaded_from': 'google drive',
+    }
+
+    content_type = {c_type.strip().lower() for c_type in res.headers.get('Content-Type').split(';')}
+    if not content_type:
+        result['error'] = 'no content type'
+    elif content_type & {'application/octet-stream', 'application/pdf'}:
+        result.update(fetch_pdf(url))
+    elif content_type & {'application/epub+zip', 'application/epub'}:
+        result['data_source'] = 'ebook'
+    else:
+        result['error'] = f'unknown content type: {content_type}'
+
+    return result
 
 
 def none_with_error(error):
@@ -285,9 +295,9 @@ PARSERS = {
     'deepmindsafetyresearch.medium.com': medium_blog,
     'docs.google.com': google_doc,
     'docs.microsoft.com': element_extractor('div.content'),
-    'drive.google.com': get_google_drive_pdf,
+    'drive.google.com': extract_gdrive_contents,
     'doi.org': doi_getter,
-    'dl.acm.org': extract_pdf,
+    'dl.acm.org': fetch_pdf,
     'dspace.mit.edu': get_pdf_from_page('a.btn-primary.download-button'),
     'digichina.stanford.edu': element_extractor('div.h_editor-content'),
     'en.wikipedia.org': element_extractor('main.mw-body'),
@@ -311,13 +321,13 @@ PARSERS = {
     'openaccess.thecvf.com': get_pdf_from_page('a:-soup-contains("pdf")'),
     'openai.com': element_extractor('#content'),
     'openreview.net': get_pdf_from_page('a.note_content_pdf'),
-    'ora.ox.ac.uk': extract_pdf,
+    'ora.ox.ac.uk': fetch_pdf,
     'ought.org': element_extractor('div.BlogPostBodyContainer'),
     'papers.nips.cc': get_pdf_from_page('a:-soup-contains("Paper")'),
     'papers.ssrn.com': get_pdf_from_page('.abstract-buttons a.button-link:-soup-contains("Download")'),
     'par.nsf.gov': get_pdf_from_page('a:-soup-contains("Accepted Manuscript")'),
     'proceedings.neurips.cc': get_pdf_from_page('a:-soup-contains("Paper")'),
-    'psyarxiv.com': lambda url: extract_pdf(url.rstrip('/') + '/download'),
+    'psyarxiv.com': lambda url: fetch_pdf(url.rstrip('/') + '/download'),
     'rowanzellers.com': get_pdf_from_page('main a:-soup-contains("Paper")'),
     'sideways-view.com': element_extractor('article', remove=['header']),
     'slatestarcodex.com': element_extractor('div.pjgm-postcontent'),
@@ -386,7 +396,7 @@ def extract_text(url):
             return parsed
 
     # Check if the url is to a pdf - it might not be, as this is just a wild guess
-    pdf = extract_pdf(url)
+    pdf = fetch_pdf(url)
 
     # It was a pdf - good, this can also be returned
     if pdf and 'text' in pdf:
