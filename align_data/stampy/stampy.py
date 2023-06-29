@@ -7,7 +7,7 @@ from datetime import timezone
 from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
-from align_data.stampy.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
+from align_data.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
 
 logger = logging.getLogger(__name__)
 

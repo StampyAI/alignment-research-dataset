@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Union
 from align_data import ALL_DATASETS, DATASET_REGISTRY, get_dataset
+from align_data.articles.articles import update_new_items
 from align_data.analysis.count_tokens import count_token
 
 # import logging , sys
@@ -99,6 +100,15 @@ class AlignmentDataset:
         """
         assert os.path.exists(merged_dataset_path), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
+
+    def update_metadata(self, source_spreadsheet: str, source_sheet: str, output_spreadsheet: str):
+        """Go through all unprocessed items from the source worksheet, updating the appropriate metadata in the output one.
+
+        :param str source_spreadsheet: The id of the google docs spreadsheet containing the items to be processed
+        :param str source_sheet: The name of the worksheet to be processed
+        :param str output_spreadsheet: The id of the output google sheet where processed metadata should be added. This sheet should have a worksheet for each expected data type (e.g. "pdf", "html")
+        """
+        return update_new_items(source_spreadsheet, source_sheet, output_spreadsheet)
 
 
 if __name__ == "__main__":

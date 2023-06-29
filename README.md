@@ -129,10 +129,27 @@ There are Datasets defined for various types of data sources - first check if an
 
 ## Running the code
 
+When wishing to update the whole dataset, run `python main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python main.py fetch aisafety.info`
+
+### Coda
+
 To update the stampy portion of the dataset, you will need a Coda token. go to coda.io, log in, and generate an API token in your account settings. Add restrictions: Doc or table, Read only, for the doc with url https://coda.io/d/_dfau7sl2hmG. Then, create a .env file at the root of the alignment research dataset, and write CODA_TOKEN="<coda_token>". It will be accessible in align_data/stampy/stampy.py
 
+### Google API
 
-When wishing to update the whole dataset, run `python main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python main.py fetch aisafety.info`
+To autopopulate the metadata files, you'll need Google Cloud credentials. This is a google system, so of course is complicated and prone to arbitrary changes, but as of writing this the process is:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing project (it doesn't matter either way)
+3. Google sheets etc will have to be enabled
+ * Enable the Google Sheets API for your project at https://console.cloud.google.com/apis/api/sheets.googleapis.com/metrics?project=<your project id>
+ * Enable the Google Drive API for your project at https://console.cloud.google.com/apis/api/drive.googleapis.com/metrics?project=<your project id>
+ An alternative to this step is that when running the program without these enabled, an exception will be raised telling you how to enable it - you can then just open the link in the exception message
+4. Navigate to the "Credentials" section
+5. Click on "Create Credentials" and select "Service Account"
+6. Fill in the required information for the service account
+7. On the "Create key" page, select the JSON key type and click "Create"
+8. The JSON file containing your credentials will be downloaded -> save as credentials.json in the folder from which you're running the code
 
 ## Contributing
 

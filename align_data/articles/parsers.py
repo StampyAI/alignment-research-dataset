@@ -1,18 +1,14 @@
 import io
 import logging
-from dataclasses import dataclass, field
 from typing import List, Dict
 from urllib.parse import urlparse, urljoin
 
-import pandas as pd
 import regex as re
 import requests
 from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter, markdownify
 from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
-
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +56,14 @@ def extract_pdf(link):
     # Handle cases like 'application/pdf; header=present'
     content_type = {c_type.strip().lower() for c_type in res.headers.get('Content-Type').split(';')}
     if not content_type & {'application/octet-stream', 'application/pdf'}:
-        return None
+        return {'error': f'Wrong content type retrieved: {content_type} - {link}'}
 
     try:
         pdf_reader = PdfReader(io.BytesIO(res.content))
-        return '\n'.join(page.extract_text() for page in pdf_reader.pages)
+        return {'text': '\n'.join(page.extract_text() for page in pdf_reader.pages)}
     except PdfReadError as e:
         logger.error('Could not read PDF file: %s', e)
+        error = str(e)
 
     filenames = [
         i.strip().split('=')[1]
@@ -75,8 +72,9 @@ def extract_pdf(link):
     ]
     if filenames and 'pdf' not in filenames[0].lower():
         logger.error('Are you sure %s points to a pdf file? The response says the file should be called %s', link, filenames[0])
+        error = f'Probably bad file type: {filenames[0]} - {link}'
 
-    return None
+    return {'error': error}
 
 
 def fetch_element(url, selector):
@@ -101,12 +99,17 @@ def element_extractor(selector, remove=[]):
     def getter(url):
         elem = fetch_element(url, selector)
         if not elem:
-            return None
+            return {'error': 'could not find HTML element'}
 
         for sel in remove:
             for e in elem.select(sel):
                 e.extract()
-        return MarkdownConverter().convert_soup(elem).strip()
+        return {
+            'text': MarkdownConverter().convert_soup(elem).strip(),
+            'data_source': 'html',
+            'source_url': url,
+        }
+
     return getter
 
 
@@ -114,7 +117,13 @@ def medium_blog(url):
     """Return the contents of the medium article at the given URL as markdown."""
     article = fetch_element(url, 'article')
     article.find('h1').parent.extract()  # remove the header
-    return article and MarkdownConverter().convert_soup(article).strip()
+    if article:
+        return {
+            'text': MarkdownConverter().convert_soup(article).strip(),
+            'data_source': 'html',
+            'source_url': url,
+        }
+    return {'error': 'Could not final article in HTML'}
 
 
 def get_arxiv_link(doi):
@@ -137,12 +146,26 @@ def get_doi(doi):
     """
     if 'arXiv' in doi:
         link = get_arxiv_link(doi)
-        if pdf := (link and extract_pdf(link)):
-            return pdf
+        pdf = (link and extract_pdf(link))
+        if pdf and 'text' in pdf:
+            return {
+                'text': pdf['text'],
+                'source_url': link,
+                'data_source': 'pdf',
+                'downloaded_from': 'arXiv',
+            }
 
     if link := sci_hub_pdf(doi):
-        return extract_pdf(link)
-    return None
+        if pdf := extract_pdf(link):
+            if 'text' in pdf:
+                return {
+                    'text': pdf,
+                    'source_url': link,
+                    'data_source': 'pdf',
+                    'downloaded_from': 'scihub',
+                }
+            return pdf
+    return {'error': 'Could not find pdf of article by DOI'}
 
 
 def doi_getter(url):
@@ -152,7 +175,17 @@ def doi_getter(url):
 
 def get_google_drive_pdf(link):
     file_id = link.split('/')[-2]
-    return extract_pdf(f'https://drive.google.com/uc?id={file_id}')
+    pdf = extract_pdf(f'https://drive.google.com/uc?id={file_id}')
+    if not pdf:
+        return {'error': 'Could not read pdf from google drive'}
+    if 'error' not in pdf:
+        return {
+            'text': pdf.get('text'),
+            'source_url': link,
+            'data_source': 'pdf',
+            'downloaded_from': 'google drive',
+        }
+    return pdf
 
 
 def get_pdf_from_page(*link_selectors):
@@ -170,7 +203,7 @@ def get_pdf_from_page(*link_selectors):
         for selector in link_selectors:
             elem = fetch_element(link, selector)
             if not elem:
-                return None
+                return {'error': f'Could not find pdf download link for {link} using \'{selector}\''}
 
             link = elem.get('href')
             if not link.startswith('http') or not link.startswith('//'):
@@ -181,7 +214,16 @@ def get_pdf_from_page(*link_selectors):
         if 'drive.google.com' in link and '/view' in link:
             return get_google_drive_pdf(link)
 
-        return extract_pdf(link)
+        pdf = extract_pdf(link)
+        if not pdf:
+            return {'error': f'Could not fetch pdf from {link}'}
+        if 'error' in pdf:
+            return pdf
+        return {
+            'source_url': link,
+            'data_source': 'pdf',
+            'text': pdf.get('text'),
+        }
     return getter
 
 
@@ -189,11 +231,17 @@ def google_doc(url: str) -> str:
     """Fetch the contents of the given gdoc url as markdown."""
     res = re.search(r'https://docs.google.com/document/(?:u/)?(?:0/)?d/(.*?)/', url)
     if not res:
-        return None
+        return {'error': f'Could not find google doc id from url: {url}'}
 
     doc_id = res.group(1)
     body = fetch_element(f'https://docs.google.com/document/d/{doc_id}/export?format=html', 'body')
-    return body and MarkdownConverter().convert_soup(body).strip()
+    if body:
+        return {
+            'source_url': url,
+            'data_source': 'google docs',
+            'text': MarkdownConverter().convert_soup(body).strip(),
+        }
+    return {'error': 'Could not extract text from google doc'}
 
 
 def none_with_error(error):
@@ -205,7 +253,8 @@ def multistrategy(*funcs):
     """Merges multiple getter functions, returning the result of the first function call to succeed."""
     def getter(url):
         for func in funcs:
-            if res := func(url):
+            res = func(url)
+            if res and 'error' not in res:
                 return res
     return getter
 
@@ -279,166 +328,84 @@ PARSERS = {
     'unstableontology.com': element_extractor('.entry-content', remove=['div.sharedaddy']),
     'waitbutwhy.com': element_extractor('article', remove=['.entry-header']),
     'weightagnostic.github.io': element_extractor('dt-article', remove=['#authors_section', 'dt-byline']),
-    'www.cnas.org': element_extractor('#mainbar-toc'),
-    'www.econlib.org': element_extractor('div.post-content'),
-    'www.humanityplus.org': element_extractor('div.content'),
-    'www.gleech.org': element_extractor('article.post-content', remove=['center', 'div.accordion']),
-    'www.governance.ai': get_pdf_from_page('a.read-paper-button:not([href="#"])'),
-    'www.ibm.com': element_extractor('div:has(> p)'),  # IBM's HTML is really ugly...
-    'www.ijcai.org': get_pdf_from_page('a.btn-download:-soup-contains("PDF")'),
-    'www.jair.org': get_pdf_from_page('div.download a.pdf', 'a.download'),
-    'www.jstor.org': doi_getter,
-    'www.microsoft.com': element_extractor('div.content-container'),
-    'www.mdpi.com': element_extractor(
+    'cnas.org': element_extractor('#mainbar-toc'),
+    'econlib.org': element_extractor('div.post-content'),
+    'humanityplus.org': element_extractor('div.content'),
+    'gleech.org': element_extractor('article.post-content', remove=['center', 'div.accordion']),
+    'governance.ai': get_pdf_from_page('a.read-paper-button:not([href="#"])'),
+    'ibm.com': element_extractor('div:has(> p)'),  # IBM's HTML is really ugly...
+    'ijcai.org': get_pdf_from_page('a.btn-download:-soup-contains("PDF")'),
+    'jair.org': get_pdf_from_page('div.download a.pdf', 'a.download'),
+    'jstor.org': doi_getter,
+    'microsoft.com': element_extractor('div.content-container'),
+    'mdpi.com': element_extractor(
         'article', remove=[
             '.article-icons', '.title', '.art-authors', '.art-affiliations', '.bib-identity',
             '.pubhistory', '.belongsTo', '.highlight-box1', '.additional-content'
         ]
     ),
-    'www.nature.com': element_extractor('article', remove=['header', '#rightslink-section', '#article-info-section']),
-    'www.ncbi.nlm.nih.gov': element_extractor('div.article'),
-    'www.openphilanthropy.org': element_extractor('div.pagenav-content'),
-    'www.ri.cmu.edu': get_pdf_from_page('a.pub-link'),
-    'www.risksciences.ucla.edu': get_pdf_from_page('a:-soup-contains("Download")'),
-    'www.safe.ai': element_extractor('#open-letter'),
-    'www.sciencedirect.com': element_extractor(
+    'nature.com': element_extractor('article', remove=['header', '#rightslink-section', '#article-info-section']),
+    'ncbi.nlm.nih.gov': element_extractor('div.article'),
+    'openphilanthropy.org': element_extractor('div.pagenav-content'),
+    'ri.cmu.edu': get_pdf_from_page('a.pub-link'),
+    'risksciences.ucla.edu': get_pdf_from_page('a:-soup-contains("Download")'),
+    'safe.ai': element_extractor('#open-letter'),
+    'sciencedirect.com': element_extractor(
         'article',
         remove=[
             '#section-cited-by', '.Copyright', '.issue-navigation', '.ReferencedArticles',
             '.LicenseInfo', '.ArticleIdentifierLinks', '.Banner', '.screen-reader-main-title', '.Publication'
         ]
     ),
-    'www.ssrn.com': get_pdf_from_page('.abstract-buttons a.button-link:-soup-contains("Download")'),
-    'www.vox.com': element_extractor('did.c-entry-content', remove=['c-article-footer']),
-    'www.weforum.org': element_extractor('div.wef-0'),
+    'ssrn.com': get_pdf_from_page('.abstract-buttons a.button-link:-soup-contains("Download")'),
+    'vox.com': element_extractor('did.c-entry-content', remove=['c-article-footer']),
+    'weforum.org': element_extractor('div.wef-0'),
     'www6.inrae.fr': element_extractor('div.ArticleContent'),
-    'www.aleph.se': element_extractor('body'),
+    'aleph.se': element_extractor('body'),
     'yjolt.org': get_pdf_from_page('span.file a'),
     'yoshuabengio.org': element_extractor('div.post-content'),
 
     # To be implemented
-    'www.goodreads.com': none_with_error('Ebooks are not yet handled'),
-    'www.judiciary.senate.gov': none_with_error(''),
-    'www.taylorfrancis.com': none_with_error('Ebooks are not yet handled'),
-    'www.youtube.com': none_with_error('Youtube videos are not yet handled'),
-    'www.researchgate.net': none_with_error('Researchgate makes it hard to auto download pdf - please provide a DOI or a different url to the contents'),
-    'www.repository.cam.ac.uk': none_with_error(''),
+    'goodreads.com': none_with_error('Ebooks are not yet handled'),
+    'judiciary.senate.gov': none_with_error(''),
+    'taylorfrancis.com': none_with_error('Ebooks are not yet handled'),
+    'youtube.com': none_with_error('Youtube videos are not yet handled'),
+    'researchgate.net': none_with_error('Researchgate makes it hard to auto download pdf - please provide a DOI or a different url to the contents'),
+    'repository.cam.ac.uk': none_with_error(''),
 }
 
 
 def extract_text(url):
     """Get the contents at the given `url`."""
-    # First check if the domain has a specific handler defined
-    domain = urlparse(url).netloc
+    # Check if the domain has a specific handler defined
+    domain = urlparse(url).netloc.lstrip('www.')
     if parser := PARSERS.get(domain):
-        return parser(url)
+        parsed = parser(url)
+        if parsed and 'error' not in parsed:
+            # Successfully parsed - this can be returned and the children rejoice
+            return parsed
 
-    # Check if the url is to a pdf
-    if pdf := extract_pdf(url):
+    # Check if the url is to a pdf - it might not be, as this is just a wild guess
+    pdf = extract_pdf(url)
+
+    # It was a pdf - good, this can also be returned
+    if pdf and 'text' in pdf:
+        return {
+            'source_url': url,
+            'data_source': 'pdf',
+            'text': pdf.get('text'),
+            'downloaded_from': 'default parser',
+        }
+
+    # It looked like a pdf (or something akin), but couldn't be parsed properly - return its error
+    if pdf and not pdf.get('error').startswith('Wrong content type retrieved'):
         return pdf
 
-    logger.error('No handler defined for %s - please add one, or change the url (%s)', domain, url)
+    # At this point we've established both that the url couldn't be properly parsed by a parser, and it's
+    # also not a valid pdf.
+    if not parser:
+        logger.error('No handler defined for %s - please add one, or change the url (%s)', domain, url)
+        return {'error': 'No domain handler defined'}
 
-
-# TODO: These are domains that need handlers added
-PROBLEMATICAL_DOMAINS = [
-    'www.ssrn.com',  # pdf downloads work on the page, but not via requests
-    'papers.ssrn.com',
-    'www.jstor.org',  # JSTOR pages require accepting their terms before downloading
-    'www.judiciary.senate.gov', # not yet implemented
-    'www.goodreads.com',  # not yet implemented
-    'www.repository.cam.ac.uk', # requests gets a 502 error - needs investigating
-    'www.researchgate.net',  # researchgate needs JS to render the page properly
-    'www.youtube.com',  # not yet implemented
-]
-
-
-@dataclass
-class GSheets(AlignmentDataset):
-
-    spreadsheet_id: str
-    sheet_id: str
-    mappings: Dict[str, str] = field(default_factory=dict)
-    extra_fields: List[str] = field(default_factory=list)
-    done_key = "url"
-
-    @property
-    def items_list(self):
-        logger.info(f'Fetching https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}')
-        df = pd.read_csv(f'https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}')
-        return (item for item in df.itertuples() if not pd.isna(self.get_item_key(item)))
-
-    def get_value(self, item, key):
-        """Get the value of the given `key` in `item`.
-
-        There are certain keys that are assumed to be present in every item, but they can have a different
-        name in the actual csv file. The `self.mappings` properly has a dict of mappings - any key that is
-        not in that dict is assumed to be the same.
-        """
-        if mapped_key := self.mappings.get(key):
-            return getattr(item, mapped_key, None)
-        return getattr(item, key, None)
-
-    def get_item_key(self, item):
-        return self.get_value(item, self.done_key)
-
-    def get_text(self, item):
-        """Extract the text for the given `item`.
-
-        Each item has an `url` set, which should point to the contents, but if that doesn't return
-        anything, then try alternative ways, e.g. searching for it by DOI, if provided
-        """
-        # if the url ends with '.pdf', then that's most likely a direct link to a pdf, so try downloading
-        # it before faffing around with domain specific handlers
-        url = self.get_item_key(item)
-        if urlparse(url).path.lower().endswith('.pdf'):
-            return extract_pdf(url)
-
-        # If the item has a doi set, check if its contents can be found by searching for it
-        doi = self.get_value(item, 'DOI')
-        if doi and not pd.isna(doi):
-            text = get_doi(doi)
-            if text:
-                return text
-
-        # Otherwise just try the domain specific handler
-        return extract_text(url)
-
-    def process_entry(self, item):
-        url = self.get_item_key(item)
-        text = self.get_text(item)
-
-        if not text:
-            self.log_problem_with_fetching_text(item)
-            return None
-
-        summary = [self.get_value(item, key) for key in self.mappings.get('summary', [])]
-        summary = [val.strip() for val in summary if val and not pd.isna(val) and val.strip()]
-
-        authors = []
-        raw_authors = self.get_value(item, 'authors')
-        if raw_authors and not pd.isna(raw_authors):
-            authors = [author.strip() for author in raw_authors.split(',')]
-
-        return DataEntry({
-            "source": self.name,
-            "source_type": self.get_value(item, 'source_type'),
-            "title": self.get_value(item, 'title'),
-            "authors": authors,
-            "date_published": self.get_value(item, 'date_published'),
-            "text": text,
-            "url": url,
-            "summary": summary,
-        }, **{extra_field: self.get_value(item, extra_field) for extra_field in self.extra_fields})
-
-    def log_problem_with_fetching_text(self, item):
-        title = self.get_value(item, 'title')
-        url = self.get_item_key(item)
-        domain = urlparse(url).netloc
-
-        if self.get_value(item, 'source_type') in ['bookSection', 'book']:
-            logger.error('Could not process "%s", as it\'s is a book section - is there a direct link to a pdf of it that could be provided?', title)
-        elif domain in PROBLEMATICAL_DOMAINS:
-            logger.error('Could not process "%s": %s pages are not handled properly yet - is there a direct link to a pdf that can be provided instead of "%s"?', title, domain, url)
-        else:
-            logger.error('Could not process "%s": %s', title, url)
+    # Assume that a generic error happened
+    return None
