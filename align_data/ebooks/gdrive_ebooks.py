@@ -47,7 +47,12 @@ class GDrive(GdocDataset):
             logger.error(e)
             text = "n/a"
 
-        metadata = epub_meta.get_epub_metadata(epub_file)
+        try:
+            metadata = epub_meta.get_epub_metadata(epub_file)
+        except Exception as e:
+            logger.error(f"Error getting metadata for {epub_file}")
+            logger.error(e)
+            return None
 
         return DataEntry({
             "source": self.name,
