@@ -44,8 +44,8 @@ class WordpressBlog(AlignmentDataset):
         date_published = item.get('published')
         if not date_published:
             return ''
-        dt = datetime.strptime(date_published, '%a, %d %b %Y %H:%M:%S %z').astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        date_published = datetime.strptime(date_published, '%a, %d %b %Y %H:%M:%S %z')
+        return self._format_datetime(parse(date_published))
 
     def fetch_entries(self):
         last_title = ""

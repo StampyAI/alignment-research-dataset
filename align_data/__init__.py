@@ -1,4 +1,5 @@
 import align_data.arbital as arbital
+import align_data.articles as articles
 import align_data.blogs as blogs
 import align_data.ebooks as ebooks
 import align_data.arxiv_papers as arxiv_papers
@@ -13,6 +14,7 @@ import align_data.gdocs as gdocs
 
 DATASET_REGISTRY = (
     arbital.ARBITAL_REGISTRY
+    + articles.ARTICLES_REGISTRY
     + blogs.BLOG_REGISTRY
     + ebooks.EBOOK_REGISTRY
     + arxiv_papers.ARXIV_REGISTRY

@@ -2,6 +2,7 @@ import time
 import hashlib
 import os
 import logging
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from collections import UserDict
 from contextlib import contextmanager
@@ -206,6 +207,11 @@ class AlignmentDataset:
     def process_entry(self, entry):
         """Process a single entry."""
         raise NotImplementedError
+
+    @staticmethod
+    def _format_datetime(date):
+        dt = date.astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclass

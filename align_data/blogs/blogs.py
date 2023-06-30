@@ -23,8 +23,7 @@ class ColdTakes(HTMLDataset):
         article = contents.find('article')
         header = article.find('header').extract()
         date = header.find('time').get('datetime')
-        dt = parse(date).astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return self._format_datetime(parse(date))
 
 
 class GenerativeInk(HTMLDataset):
@@ -37,8 +36,7 @@ class GenerativeInk(HTMLDataset):
             for elem in info.children
         ]
         date = self._find_date(possible_date_elements)
-        dt = parse(date).astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return self._format_datetime(parse(date))
 
 
 class CaradoMoe(RSSDataset):

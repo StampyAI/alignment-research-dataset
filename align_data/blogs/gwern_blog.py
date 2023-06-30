@@ -49,7 +49,7 @@ class GwernBlog(HTMLDataset):
     def _process_markdown(self, post_href, article):
         text = article.text
         metadata = self._get_metadata(text)
-        
+
         return DataEntry({
             "source": self.name,
             "source_type": self.source_type,
@@ -79,15 +79,12 @@ class GwernBlog(HTMLDataset):
     def _get_title(contents):
         return contents.find('header').find('h1').text
 
-
     @staticmethod
     def _get_published_date(metadata):
         date_published = metadata.get('modified') or metadata.get('created')
         if date_published:
-            dt = parse(date_published).astimezone(timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            return self._format_datetime(parse(date_published))
         return ''
-
 
     def _get_text(self, contents):
         return self.cleaner.clean(contents.find('div', {'id': 'markdownBody'}).text)
