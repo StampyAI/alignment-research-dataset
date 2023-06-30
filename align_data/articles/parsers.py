@@ -24,7 +24,8 @@ def google_doc(url: str) -> str:
 
 def medium_blog(url):
     """Return the contents of the medium article at the given URL as markdown."""
-    article = fetch_element(url, 'article')
+    # Medium does some magic redirects if it detects that the request is from firefox
+    article = fetch_element(url, 'article', headers=None)
     article.find('h1').parent.extract()  # remove the header
     if article:
         return MarkdownConverter().convert_soup(article).strip()

@@ -7,23 +7,23 @@ from markdownify import MarkdownConverter
 logger = logging.getLogger(__name__)
 
 
-def fetch(url, method='get'):
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
+}
+
+
+def fetch(url, method='get', headers=DEFAULT_HEADERS):
     """Fetch the given `url`.
 
     This function is to have a single place to manage headers etc.
     """
-    return getattr(requests, method)(
-        url, allow_redirects=True,
-        headers={
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0',
-        }
-    )
+    return getattr(requests, method)(url, allow_redirects=True, headers=headers)
 
 
-def fetch_element(url, selector):
+def fetch_element(url, selector, headers=DEFAULT_HEADERS):
     """Fetch the first HTML element that matches the given CSS `selector` on the page found at `url`."""
     try:
-        resp = fetch(url)
+        resp = fetch(url, headers=headers)
     except requests.exceptions.ConnectionError:
         logger.error('Could not connect to %s', url)
         return None
