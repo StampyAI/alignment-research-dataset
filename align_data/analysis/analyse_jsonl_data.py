@@ -19,7 +19,7 @@ def validate_data(data_dict):
     Processes each dictionary element in the jsonl file. 
     """
     if not is_valid_date_format(data_dict):
-        raise ValueError(f"source: {data_dict['source']}, title: {data_dict['title'][:30]}, date_pub: {data_dict['date_published']}")
+        raise ValueError(f"Invalid date format for source: {data_dict['source']}, title: {data_dict['title'][:30]}, date_pub: {data_dict['date_published']}")
     
     #TODO: Add more validation logic here
 
@@ -36,7 +36,6 @@ def process_jsonl_files(data_dir):
                     validate_data(data_dict)
                 except ValueError as e:
                     print(e)
-                    continue
-                
+
 if __name__ == "__main__":
     process_jsonl_files("data/")
