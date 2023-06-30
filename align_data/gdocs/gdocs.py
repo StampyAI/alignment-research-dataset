@@ -52,9 +52,10 @@ class Gdocs(GdocDataset):
     
     @staticmethod
     def _get_published_date(metadata):
-        date_published = metadata.created
+        date_published = metadata.created or metadata.modified
         if date_published:
-            dt = parse(date_published).astimezone(timezone.utc)
+            assert isinstance(date_published, datetime), f"Expected datetime, got {type(date_published)}"
+            dt = date_published.replace(tzinfo=timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         return 'n/a'
 

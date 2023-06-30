@@ -33,9 +33,7 @@ class MediumBlog(HTMLDataset):
 
     def _get_published_date(self, contents):
         possible_date_elements = contents.find('article').find('h1').next_sibling.find_all('span')
-        date = self._find_date(possible_date_elements)
-        dt = datetime.strptime(date, "%Y-%m-%d").astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return self._find_date(possible_date_elements)
 
     def _get_text(self, contents):
         article = contents.find('article')

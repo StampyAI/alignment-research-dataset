@@ -63,7 +63,7 @@ class AudioTranscripts(GdocDataset):
 
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")
-        text = filename.read_text()
+        text = filename.read_text(encoding="utf-8")
         title = filename.stem
 
         return DataEntry({
