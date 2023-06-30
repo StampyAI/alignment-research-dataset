@@ -35,7 +35,7 @@ class MarkdownBlogs(GdocDataset):
             self.files_path = self.raw_data_path / f'{self.name}'
 
     def process_entry(self, filename):
-        text = filename.read_text()
+        text = filename.read_text(encoding='utf-8')
 
         return DataEntry({
             "source": self.name,
@@ -61,7 +61,7 @@ class MarkdownBlogs(GdocDataset):
     
     @staticmethod
     def _get_title(filename):
-        res = re.search(r"^#\s(.*)\n$", filename.read_text(), re.MULTILINE)
+        res = re.search(r"^#\s(.*)\n$", filename.read_text(encoding='utf-8'), re.MULTILINE)
         if res:
             return res.group(1)    
         return filename.stem

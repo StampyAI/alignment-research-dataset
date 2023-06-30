@@ -20,7 +20,7 @@ class MDEBooks(GdocDataset):
 
     def process_entry(self, filename):
         logger.info(f"Fetching {self.name} entry {filename.name}")
-        text = filename.read_text()
+        text = filename.read_text(encoding='utf-8')
         title = re.search(r"(.*)-by", filename.name, re.MULTILINE).group(1)
         authors = re.search(r"-by\s(.*)-date", filename.name).group(1)
 
