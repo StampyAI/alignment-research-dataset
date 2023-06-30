@@ -100,8 +100,4 @@ class AlignmentDataset:
 
 
 if __name__ == "__main__":
-    # fire.Fire(AlignmentDataset)
-    dataset = AlignmentDataset()
-    blogs_to_fetch = ['aisafety.info']
-    for blog in blogs_to_fetch:
-        dataset.fetch(blog, rebuild=True)
+    fire.Fire(AlignmentDataset)
