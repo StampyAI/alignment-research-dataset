@@ -1,14 +1,10 @@
 import io
 import logging
-import regex as re
-from dataclasses import dataclass, field
-from typing import List, Dict
-from urllib.parse import urlparse, urljoin
 
 from tqdm import tqdm
 
 from align_data.articles.google_cloud import iterate_rows, get_spreadsheet, get_sheet, upload_file, OK, with_retry
-from align_data.articles.parsers import extract_text, fetch
+from align_data.articles.parsers import item_metadata, fetch
 from align_data.settings import PDFS_FOLDER_ID
 
 
