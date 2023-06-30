@@ -2,6 +2,7 @@ import re
 import logging
 from dataclasses import dataclass
 from typing import List
+from datetime import datetime, timezone
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
 
 logger = logging.getLogger(__name__)
@@ -34,20 +35,33 @@ class MarkdownBlogs(GdocDataset):
             self.files_path = self.raw_data_path / f'{self.name}'
 
     def process_entry(self, filename):
-        text = filename.read_text()
-        try:
-            title = re.search(r"^#\s(.*)\n$", text, re.MULTILINE).group(1)
-            date = re.search(r"^\d{4}-\d{2}-\d{2}", text, re.MULTILINE).group(0)
-        except:
-            title, date = filename.stem, "n/a"
+        text = filename.read_text(encoding='utf-8')
 
         return DataEntry({
             "source": self.name,
             "source_type": "markdown",
-            "title": title,
+            "title": self._get_title(filename),
             "authors": self.authors,
-            "date_published": str(date),
+            "date_published": self._get_published_date(text),
             "text": text,
             "url": "n/a",
             'filename': filename.name,
         })
+    
+    @staticmethod
+    def _get_published_date(text):
+        date_str = re.search(r"^\d{4}-\d{2}-\d{2}", text, re.MULTILINE)
+        
+        if not date_str:
+            return 'n/a'
+            
+        date_str = date_str.group(0)
+        dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    
+    @staticmethod
+    def _get_title(filename):
+        res = re.search(r"^#\s(.*)\n$", filename.read_text(encoding='utf-8'), re.MULTILINE)
+        if res:
+            return res.group(1)    
+        return filename.stem

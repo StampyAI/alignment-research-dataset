@@ -1,4 +1,3 @@
-import re
 import pytest
 
 from align_data.arbital.arbital import parse_arbital_link, flatten, markdownify_text, extract_text

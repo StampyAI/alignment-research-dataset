@@ -1,4 +1,5 @@
-import datetime
+from datetime import datetime, timezone
+from dateutil.parser import parse
 import logging
 import time
 from dataclasses import dataclass
@@ -81,6 +82,14 @@ class GreaterWrong(AlignmentDataset):
 
     def get_item_key(self, item):
         return item['pageUrl']
+    
+    @staticmethod
+    def _get_published_date(item):
+        date_published = item['postedAt']
+        if date_published:
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return 'n/a'
 
     def make_query(self, after: str):
         return """{
@@ -136,7 +145,7 @@ class GreaterWrong(AlignmentDataset):
 
     @property
     def items_list(self):
-        next_date = datetime.datetime(self.start_year, 1, 1).isoformat() + 'Z'
+        next_date = datetime(self.start_year, 1, 1).isoformat() + 'Z'
         if self.jsonl_path.exists() and self.jsonl_path.lstat().st_size:
             with jsonlines.open(self.jsonl_path) as f:
                 for item in f:
@@ -164,7 +173,7 @@ class GreaterWrong(AlignmentDataset):
         return DataEntry({
             'title': item['title'],
             'url': item['pageUrl'],
-            'date_published': item['postedAt'],
+            'date_published': self._get_published_date(item),
             'modified_at': item['modifiedAt'],
             'text': markdownify(item['htmlBody']),
             "source": self.name,

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from calendar import c
 from dataclasses import dataclass, field
 import logging
@@ -41,7 +41,11 @@ class WordpressBlog(AlignmentDataset):
 
     @staticmethod
     def _get_published_date(item):
-        return datetime.strptime(item['published'], '%a, %d %b %Y %H:%M:%S %z').isoformat()
+        date_published = item.get('published')
+        if not date_published:
+            return 'n/a'
+        dt = datetime.strptime(date_published, '%a, %d %b %Y %H:%M:%S %z').astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def fetch_entries(self):
         last_title = ""

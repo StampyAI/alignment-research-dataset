@@ -188,7 +188,7 @@ class AlignmentDataset:
         if not self.lazy_eval:
             filtered = list(filtered)
 
-        return tqdm(filtered)
+        return tqdm(filtered, desc=f"Processing {self.name}")
 
     def fetch_entries(self):
         """Get all entries to be written to the file."""

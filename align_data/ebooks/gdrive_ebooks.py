@@ -3,10 +3,12 @@ import os
 import pypandoc
 import epub_meta
 from align_data.common.alignment_dataset import GdocDataset, DataEntry
-import logging
 from path import Path
-from tqdm import tqdm
 
+from datetime import datetime, timezone
+from dateutil.parser import parse
+
+import logging
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -30,7 +32,7 @@ class GDrive(GdocDataset):
 
         self.weblink_pattern = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
 
-        self.pandoc_check_path = Path(os.getcwd()) / "/pandoc/pandoc"
+        self.pandoc_check_path = Path(os.getcwd()) / 'pandoc' / 'pandoc' #/ "/pandoc/pandoc"
 
         if self.pandoc_check_path.exists():
             logger.info("Make sure pandoc is configured correctly.")
@@ -45,17 +47,30 @@ class GDrive(GdocDataset):
             logger.error(e)
             text = "n/a"
 
-        metadata = epub_meta.get_epub_metadata(epub_file)
+        try:
+            metadata = epub_meta.get_epub_metadata(epub_file)
+        except Exception as e:
+            logger.error(f"Error getting metadata for {epub_file}")
+            logger.error(e)
+            return None
 
         return DataEntry({
             "source": self.name,
             "source_type": "epub",
             "converted_with": "pandoc",
             "title": metadata["title"],
-            "date_published": metadata["publication_date"] if metadata["publication_date"] else "n/a",
+            "date_published": self._get_published_date(metadata),
             "chapter_names": [chap["title"] for chap in metadata["toc"]],
             "text": text,
             "url": "n/a",
             "file_name": epub_file.name,
             "authors": metadata['authors'],
         })
+
+    @staticmethod
+    def _get_published_date(metadata):
+        date_published = metadata["publication_date"]
+        if date_published:
+            dt = parse(date_published).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return 'n/a'

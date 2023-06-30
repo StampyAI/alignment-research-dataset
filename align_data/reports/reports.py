@@ -3,6 +3,9 @@ from align_data.common.alignment_dataset import GdocDataset, DataEntry
 import logging
 import grobid_tei_xml
 
+from datetime import datetime, timezone
+from dateutil.parser import parse
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -22,10 +25,18 @@ class Reports(GdocDataset):
     @property
     def zip_file(self):
         return self.raw_data_path / "report_teis.zip"
+    
+    @staticmethod
+    def _get_published_data(doc_dict):
+        date_str = doc_dict["header"].get('date')
+        if date_str:
+            dt = parse(date_str).astimezone(timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return 'n/a'
 
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")
-        xml_text = filename.read_text()
+        xml_text = filename.read_text(encoding='utf-8')
         try:
             doc_dict = grobid_tei_xml.parse_document_xml(xml_text).to_dict()
             abstract = doc_dict.get("abstract")
@@ -37,7 +48,7 @@ class Reports(GdocDataset):
                 "text": doc_dict["body"],
                 "source": self.name,
                 "source_type": "pdf",
-                "date_published": "n/a",
+                "date_published": self._get_published_data(doc_dict),
                 "url": "n/a",
                 "filename": filename.name,
             })
