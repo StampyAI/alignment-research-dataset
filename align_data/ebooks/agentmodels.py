@@ -37,6 +37,6 @@ class AgentModels(AlignmentDataset):
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
             'date_published': self._get_published_date(filename),
             'title': filename.name,
-            'url': f'{self.repo[:-4]}/blob/gh-pages/chapters/{filename.name}',
-            'text': filename.read_text(),
+            'url': f'https://agentmodels.org/chapters/{filename.name[:-3]}.html', 
+            'text': filename.read_text(encoding='utf-8'),
         })
