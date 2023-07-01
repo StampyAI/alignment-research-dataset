@@ -70,7 +70,7 @@ class PDFArticles(SpreadsheetDataset):
         url = f'https://drive.google.com/uc?id={item.file_id}'
 
         filename = self.files_path / f'{item.title}.pdf'
-        download(url, str(filename))
+        download(str(filename), id=item.file_id)
         return read_pdf(filename)
 
 
@@ -88,8 +88,6 @@ class EbookArticles(SpreadsheetDataset):
     COOLDOWN = 10 # Add a large cooldown, as google complains a lot
 
     def _get_text(self, item):
-        url = f'https://drive.google.com/uc?id={item.file_id}'
-
-        filename = self.files_path / f'{item.title}.epub'
-        download(url, str(filename))
+        file_id = item.source_url.split('/')[-2]
+        filename = download(output=str(self.files_path / f'{item.title}.epub'), id=file_id)
         return pypandoc.convert_file(filename, "plain",'epub', extra_args=['--wrap=none'])
