@@ -260,21 +260,24 @@ class DataEntry(UserDict):
                 self[k] = default and default()
 
     def add_id(self):
-        assert self["title"] is not None, "Entry is missing title"
-        assert self["url"] is not None, "Entry is missing url"
-        assert self["title"] or self["url"], "Entry has empty title and url"
+        assert self["source"] is not None, "Entry is missing source"
+        assert self["text"] is not None, "Entry is missing text"
+        
+        assert self["source"] or self["text"], "Entry has empty source and text"
 
-        title_plus_url = (self["title"] + self["url"])[:TEXT_LEN].encode("utf-8")
+        title_plus_url = (self["source"] + self["text"])[:TEXT_LEN].encode("utf-8")
         self["id"] = hashlib.md5(title_plus_url).hexdigest()
 
     def _verify_id(self):
         assert self["id"] is not None, "Entry is missing id"
-        assert self["title"] is not None, "Entry is missing title"
-        assert self["url"] is not None, "Entry is missing url"
-        assert self['title'] or self['url'], "Entry has empty title and url"
-        title_plus_url = (self["title"] + self["url"])[:TEXT_LEN].encode("utf-8")
+        assert self["source"] is not None, "Entry is missing source"
+        assert self["text"] is not None, "Entry is missing text"
+        
+        assert self["source"] or self["text"], "Entry has empty source and text"
+
+        title_plus_url = (self["source"] + self["text"])[:TEXT_LEN].encode("utf-8")
         assert self["id"] == hashlib.md5(
-            title_plus_url).hexdigest(), "Entry id does not match title and url"
+            title_plus_url).hexdigest(), "Entry id does not match source and text"
 
     def as_dict(self):
         for k, _ in INIT_DICT.items():
