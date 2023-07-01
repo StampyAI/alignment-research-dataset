@@ -33,10 +33,9 @@ class AgentModels(AlignmentDataset):
         return DataEntry({
             'source': self.name,
             'source_type': 'markdown',
-            'book_title': 'Modeling Agents with Probabilistic Programs',
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
             'date_published': self._get_published_date(filename),
-            'title': filename.name,
-            'url': f'{self.repo[:-4]}/blob/gh-pages/chapters/{filename.name}',
-            'text': filename.read_text(),
+            'title': 'Modeling Agents with Probabilistic Programs',
+            'url': f'https://agentmodels.org/chapters/{filename.stem}.html', 
+            'text': filename.read_text(encoding='utf-8'),
         })
