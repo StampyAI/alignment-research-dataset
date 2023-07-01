@@ -36,6 +36,6 @@ class AgentModels(AlignmentDataset):
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
             'date_published': self._get_published_date(filename),
             'title': 'Modeling Agents with Probabilistic Programs',
-            'url': f'https://agentmodels.org/chapters/{filename.name[:-3]}.html', 
+            'url': f'https://agentmodels.org/chapters/{filename.stem}.html', 
             'text': filename.read_text(encoding='utf-8'),
         })
