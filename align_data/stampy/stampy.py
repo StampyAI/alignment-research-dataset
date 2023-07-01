@@ -6,6 +6,8 @@ from codaio import Coda, Document
 from datetime import timezone
 from dateutil.parser import parse
 
+import hashlib
+
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 from align_data.stampy.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
 
@@ -37,6 +39,20 @@ class Stampy(AlignmentDataset):
     def get_item_key(self, entry):
         return html.unescape(entry['Question'])
     
+    def add_id(self):
+        assert self["url"] is not None, "Entry is missing url"
+
+        title_plus_url = self["url"].encode("utf-8")
+        self["id"] = hashlib.md5(title_plus_url).hexdigest()
+
+    def _verify_id(self):
+        assert self["id"] is not None, "Entry is missing id"
+        assert self["url"] is not None, "Entry is missing url"
+
+        url_str = self["url"].encode("utf-8")
+        assert self["id"] == hashlib.md5(
+            url_str).hexdigest(), "Entry id does not match url-based id"
+
     @staticmethod
     def _get_published_date(entry):
         date_published = entry['Doc Last Edited']
