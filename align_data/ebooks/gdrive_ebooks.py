@@ -42,15 +42,9 @@ class GDrive(GdocDataset):
         logger.info(f"Fetching {self.name} entry {epub_file.name}")
         try:
             text = pypandoc.convert_file(epub_file, "plain", extra_args=['--wrap=none'])
-        except Exception as e:
-            logger.error(f"Error converting {epub_file}")
-            logger.error(e)
-            text = "n/a"
-
-        try:
             metadata = epub_meta.get_epub_metadata(epub_file)
         except Exception as e:
-            logger.error(f"Error getting metadata for {epub_file}")
+            logger.error(f"Error processing {epub_file}")
             logger.error(e)
             return None
 
@@ -62,7 +56,7 @@ class GDrive(GdocDataset):
             "date_published": self._get_published_date(metadata),
             "chapter_names": [chap["title"] for chap in metadata["toc"]],
             "text": text,
-            "url": "n/a",
+            "url": "",
             "file_name": epub_file.name,
             "authors": metadata['authors'],
         })
@@ -73,4 +67,4 @@ class GDrive(GdocDataset):
         if date_published:
             dt = parse(date_published).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return 'n/a'
+        return ''

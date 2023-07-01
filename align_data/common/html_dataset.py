@@ -99,7 +99,7 @@ class HTMLDataset(AlignmentDataset):
 
     @staticmethod
     def _get_published_date(contents):
-        return 'n/a'
+        return ''
 
     @staticmethod
     def _find_date(items):
@@ -136,7 +136,7 @@ class RSSDataset(HTMLDataset):
         if date_published:
             dt = parse(date_published).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return 'n/a'
+        return ''
 
     @staticmethod
     def _get_text(item):

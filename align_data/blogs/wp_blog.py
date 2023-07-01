@@ -43,7 +43,7 @@ class WordpressBlog(AlignmentDataset):
     def _get_published_date(item):
         date_published = item.get('published')
         if not date_published:
-            return 'n/a'
+            return ''
         dt = datetime.strptime(date_published, '%a, %d %b %Y %H:%M:%S %z').astimezone(timezone.utc)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
