@@ -30,7 +30,7 @@ class AlignmentDataset:
         """Returns a list of all the datasets"""
         return sorted(ALL_DATASETS)
 
-    def fetch(self, name, rebuild=False) -> None:
+    def fetch(self, *names, rebuild=False) -> None:
         """
         > This function takes a dataset name and writes the entries of that dataset to a file
 
@@ -38,17 +38,19 @@ class AlignmentDataset:
         :param bool rebuild: Whether to remove the previous build before running
         :return: The path to the file that was written to.
         """
-        assert name in ALL_DATASETS, f"{name} is not a valid dataset name"
-        dataset = get_dataset(name)
+        missing = {name for name in names if name not in ALL_DATASETS}
+        assert not missing, f"{missing} are not valid dataset names"
+        for name in names:
+            dataset = get_dataset(name)
 
-        if rebuild:
-            dataset.jsonl_path.unlink(missing_ok=True)
+            if rebuild:
+                dataset.jsonl_path.unlink(missing_ok=True)
 
-        with dataset.writer(self.out_path) as writer:
-            for entry in dataset.fetch_entries():
-                writer(entry)
+            with dataset.writer(self.out_path) as writer:
+                for entry in dataset.fetch_entries():
+                    writer(entry)
 
-        return dataset.jsonl_path
+            print(dataset.jsonl_path)
 
     def fetch_all(self, rebuild=False, skip='') -> str:
         """
