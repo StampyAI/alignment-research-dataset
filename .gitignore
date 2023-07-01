@@ -123,3 +123,4 @@ carado.moe/
 *.epub
 
 credentials.json
+data/raw/

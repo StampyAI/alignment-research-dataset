@@ -84,6 +84,7 @@ class AlignmentDataset:
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
+        self.files_path.mkdir(parents=True, exist_ok=True)
 
         # and the default place to write data
         self._set_output_paths(self.data_path)

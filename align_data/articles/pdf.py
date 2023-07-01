@@ -10,7 +10,6 @@ from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
 
 from align_data.articles.html import fetch, fetch_element
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +32,15 @@ def sci_hub_pdf(identifier):
     return src
 
 
+def read_pdf(filename):
+    try:
+        pdf_reader = PdfReader(filename)
+        return '\n'.join(page.extract_text() for page in pdf_reader.pages)
+    except PdfReadError as e:
+        logger.error(e)
+    return None
+
+
 def fetch_pdf(link):
     """Return the contents of the pdf file at `link` as a markdown string.
 
@@ -44,7 +52,10 @@ def fetch_pdf(link):
 
     content_type = {c_type.strip().lower() for c_type in res.headers.get('Content-Type').split(';')}
     if not content_type & {'application/octet-stream', 'application/pdf'}:
-        return {'error': f'Wrong content type retrieved: {content_type} - {link}'}
+        return {
+            'error': f'Wrong content type retrieved: {content_type} - {link}',
+            'contents': res.content,
+        }
 
     try:
         pdf_reader = PdfReader(io.BytesIO(res.content))
@@ -136,48 +147,3 @@ def get_pdf_from_page(*link_selectors):
             return pdf
         return {'error': f'Could not fetch pdf from {link}'}
     return getter
-
-
-@dataclass
-class PDFArticles(AlignmentDataset):
-
-    spreadsheet_id: str
-    sheet_id: str
-    done_key = "title"
-
-    @property
-    def items_list(self):
-        logger.info(f'Fetching https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}')
-        df = pd.read_csv(f'https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}')
-        return (item for item in df.itertuples() if not pd.isna(self.get_item_key(item)))
-
-    def get_item_key(self, item):
-        return getattr(item, self.done_key)
-
-    def _get_published_date(self, item):
-        return self._format_datetime(parse(item.date_published))
-
-    @staticmethod
-    def _get_text(item):
-        url = f'https://drive.google.com/uc?id={item.file_id}'
-        pdf = fetch_pdf(url) or {}
-        if not pdf or 'error' in pdf:
-            logger.error('Could not download pdf file at %s: %s', url, pdf.get('error'))
-        return pdf.get('text')
-
-    @staticmethod
-    def extract_authors(item):
-        return [author.strip() for author in item.authors.split(',')]
-
-    def process_entry(self, item):
-        return DataEntry({
-            'text': self._get_text(item),
-            'url': item.url,
-            'title': item.title,
-            'source': self.name,
-            'source_type': item.source_type,
-            'source_filetype': 'pdf',
-            'date_published': self._get_published_date(item),
-            'authors': self.extract_authors(item),
-            'summary': [item.summary] if pd.isna(item.summary) else [],
-        })

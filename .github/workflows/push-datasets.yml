@@ -24,10 +24,12 @@ on:
           - deepmind_blog
           - distill
           - eaforum
+          - ebooks
           - gdocs
           - gdrive_ebooks
           - generative.ink
           - gwern_blog
+          - html_articles
           - importai
           - individual_docs
           - jsteinhardt_blog
@@ -37,6 +39,7 @@ on:
           - ml_safety_newsletter
           - nonarxiv_papers
           - qualiacomputing
+          - pdfs
           - reports
           - vkrakovna_blog
           - yudkowsky_blog

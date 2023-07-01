@@ -47,6 +47,6 @@ def element_extractor(selector, remove=[]):
         for sel in remove:
             for e in elem.select(sel):
                 e.extract()
-        return MarkdownConverter().convert_soup(elem).strip(),
+        return MarkdownConverter().convert_soup(elem).strip()
 
     return getter
