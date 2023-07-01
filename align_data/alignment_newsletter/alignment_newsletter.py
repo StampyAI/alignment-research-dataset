@@ -28,7 +28,7 @@ class AlignmentNewsletter(AlignmentDataset):
     @staticmethod
     def _get_published_date(year):
         if not year or pd.isna(year):
-            return 'n/a'
+            return ''
         dt = datetime(int(year), 1, 1, tzinfo=timezone.utc)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         
@@ -47,13 +47,13 @@ class AlignmentNewsletter(AlignmentDataset):
 
         def handle_na(v, cast=None):
             if not v or pd.isna(v):
-                return None
+                return ''
             if cast:
                 return cast(v)
             return v
 
         return DataEntry({
-            "url": handle_na(row.URL) or 'n/a',
+            "url": handle_na(row.URL),
             "source": handle_na(self.name),
             "converted_with": "python",
             "source_type": "google-sheets",

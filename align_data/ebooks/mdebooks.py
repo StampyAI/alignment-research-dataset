@@ -31,7 +31,7 @@ class MDEBooks(GdocDataset):
             "authors": [a.strip() for a in authors.split(',')],
             "date_published": self._get_published_date(filename),
             "text": text,
-            "url": "n/a",
+            "url": "",
             "filename": filename.name,
         })
     
@@ -40,7 +40,7 @@ class MDEBooks(GdocDataset):
         date_str = re.search(r"\d{4}-\d{2}-\d{2}", filename.name)
         
         if not date_str:
-            return 'n/a'
+            return ''
         
         date_str = date_str.group(0)
         dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)

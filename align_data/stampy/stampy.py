@@ -43,7 +43,7 @@ class Stampy(AlignmentDataset):
         if date_published:
             dt = parse(date_published).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return 'n/a'
+        return ''
 
     def process_entry(self, entry):
         def clean_text(text):

@@ -44,7 +44,7 @@ class MarkdownBlogs(GdocDataset):
             "authors": self.authors,
             "date_published": self._get_published_date(text),
             "text": text,
-            "url": "n/a",
+            "url": "",
             'filename': filename.name,
         })
     
@@ -53,7 +53,7 @@ class MarkdownBlogs(GdocDataset):
         date_str = re.search(r"^\d{4}-\d{2}-\d{2}", text, re.MULTILINE)
         
         if not date_str:
-            return 'n/a'
+            return ''
             
         date_str = date_str.group(0)
         dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)

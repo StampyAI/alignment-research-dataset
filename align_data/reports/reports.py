@@ -32,7 +32,7 @@ class Reports(GdocDataset):
         if date_str:
             dt = parse(date_str).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return 'n/a'
+        return ''
 
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")
@@ -49,7 +49,7 @@ class Reports(GdocDataset):
                 "source": self.name,
                 "source_type": "pdf",
                 "date_published": self._get_published_data(doc_dict),
-                "url": "n/a",
+                "url": "",
                 "filename": filename.name,
             })
         except Exception as e:
