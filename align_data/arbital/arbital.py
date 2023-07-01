@@ -123,7 +123,7 @@ class Arbital(AlignmentDataset):
             summary, text = extract_text(page['text'])
 
             return DataEntry({
-                'title': page.get('title'),
+                'title': page.get('title') or '',
                 'text': text,
                 'date_published': self._get_published_date(page),
                 'url': f'https://arbital.com/p/{page.get("alias") or alias}',
