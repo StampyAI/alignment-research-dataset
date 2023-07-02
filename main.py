@@ -52,7 +52,7 @@ class AlignmentDataset:
 
             print(dataset.jsonl_path)
 
-    def fetch_all(self, rebuild=False, skip='') -> str:
+    def fetch_all(self, *skip, rebuild=False) -> str:
         """
         It downloads all the datasets, moves the alignment_newsletter.jsonl file to the processed
         folder, deletes the alignment_newsletter.jsonl file, adds the alignment_newsletter_summaries to
