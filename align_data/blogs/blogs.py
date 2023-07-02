@@ -7,6 +7,12 @@ from align_data.common.html_dataset import HTMLDataset, RSSDataset
 from datetime import datetime, timezone
 from dateutil.parser import parse
 
+import requests
+from bs4 import BeautifulSoup
+
+import logging
+logger = logging.getLogger(__name__)
+
 @dataclass
 class ColdTakes(HTMLDataset):
     title_selector = 'h2'
@@ -17,6 +23,23 @@ class ColdTakes(HTMLDataset):
         ["", "\\n", "", "", ''],
         True,
     )
+
+    @property
+    def items_list(self):
+        """ 
+        This custom items_list prevents us from getting duplicates 
+        when a url is in the featured section and the main section. 
+        """
+        logger.info(f"Fetching entries from {self.url}")
+        response = requests.get(self.url, allow_redirects=True)
+        soup = BeautifulSoup(response.content, "html.parser")
+            
+        # find the div with class "post-feed"
+        post_feed_div = soup.find('div', class_='post-feed')
+        
+        articles = post_feed_div.find_all(*self.item_selector)
+        logger.info(f"Found {len(articles)} articles")
+        return articles
 
     @staticmethod
     def _get_published_date(contents):
