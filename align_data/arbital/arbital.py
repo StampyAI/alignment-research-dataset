@@ -123,7 +123,7 @@ class Arbital(AlignmentDataset):
             summary, text = extract_text(page['text'])
 
             return DataEntry({
-                'title': page['title'] if 'title' in page else 'n/a',
+                'title': page.get('title') or '',
                 'text': text,
                 'date_published': self._get_published_date(page),
                 'url': f'https://arbital.com/p/{page.get("alias") or alias}',
@@ -151,7 +151,7 @@ class Arbital(AlignmentDataset):
         if date_published:
             dt = parse(date_published).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return 'n/a'
+        return ''
 
     def get_page(self, alias):
         headers = self.headers.copy()

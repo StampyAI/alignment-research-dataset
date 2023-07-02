@@ -86,7 +86,7 @@ class GwernBlog(HTMLDataset):
         if date_published:
             dt = parse(date_published).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return 'n/a'
+        return ''
 
 
     def _get_text(self, contents):

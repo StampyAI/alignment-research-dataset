@@ -27,8 +27,7 @@ DATASET_REGISTRY = (
 )
 
 ALL_DATASETS = sorted([dataset.name for dataset in DATASET_REGISTRY])
-DATASET_MAP = dict([(dataset.name, dataset) for dataset in DATASET_REGISTRY])
-
+DATASET_MAP = {dataset.name: dataset for dataset in DATASET_REGISTRY}
 
 def get_dataset(name):
     try:

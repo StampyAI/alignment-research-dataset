@@ -89,7 +89,7 @@ class GreaterWrong(AlignmentDataset):
         if date_published:
             dt = parse(date_published).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return 'n/a'
+        return ''
 
     def make_query(self, after: str):
         return """{
@@ -154,13 +154,12 @@ class GreaterWrong(AlignmentDataset):
 
         while next_date:
             posts = self.fetch_posts(self.make_query(next_date))
+            if not posts['results']:
+                return
 
             for post in posts['results']:
                 if post['htmlBody'] and self.tags_ok(post):
                     yield post
-
-            if len(posts['results']) < 50:
-                return
 
             next_date = posts['results'][-1]['postedAt']
             time.sleep(self.COOLDOWN)
