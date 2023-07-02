@@ -15,7 +15,6 @@ from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class HTMLDataset(AlignmentDataset):
     """
@@ -78,7 +77,7 @@ class HTMLDataset(AlignmentDataset):
             "date_published": date_published,
             "authors": self.extract_authors(contents),
             **self._extra_values(contents),
-        })
+        }, id_fields=["url"])
 
     def _get_contents(self, url):
         logger.info("Fetching {}".format(url))

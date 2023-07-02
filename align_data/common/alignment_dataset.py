@@ -264,24 +264,32 @@ class GdocDataset(AlignmentDataset):
 
 
 class DataEntry(UserDict):
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, id_fields=None, **kwargs):
         super().__init__(*args, **kwargs)
         for k, default in INIT_DICT.items():
             if k not in self:
                 self[k] = default and default()
+        # Store id_fields in a way that does not interfere with UserDict's functionality
+        self.__id_fields = id_fields or ["source", "text"]
 
     def add_id(self):
-        assert self["text"] is not None, "Entry is missing text"
-        text_excerpt = self["text"][:TEXT_LEN].encode("utf-8")
-        self["id"] = hashlib.md5(text_excerpt).hexdigest()
+        for field in self.__id_fields:
+            assert self[field] is not None, f"Entry is missing {field}"
+
+        id_string = ''.join(self[field] for field in self.__id_fields)[:TEXT_LEN].encode("utf-8")
+        assert id_string, "Entry has empty id_fields"
+
+        self["id"] = hashlib.md5(id_string).hexdigest()
 
     def _verify_id(self):
         assert self["id"] is not None, "Entry is missing id"
-        assert self["text"] is not None, "Entry is missing text"
-        text_excerpt = self["text"][:TEXT_LEN].encode("utf-8")
-        assert self["id"] == hashlib.md5(
-            text_excerpt).hexdigest(), "Entry id does not match text"
+        for field in self.__id_fields:
+            assert self[field] is not None, f"Entry is missing {field}"
+
+        id_string = ''.join(self[field] for field in self.__id_fields)[:TEXT_LEN].encode("utf-8")
+        assert id_string, "Entry has empty id_fields"
+
+        assert self["id"] == hashlib.md5(id_string).hexdigest(), "Entry id does not match id_fields"
 
     def to_dict(self):
         for k, _ in INIT_DICT.items():
