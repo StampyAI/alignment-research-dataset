@@ -17,20 +17,17 @@ def test_data_entry_default_fields():
         'text': None,
         'summary': [],
         'authors': [],
-    }
+    } 
 
-
-def test_data_entry_id_from_title_and_url():
-    data = {'key1': 12, 'key2': 312, 'title': 'once upon a time', 'url': 'https://www.google.com/'}
+def test_data_entry_id_from_source_and_text():
+    data = {'key1': 12, 'key2': 312, 'source': 'arbital', 'text': 'once upon a time'}
     entry = DataEntry(data)
     entry.add_id()
-    print(entry['id'])
 
     assert entry == dict({
         'date_published': None,
-        'id': '780612519acf7b401bc8c967ce64c7f4',
-        'source': None,
-        'text': None,
+        'id': 'f2b4e02fc1dd8ae43845e4f930f2d84f',
+        'title': None,
         'url': None,
         'summary': [],
         'authors': [],
@@ -38,41 +35,64 @@ def test_data_entry_id_from_title_and_url():
     )
 
 
-def test_data_entry_no_title():
+def test_data_entry_no_source():
     entry = DataEntry({'key1': 12, 'key2': 312})
-    with pytest.raises(AssertionError, match='Entry is missing title'):
+    with pytest.raises(AssertionError, match='Entry is missing source'):
         entry.add_id()
 
-def test_data_entry_no_url():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'title': 'once upon a time'})
-    with pytest.raises(AssertionError, match='Entry is missing url'):
+def test_data_entry_no_text():
+    entry = DataEntry({'key1': 12, 'key2': 312, 'source': 'wikipedia'})
+    with pytest.raises(AssertionError, match='Entry is missing text'):
         entry.add_id()
 
-def test_data_entry_none_title():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'title': None})
-    with pytest.raises(AssertionError, match='Entry is missing title'):
+def test_data_entry_none_source():
+    entry = DataEntry({'key1': 12, 'key2': 312, 'source': None})
+    with pytest.raises(AssertionError, match='Entry is missing source'):
         entry.add_id()
 
-def test_data_entry_none_url():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'title': 'once upon a time', 'url': None})
-    with pytest.raises(AssertionError, match='Entry is missing url'):
+def test_data_entry_none_text():
+    entry = DataEntry({'key1': 12, 'key2': 312, 'source': 'wikipedia', 'text': None})
+    with pytest.raises(AssertionError, match='Entry is missing text'):
         entry.add_id()
     
-def test_data_entry_empty_title_p_url():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'title': '', 'url': ''})
-    with pytest.raises(AssertionError, match='Entry has empty title and url'):
+def test_data_entry_empty_source_and_text():
+    entry = DataEntry({'key1': 12, 'key2': 312, 'source': '', 'text': ''})
+    with pytest.raises(AssertionError, match='Entry has empty id_fields'):
         entry.add_id()
 
-def test_data_entry_empty_title():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'title': '', 'url': 'https://www.google.com/'})
+def test_data_entry_empty_source_only():
+    entry = DataEntry({'key1': 12, 'key2': 312, 'source': '', 'text': 'once upon a time'})
     entry.add_id()
 
-def test_data_entry_empty_url():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'title': 'once upon a time', 'url': ''})
+def test_data_entry_empty_text_only():
+    entry = DataEntry({'key1': 12, 'key2': 312, 'source': 'wikipedia', 'text':''})
     entry.add_id()
 
 def test_data_entry_verify_id_passes():
-    entry = DataEntry({'title': 'once upon a time', 'url': 'https://www.google.com/', 'id': '780612519acf7b401bc8c967ce64c7f4'})
+    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'id': 'f2b4e02fc1dd8ae43845e4f930f2d84f'})
+    entry._verify_id()
+
+def test_data_entry_verify_id_fails():
+    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'id': 'f2b4e02fc1dd8ae43845e4f930f2d84f'})
+    with pytest.raises(AssertionError, match='Entry id does not match id_fields'):
+        entry._verify_id()
+
+def test_data_entry_id_fields_url_no_url():
+    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time'}, id_fields=['url'])
+    with pytest.raises(AssertionError, match='Entry is missing url'):
+        entry.add_id()
+
+def test_data_entry_id_fields_url_empty_url():
+    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'url': ''}, id_fields=['url'])
+    with pytest.raises(AssertionError, match='Entry has empty id_fields'):
+        entry.add_id()
+    
+def test_data_entry_id_fields_url():
+    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'url': 'https://www.google.ca/'}, id_fields=['url'])
+    entry.add_id()
+
+def test_data_entry_id_fields_url_verify_id_passes():
+    entry = DataEntry({'url': 'arbitalonce upon a time', 'id':'f2b4e02fc1dd8ae43845e4f930f2d84f'}, id_fields=['url'])
     entry._verify_id()
 
 
@@ -80,15 +100,15 @@ def test_data_entry_verify_id_passes():
     ({'text': 'bla bla bla'}, 'Entry is missing id'),
     ({'text': 'bla bla bla', 'id': None}, 'Entry is missing id'),
 
-    ({'id': '123'}, 'Entry is missing title'),
-    ({'id': '123', 'title': None}, 'Entry is missing title'),
+    ({'id': '123'}, 'Entry is missing source'),
+    ({'id': '123', 'source': None}, 'Entry is missing source'),
+    ({'id': '123', 'source': 'google'}, 'Entry is missing text'),
+    ({'id': '123', 'source': 'google', 'text': None}, 'Entry is missing text'),
+    ({'id': '123', 'source': '', 'text': ''}, 'Entry has empty id_fields'),
 
-    ({'id': '123', 'title': 'bla bla bla'}, 'Entry is missing url'),
-    ({'id': '123', 'title': 'bla bla bla', 'url': None}, 'Entry is missing url'),
-
-    ({'id': '123', 'title': 'winter wonderland', 'url': ''}, 'Entry id does not match title and url'),
-    ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'title': 'winter wonderland', 'url': 'https://www.google.ca/'}, 'Entry id does not match title and url'),
-    ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'title': '', 'url': 'thefacebook'}, 'Entry id does not match title and url'),
+    ({'id': '123', 'source':'google','text': 'winter wonderland'}, 'Entry id does not match id_fields'),
+    ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'source':'google', 'text': 'winter wonderland'}, 'Entry id does not match id_fields'),
+    ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'source':'google', 'text': 'Once upon a time'}, 'Entry id does not match id_fields'),
 ))
 def test_data_entry_verify_id_fails(data, error):
     entry = DataEntry(data)

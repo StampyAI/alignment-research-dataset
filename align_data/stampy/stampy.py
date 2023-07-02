@@ -38,20 +38,6 @@ class Stampy(AlignmentDataset):
 
     def get_item_key(self, entry):
         return html.unescape(entry['Question'])
-    
-    def add_id(self):
-        assert self["url"] is not None, "Entry is missing url"
-
-        title_plus_url = self["url"].encode("utf-8")
-        self["id"] = hashlib.md5(title_plus_url).hexdigest()
-
-    def _verify_id(self):
-        assert self["id"] is not None, "Entry is missing id"
-        assert self["url"] is not None, "Entry is missing url"
-
-        url_str = self["url"].encode("utf-8")
-        assert self["id"] == hashlib.md5(
-            url_str).hexdigest(), "Entry id does not match url-based id"
 
     @staticmethod
     def _get_published_date(entry):
@@ -80,4 +66,4 @@ class Stampy(AlignmentDataset):
             "authors": ['Stampy aisafety.info'],
             "date_published": self._get_published_date(entry),
             "text": answer,
-        })
+        }, id_fields=['url'])
