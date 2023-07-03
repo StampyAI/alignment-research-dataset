@@ -20,7 +20,9 @@ def validate_data(data_dict, seen_urls):
     """
     if not is_valid_date_format(data_dict):
         raise ValueError(f"Invalid date format for source: {data_dict['source']}, title: {data_dict['title'][:30]}, date_pub: {data_dict['date_published']}")
-    
+    # TODO: add more checks here
+
+def check_for_duplicates(data_dict, seen_urls):
     if data_dict.get('url') in seen_urls:
         raise ValueError(f"Duplicate URL found. \nUrl: {data_dict['url']}\nfirst_duplicate: {get_data_dict_str(seen_urls[data_dict['url']])}\nsecond_duplicate: {get_data_dict_str(data_dict)}\n\n\n\n")
     else:
@@ -33,7 +35,7 @@ def get_data_dict_str(data_dict):
     """
     Returns a string representation of the given data_dict.
     """
-    return f"source: {data_dict['source']}, title: {data_dict['title'][:60]}, date_pub: {data_dict['date_published']}, url: {data_dict['url']}"
+    return f"source: {data_dict['source']}, title: {data_dict['title'][:50]}, date_pub: {data_dict['date_published']}, url: {data_dict['url']}"
 
 def files_iterator(data_dir):
     """
@@ -49,8 +51,8 @@ def process_jsonl_files(data_dir):
     seen_urls = dict()  # holds all seen urls
     for data_dict in files_iterator(data_dir):
         try:
-            seen_urls = validate_data(data_dict, seen_urls)
-
+            validate_data(data_dict, seen_urls)
+            seen_urls = check_for_duplicates(data_dict, seen_urls)
         except ValueError as e:
             print(e)
 
