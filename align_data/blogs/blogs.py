@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ColdTakes(HTMLDataset):
     title_selector = 'h2'
-    item_selector = ['article']
+    item_selector = 'div.post-feed article'
 
     cleaner = utils.HtmlCleaner(
         ["You might also like\.\.\..*", "\\n+", "\#\# Create your profile.*", "\n\xa0Comment/discuss\n", '\nClick lower right to download or find on Apple Podcasts, Spotify, Stitcher, etc.\n'],
@@ -52,7 +52,7 @@ class ColdTakes(HTMLDataset):
 
 class GenerativeInk(HTMLDataset):
     title_selector = 'h3'
-    item_selector = ['div', {'class': 'post'}]
+    item_selector = 'div.post.on-list'
 
     def _get_published_date(self, contents):
         possible_date_elements = [

@@ -26,13 +26,13 @@ class HTMLDataset(AlignmentDataset):
     url: str
     done_key = "url"
 
-    authors: List[str] = field(default_factory=list)
+    authors: List[str] = field(default_factory=list) 
     _: KW_ONLY
     source_key: str = None
     summary_key: str = None
 
     title_selector = 'h2'
-    item_selector = ['article']
+    item_selector = 'article'
     source_type = "blog"
 
     cleaner = utils.HtmlCleaner(
@@ -59,7 +59,7 @@ class HTMLDataset(AlignmentDataset):
         logger.info(f"Fetching entries from {self.url}")
         response = requests.get(self.url, allow_redirects=True)
         soup = BeautifulSoup(response.content, "html.parser")
-        articles = soup.find_all(*self.item_selector)
+        articles = soup.select(self.item_selector)
         logger.info(f"Found {len(articles)} articles")
         return articles
 
