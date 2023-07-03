@@ -26,7 +26,7 @@ class HTMLDataset(AlignmentDataset):
     url: str
     done_key = "url"
 
-    authors: List[str] = field(default_factory=list) 
+    authors: List[str] = field(default_factory=list)
     _: KW_ONLY
     source_key: str = None
     summary_key: str = None
