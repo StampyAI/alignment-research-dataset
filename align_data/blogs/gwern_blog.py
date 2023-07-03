@@ -79,8 +79,7 @@ class GwernBlog(HTMLDataset):
     def _get_title(contents):
         return contents.find('header').find('h1').text
 
-    @staticmethod
-    def _get_published_date(metadata):
+    def _get_published_date(self, metadata):
         date_published = metadata.get('modified') or metadata.get('created')
         if date_published:
             return self._format_datetime(parse(date_published))

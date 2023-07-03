@@ -45,7 +45,7 @@ def process_row(row, sheets):
         logger.error('missing keys: ' + ', '.join(missing))
         return
 
-    contents = extract_text(row['source_url'])
+    contents = item_metadata(row['source_url'])
 
     if not contents or 'error' in contents:
         error = (contents and contents.get('error')) or 'text could not be fetched'

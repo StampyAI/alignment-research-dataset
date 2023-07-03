@@ -18,8 +18,7 @@ class ColdTakes(HTMLDataset):
         True,
     )
 
-    @staticmethod
-    def _get_published_date(contents):
+    def _get_published_date(self, contents):
         article = contents.find('article')
         header = article.find('header').extract()
         date = header.find('time').get('datetime')

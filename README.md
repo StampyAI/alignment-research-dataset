@@ -129,13 +129,23 @@ There are Datasets defined for various types of data sources - first check if an
 
 ## Running the code
 
-When wishing to update the whole dataset, run `python main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python main.py fetch aisafety.info`
+When wishing to update the whole dataset, run `python main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python main.py fetch aisafety.info`.
 
 ### Coda
 
 To update the stampy portion of the dataset, you will need a Coda token. go to coda.io, log in, and generate an API token in your account settings. Add restrictions: Doc or table, Read only, for the doc with url https://coda.io/d/_dfau7sl2hmG. Then, create a .env file at the root of the alignment research dataset, and write CODA_TOKEN="<coda_token>". It will be accessible in align_data/stampy/stampy.py
 
-### Google API
+### Metadata updates
+
+There are a couple of datasources that consist of singular articles (html, pdfs, ebooks, etc), rather than all the contents of a given website. These are managed in [Google sheets](https://docs.google.com/spreadsheets/d/1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4/edit#gid=0). It's assumed that the contents of that document are clean, in that all required fields are set, and that there is a `source_url` pointing to a valid document. Rather than having to manually fill these fields, there is a magical script that automatically populates them from a messy [input worksheet](https://docs.google.com/spreadsheets/d/1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI/edit?pli=1#gid=980957638), which contains all kinds of info. The following will execute this script:
+
+    python main.py update_metadata <input spreadsheet id> <input sheet name> <output spreadsheet id>
+
+which for the current documents would be:
+
+    python main.py update_metadata 1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI special_docs.csv 1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4
+
+#### Google API
 
 To autopopulate the metadata files, you'll need Google Cloud credentials. This is a google system, so of course is complicated and prone to arbitrary changes, but as of writing this the process is:
 
