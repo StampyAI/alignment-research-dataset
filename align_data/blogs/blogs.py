@@ -7,9 +7,6 @@ from align_data.common.html_dataset import HTMLDataset, RSSDataset
 from datetime import datetime, timezone
 from dateutil.parser import parse
 
-import logging
-logger = logging.getLogger(__name__)
-
 @dataclass
 class ColdTakes(HTMLDataset):
     title_selector = 'h2'
