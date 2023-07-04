@@ -101,12 +101,10 @@ class HTMLDataset(AlignmentDataset):
     def _get_published_date(contents):
         return ''
 
-    @staticmethod
-    def _find_date(items):
+    def _find_date(self, items):
         for i in items:
             if re.match('\w+ \d{1,2}, \d{4}', i.text):
-                dt = datetime.strptime(i.text, '%b %d, %Y').astimezone(timezone.utc)
-                return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                return self._format_datetime(datetime.strptime(i.text, '%b %d, %Y'))
 
     def _extract_markdown(self, element):
         return markdownify(str(element))
@@ -134,8 +132,7 @@ class RSSDataset(HTMLDataset):
     def _get_published_date(self, item):
         date_published = item.get('published') or item.get('pubDate')
         if date_published:
-            dt = parse(date_published).astimezone(timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            return self._format_datetime(parse(date_published))
         return ''
 
     @staticmethod
