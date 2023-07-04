@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from calendar import c
 from dataclasses import dataclass, field
 import logging
-from tqdm import tqdm
 import feedparser
 
 from align_data.common import utils
@@ -16,7 +15,6 @@ logger = logging.getLogger(__name__)
 class WordpressBlog(AlignmentDataset):
     url: str
     strip: List = field(default_factory=lambda: [])
-    max_pages: int = 2000
     summary_key = 'summary'
     done_key = 'paged_url'
 
@@ -24,19 +22,16 @@ class WordpressBlog(AlignmentDataset):
         """
         url: URL of the blog
         strip: list of regexes to strip from the HTML
-        max_pages: maximum number of RSS pages to fetch
         """
         super().setup()
         self.feed_url = self.url + "/feed"
         self.cleaner = utils.HtmlCleaner(self.strip)
-        self.max_pages = self.max_pages
         self.name = utils.url_to_filename(self.url)
 
     def get_item_key(self, item):
         return item
 
-    @property
-    def items_list(self):
+    def get_page_count(self):
         """ 
         Instead of creating a list of urls up to 2000, 
         which makes tqdm think that there are 2000 items 
@@ -55,11 +50,11 @@ class WordpressBlog(AlignmentDataset):
             else:
                 return False
 
-        pages_url = []
         bound = 1
         while is_valid_page(bound):
             bound *= 2  # Exponentially increase the bound
-            logger.info('bound', bound)
+            if bound > 8000:
+                raise Exception("Something is wrong, we shouldn't be getting this many pages")
 
         # Now we know the page number lies between bound/2 and bound, perform binary search
         lower_bound = bound // 2
@@ -70,13 +65,11 @@ class WordpressBlog(AlignmentDataset):
                 lower_bound = mid
             else:
                 upper_bound = mid
-            logger.info('lower_bound', lower_bound, 'upper_bound', upper_bound)
+        return lower_bound + 1
 
-        # add the valid pages to pages_url
-        for i in range(lower_bound + 1):  # Adding 1 to include the last valid page
-            pages_url.append(f"{self.feed_url}?paged={i + 1}")
-
-        return pages_url
+    @property
+    def items_list(self):
+        return [f"{self.feed_url}?paged={page + 1}" for page in range(self.get_page_count())]
 
     @staticmethod
     def _get_published_date(item):
@@ -88,7 +81,7 @@ class WordpressBlog(AlignmentDataset):
 
     def fetch_entries(self):
         for paged_url in self.unprocessed_items():
-            logger.info(f"Fetching {paged_url} (max={self.max_pages})")
+            logger.info(f"Fetching {paged_url}")
             d = feedparser.parse(paged_url)
 
             for entry in d["entries"]:
