@@ -2,6 +2,7 @@ import arxiv
 import requests
 import logging
 import io
+import time
 
 import pandas as pd
 
@@ -11,6 +12,9 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from pypdf import PdfReader
 from pypdf.errors import PdfStreamError
+from requests.exceptions import HTTPError, ChunkedEncodingError
+from align_data.common.alignment_dataset import AlignmentDataset
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,15 +41,15 @@ class ArxivPapers(AlignmentDataset):
         self.papers_csv_path = self.raw_data_path / "ai-alignment-arxiv-papers.csv"
 
         self.df = pd.read_csv(self.papers_csv_path)
-        self.df_arxiv = self.df[self.df["Url"].str.contains(
-            "arxiv.org/abs") == True].drop_duplicates(subset="Url", keep="first")
+        self.df_arxiv = self.df[self.df["url"].str.contains(
+            "arxiv.org/abs") == True].drop_duplicates(subset="url", keep="first")
 
-        return [xx.split('/abs/')[1] for xx in self.df_arxiv.Url]
+        return [xx.split('/abs/')[1] for xx in self.df_arxiv.url]
 
     def process_entry(self, ids) -> None:
         logger.info(f"Processing {ids}")
 
-        markdown = self.process_id(ids)
+        markdown, source_type, converter = self.process_id(ids)
 
         paper = self._get_arxiv_metadata(ids)
         if markdown is None or paper is None:
@@ -55,8 +59,8 @@ class ArxivPapers(AlignmentDataset):
             new_entry = self.make_data_entry({
                 "url": self.get_item_key(ids),
                 "source": self.name,
-                "source_type": "html",
-                "converted_with": "markdownify",
+                "source_type": source_type,
+                "converted_with": converter,
                 "title": paper.title,
                 "authors": [str(x) for x in paper.authors],
                 "date_published": paper.published,
@@ -100,6 +104,23 @@ class ArxivPapers(AlignmentDataset):
             "don’t have to squint at a PDF" not in markdown
         )
 
+
+    def _request_with_retries(self, url, max_retries=3, wait=2):
+        retries = 0
+        while retries < max_retries:
+            try:
+                response = requests.get(url,timeout=5 * self.COOLDOWN)
+                response.raise_for_status()  # Raise an exception for non-2xx status codes
+                return response  # or any other desired response handling
+            except (ValueError, HTTPError, ChunkedEncodingError) as e:
+                retries += 1
+                if retries > max_retries:
+                    logger.error(f'{e}')
+                    return None
+                logger.error(f"\nHTTP request error occurred when trying to access {url}: {e}\n Retrying ({retries}/{max_retries})...")
+                time.sleep(wait)
+        return None
+
     def _article_markdown_from_soup(self, soup) -> str:
         """
         Get markdown of the article from BeautifulSoup object of the page
@@ -117,7 +138,7 @@ class ArxivPapers(AlignmentDataset):
         """
         pdf_link = f'https://arxiv.org/pdf/{paper_id}.pdf'
         logger.info(f"Fetching PDF from {pdf_link}")
-        response = requests.get(pdf_link)
+        response = self._request_with_retries(pdf_link)
         try:
             pdf_bytes = io.BytesIO(response.content)
             reader = PdfReader(pdf_bytes)
@@ -140,20 +161,18 @@ class ArxivPapers(AlignmentDataset):
         elif parser == "ar5iv":
             link = f"https://ar5iv.org/abs/{paper_id}"
         logger.info(f"Fetching {link}")
-        try:
-            r = requests.get(link, timeout=5 * self.COOLDOWN)
-        except ValueError as e:
-            logger.error(f'{e}')
-            return None
-        if "//arxiv.org" in r.url:
-            return None
-        try:
-            soup = BeautifulSoup(r.content, features="xml")
-        except ValueError as e:
-            logger.error(f'{e}')
-            return None
-        if not self._is_bad_soup(soup,parser=parser):
-            return self._article_markdown_from_soup(soup)
+        r = self._request_with_retries(link)
+
+        if r:
+            if "//arxiv.org" in r.url:
+                return None
+            try:
+                soup = BeautifulSoup(r.content, features="xml")
+            except ValueError as e:
+                logger.error(f'{e}')
+                return None
+            if not self._is_bad_soup(soup,parser=parser):
+                return self._article_markdown_from_soup(soup)
         return None
 
 
@@ -179,14 +198,16 @@ class ArxivPapers(AlignmentDataset):
         """
         Process arxiv id
         """
+        source_type, converter = ('html','markdownify')
         markdown = self._get_parser_markdown(paper_id, parser="vanity")
         if markdown is None:
             markdown = self._get_parser_markdown(paper_id, parser="ar5iv")
         if markdown is None:
+            source_type, converter = ('pdf','pypdf')
             markdown = self._get_pdf_content(paper_id)
         if markdown is None:
-            return None
+            return None, source_type, converter
         mardown_excerpt = markdown.replace('\n', '')[:100]
         logger.info(f"Stripping markdown, {mardown_excerpt}")
         s_markdown = self._strip_markdown(markdown)
-        return s_markdown
+        return s_markdown, source_type, converter
