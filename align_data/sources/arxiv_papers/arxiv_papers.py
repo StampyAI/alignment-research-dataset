@@ -1,8 +1,7 @@
 import arxiv
 import requests
 import logging
-import time
-import jsonlines
+import io
 
 import pandas as pd
 
@@ -10,7 +9,8 @@ from dataclasses import dataclass
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from align_data.common.alignment_dataset import AlignmentDataset
+from pypdf import PdfReader
+from pypdf.errors import PdfStreamError
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class ArxivPapers(AlignmentDataset):
             "don’t have to squint at a PDF" not in markdown
         )
 
-    def _article_markdown_from_soup(self, soup):
+    def _article_markdown_from_soup(self, soup) -> str:
         """
         Get markdown of the article from BeautifulSoup object of the page
         """
@@ -111,6 +111,25 @@ class ArxivPapers(AlignmentDataset):
         markdown = markdownify(str(article))
         return markdown
 
+    def _get_pdf_content(self, paper_id) -> str:
+        """
+        Get markdown from the content of the PDF file using PyPDF
+        """
+        pdf_link = f'https://arxiv.org/pdf/{paper_id}.pdf'
+        logger.info(f"Fetching PDF from {pdf_link}")
+        response = requests.get(pdf_link)
+        try:
+            pdf_bytes = io.BytesIO(response.content)
+            reader = PdfReader(pdf_bytes)
+        except PdfStreamError as e:
+            logger.error(f"Couldn't parse HTTP response as a PDF file: {e}")
+            return None
+        text = ''
+        for page in reader.pages:
+            text += page.extract_text()
+        if len(text)<250:
+            return None
+        return text
 
     def _get_parser_markdown(self, paper_id, parser="vanity") -> str:
         """
@@ -163,6 +182,8 @@ class ArxivPapers(AlignmentDataset):
         markdown = self._get_parser_markdown(paper_id, parser="vanity")
         if markdown is None:
             markdown = self._get_parser_markdown(paper_id, parser="ar5iv")
+        if markdown is None:
+            markdown = self._get_pdf_content(paper_id)
         if markdown is None:
             return None
         mardown_excerpt = markdown.replace('\n', '')[:100]
