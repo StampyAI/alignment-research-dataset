@@ -4,7 +4,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Union
 from align_data import ALL_DATASETS, DATASET_REGISTRY, get_dataset
+from align_data.articles.articles import update_new_items
 from align_data.analysis.count_tokens import count_token
+from align_data.settings import METADATA_SOURCE_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_OUTPUT_SPREADSHEET
 
 # import logging , sys
 
@@ -30,7 +32,7 @@ class AlignmentDataset:
         """Returns a list of all the datasets"""
         return sorted(ALL_DATASETS)
 
-    def fetch(self, name, rebuild=False) -> None:
+    def fetch(self, *names, rebuild=False) -> None:
         """
         > This function takes a dataset name and writes the entries of that dataset to a file
 
@@ -38,19 +40,21 @@ class AlignmentDataset:
         :param bool rebuild: Whether to remove the previous build before running
         :return: The path to the file that was written to.
         """
-        assert name in ALL_DATASETS, f"{name} is not a valid dataset name"
-        dataset = get_dataset(name)
+        missing = {name for name in names if name not in ALL_DATASETS}
+        assert not missing, f"{missing} are not valid dataset names"
+        for name in names:
+            dataset = get_dataset(name)
 
-        if rebuild:
-            dataset.jsonl_path.unlink(missing_ok=True)
+            if rebuild:
+                dataset.jsonl_path.unlink(missing_ok=True)
 
-        with dataset.writer(self.out_path) as writer:
-            for entry in dataset.fetch_entries():
-                writer(entry)
+            with dataset.writer(self.out_path) as writer:
+                for entry in dataset.fetch_entries():
+                    writer(entry)
 
-        return dataset.jsonl_path
+            print(dataset.jsonl_path)
 
-    def fetch_all(self, rebuild=False, skip='') -> str:
+    def fetch_all(self, *skip, rebuild=False) -> str:
         """
         It downloads all the datasets, moves the alignment_newsletter.jsonl file to the processed
         folder, deletes the alignment_newsletter.jsonl file, adds the alignment_newsletter_summaries to
@@ -97,6 +101,18 @@ class AlignmentDataset:
         """
         assert os.path.exists(merged_dataset_path), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
+
+    def update_metadata(
+            self, source_spreadsheet=METADATA_SOURCE_SPREADSHEET,
+            source_sheet=METADATA_SOURCE_SHEET, output_spreadsheet=METADATA_OUTPUT_SPREADSHEET
+    ):
+        """Go through all unprocessed items from the source worksheet, updating the appropriate metadata in the output one.
+
+        :param str source_spreadsheet: The id of the google docs spreadsheet containing the items to be processed
+        :param str source_sheet: The name of the worksheet to be processed
+        :param str output_spreadsheet: The id of the output google sheet where processed metadata should be added. This sheet should have a worksheet for each expected data type (e.g. "pdf", "html")
+        """
+        return update_new_items(source_spreadsheet, source_sheet, output_spreadsheet)
 
 
 if __name__ == "__main__":

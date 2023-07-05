@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from calendar import c
 from dataclasses import dataclass, field
 import logging
@@ -39,9 +39,12 @@ class WordpressBlog(AlignmentDataset):
     def items_list(self):
         return [f"{self.feed_url}?paged={page + 1}" for page in range(0, self.max_pages)]
 
-    @staticmethod
-    def _get_published_date(item):
-        return datetime.strptime(item['published'], '%a, %d %b %Y %H:%M:%S %z').isoformat()
+    def _get_published_date(self, item):
+        date_published = item.get('published')
+        if not date_published:
+            return ''
+        date_published = datetime.strptime(date_published, '%a, %d %b %Y %H:%M:%S %z')
+        return self._format_datetime(date_published)
 
     def fetch_entries(self):
         last_title = ""

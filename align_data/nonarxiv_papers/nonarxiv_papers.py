@@ -26,7 +26,7 @@ class NonarxivPapers(GdocDataset):
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")
         try:
-            xml_text = filename.read_text()
+            xml_text = filename.read_text(encoding='utf-8')
             doc_dict = grobid_tei_xml.parse_document_xml(xml_text).to_dict()
             authors = [xx["full_name"].strip(' !') for xx in doc_dict["header"]["authors"]]
 
@@ -36,8 +36,8 @@ class NonarxivPapers(GdocDataset):
                 "title": doc_dict["header"]["title"],
                 "abstract": doc_dict["abstract"],
                 "text": doc_dict["body"],
-                "date_published": "n/a",
-                "url": "n/a",
+                "date_published": "",
+                "url": "",
                 "authors": list(filter(None, authors)),
                 "source": self.name,
                 "source_type": "pdf",

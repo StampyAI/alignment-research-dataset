@@ -5,7 +5,8 @@ import pypandoc
 from path import Path
 import os
 import docx
-from tqdm import tqdm
+from datetime import datetime, timezone
+from dateutil.parser import parse
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,11 @@ class Gdocs(GdocDataset):
         logger.info(f"Fetching {self.name} entry {docx_filename}")
         try:
             text = pypandoc.convert_file(docx_filename, "plain", extra_args=['--wrap=none'])
+            metadata = self._get_metadata(docx_filename)
         except Exception as e:
-            logger.error(f"Error converting {docx_filename}")
+            logger.error(f"Error processing {docx_filename}")
             logger.error(e)
-            text = "n/a"
-
-        metadata = self._get_metadata(docx_filename)
+            return None
 
         return DataEntry({
             "source": self.name,
@@ -43,11 +43,21 @@ class Gdocs(GdocDataset):
             "converted_with": "pandoc",
             "title": metadata.title,
             "authors": [metadata.author] if metadata.author else [],
-            "date_published": metadata.created if metadata.created else "n/a",
+            "date_published": self._get_published_date(metadata),
             "text": text,
-            "url": "n/a",
+            "url": "",
             "docx_name": docx_filename.name,
         })
+    
+    @staticmethod
+    def _get_published_date(metadata):
+        date_published = metadata.created or metadata.modified
+        if date_published:
+            assert isinstance(date_published, datetime), f"Expected datetime, got {type(date_published)}"
+            dt = date_published.replace(tzinfo=timezone.utc)
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return ''
+
 
     def _get_metadata(self , docx_filename):
         doc = docx.Document(docx_filename)

@@ -4,6 +4,5 @@ from .gdocs import Gdocs
 # from https://www.lesswrong.com/posts/LfHWhcfK92qh2nwku/transcripts-of-interviews-with-ai-researchers
 
 GDOCS_REGISTRY = [
-    Gdocs(name = "gdocs",
-        gdrive_address = "https://drive.google.com/uc?id=18uFLj3Vs8de6LnEE00taJAvPl8dZYRxx")
+    Gdocs(name="gdocs", gdrive_address="https://drive.google.com/uc?id=18uFLj3Vs8de6LnEE00taJAvPl8dZYRxx"),
 ]

@@ -1,7 +1,6 @@
 # %%
 import logging
-import jsonlines
-
+from datetime import datetime, timezone
 import pandas as pd
 
 from dataclasses import dataclass
@@ -25,7 +24,14 @@ class AlignmentNewsletter(AlignmentDataset):
 
     def get_item_key(self, row):
         return row.Title
-
+    
+    @staticmethod
+    def _get_published_date(year):
+        if not year or pd.isna(year):
+            return ''
+        dt = datetime(int(year), 1, 1, tzinfo=timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        
     @property
     def items_list(self):
         return self.df.itertuples()
@@ -41,13 +47,13 @@ class AlignmentNewsletter(AlignmentDataset):
 
         def handle_na(v, cast=None):
             if not v or pd.isna(v):
-                return None
+                return ''
             if cast:
                 return cast(v)
             return v
 
         return DataEntry({
-            "url": handle_na(row.URL) or 'n/a',
+            "url": handle_na(row.URL),
             "source": handle_na(self.name),
             "converted_with": "python",
             "source_type": "google-sheets",
@@ -61,6 +67,6 @@ class AlignmentNewsletter(AlignmentDataset):
             "read_more": handle_na(row[13], str),
             "title": handle_na(row.Title, str),
             "authors": [i.strip() for i in str(row.Authors).split(',')],
-            "date_published": str(handle_na(row.Year, int) or 'n/a'),
+            "date_published": self._get_published_date(row.Year),
             "text": handle_na(row.Summary, str),
         })

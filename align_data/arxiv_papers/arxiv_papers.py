@@ -54,14 +54,7 @@ class ArxivPapers(AlignmentDataset):
         paper = self._get_arxiv_metadata(ids)
         if markdown is None or paper is None:
             logger.info(f"Skipping {ids}")
-            new_entry = DataEntry({
-                "url": self.get_item_key(ids),
-                "title": "n/a",
-                "authors": "n/a",
-                "date_published": "n/a",
-                "source": self.name,
-                "text": "n/a",
-            })
+            return None
         else:
             new_entry = DataEntry({
                 "url": self.get_item_key(ids),
@@ -70,7 +63,7 @@ class ArxivPapers(AlignmentDataset):
                 "converted_with": converter,
                 "title": paper.title,
                 "authors": [str(x) for x in paper.authors],
-                "date_published": str(paper.published),
+                "date_published": paper.published.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "data_last_modified": str(paper.updated),
                 "abstract": paper.summary.replace("\n", " "),
                 "author_comment": paper.comment,

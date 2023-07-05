@@ -1,7 +1,8 @@
 import regex as re
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from dateutil.parser import parse
 from dataclasses import dataclass, field, KW_ONLY
 from urllib.parse import urljoin
 from typing import List
@@ -31,7 +32,7 @@ class HTMLDataset(AlignmentDataset):
     summary_key: str = None
 
     title_selector = 'h2'
-    item_selector = ['article']
+    item_selector = 'article'
     source_type = "blog"
 
     cleaner = utils.HtmlCleaner(
@@ -58,7 +59,7 @@ class HTMLDataset(AlignmentDataset):
         logger.info(f"Fetching entries from {self.url}")
         response = requests.get(self.url, allow_redirects=True)
         soup = BeautifulSoup(response.content, "html.parser")
-        articles = soup.find_all(*self.item_selector)
+        articles = soup.select(self.item_selector)
         logger.info(f"Found {len(articles)} articles")
         return articles
 
@@ -98,13 +99,12 @@ class HTMLDataset(AlignmentDataset):
 
     @staticmethod
     def _get_published_date(contents):
-        return 'n/a'
+        return ''
 
-    @staticmethod
-    def _find_date(items):
+    def _find_date(self, items):
         for i in items:
             if re.match('\w+ \d{1,2}, \d{4}', i.text):
-                return datetime.strptime(i.text, '%b %d, %Y').date().isoformat()
+                return self._format_datetime(datetime.strptime(i.text, '%b %d, %Y'))
 
     def _extract_markdown(self, element):
         return markdownify(str(element))
@@ -130,10 +130,10 @@ class RSSDataset(HTMLDataset):
         return item['title']
 
     def _get_published_date(self, item):
-        published = item.get('published') or item.get('pubDate')
-        if published:
-            return datetime.strptime(published, self.date_format).isoformat()
-        return 'n/a'
+        date_published = item.get('published') or item.get('pubDate')
+        if date_published:
+            return self._format_datetime(parse(date_published))
+        return ''
 
     @staticmethod
     def _get_text(item):
