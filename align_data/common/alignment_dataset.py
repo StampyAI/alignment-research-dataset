@@ -2,6 +2,7 @@ import time
 import hashlib
 import os
 import logging
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from collections import UserDict
 from contextlib import contextmanager
@@ -83,6 +84,7 @@ class AlignmentDataset:
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
+        self.files_path.mkdir(parents=True, exist_ok=True)
 
         # and the default place to write data
         self._set_output_paths(self.data_path)
@@ -206,6 +208,11 @@ class AlignmentDataset:
     def process_entry(self, entry):
         """Process a single entry."""
         raise NotImplementedError
+
+    @staticmethod
+    def _format_datetime(date):
+        dt = date.astimezone(timezone.utc)
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclass

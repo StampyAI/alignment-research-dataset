@@ -54,13 +54,12 @@ class WordpressBlog(AlignmentDataset):
 
         return pages
 
-    @staticmethod
-    def _get_published_date(item):
+    def _get_published_date(self, item):
         date_published = item.get('published')
         if not date_published:
             return ''
-        dt = datetime.strptime(date_published, '%a, %d %b %Y %H:%M:%S %z').astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        date_published = datetime.strptime(date_published, '%a, %d %b %Y %H:%M:%S %z')
+        return self._format_datetime(date_published)
 
     def fetch_entries(self):
         for entry in self.unprocessed_items():
