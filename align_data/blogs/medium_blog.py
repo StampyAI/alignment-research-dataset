@@ -30,12 +30,8 @@ class MediumBlog(HTMLDataset):
     done_key = "url"
     title_selector = 'h2'
     source_type = "medium_blog"
+    ignored_selectors = ['div:first-child span']
 
     def _get_published_date(self, contents):
-        possible_date_elements = contents.find('article').find('h1').next_sibling.find_all('span')
+        possible_date_elements = contents.select('article div:first-child span')
         return self._find_date(possible_date_elements)
-
-    def _get_text(self, contents):
-        article = contents.find('article')
-        article.find('h1').parent.extract()  # remove the header
-        return article.text
