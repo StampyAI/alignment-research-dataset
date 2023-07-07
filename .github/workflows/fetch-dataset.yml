@@ -57,7 +57,7 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Fetch dataset
-      run: python main.py fetch ${{ inputs.datasource }}
+      run: python main.py fetch ${{ inputs.datasource }} --fetch_prev=True
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
@@ -81,7 +81,7 @@ jobs:
           python-version: '3.x'
 
       - name: Setup Huggingface client
-        run: pip install huggingface_hub gdown jsonlines
+        run: pip install huggingface_hub gdown jsonlines datasets
 
       - name: Download a single artifact
         uses: actions/download-artifact@v3
