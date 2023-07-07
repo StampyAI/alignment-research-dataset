@@ -1,16 +1,21 @@
+import logging
 import os
-import fire
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List
+
+import fire
+import requests
+
 from align_data import ALL_DATASETS, DATASET_REGISTRY, get_dataset
-from align_data.articles.articles import update_new_items
 from align_data.analysis.count_tokens import count_token
-from align_data.settings import METADATA_SOURCE_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_OUTPUT_SPREADSHEET
+from align_data.articles.articles import update_new_items
+from align_data.settings import (
+    METADATA_OUTPUT_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_SOURCE_SPREADSHEET
+)
 
-# import logging , sys
 
-# logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def add_summaries(summaries, dataset):
@@ -20,6 +25,19 @@ def add_summaries(summaries, dataset):
         if url and summary:
             summaries[url][dataset.name] = summary
     return summaries
+
+
+def download_from_hf(dataset):
+    url = f'https://huggingface.co/datasets/StampyAI/alignment-research-dataset/resolve/main/{dataset.name}.jsonl'
+    res = requests.get(url, stream=True)
+    if res.status_code != 200:
+        logger.info(f'Error downloading {dataset.jsonl_path.name}: %s', res.status_code)
+    else:
+        logger.info(f'Downloading {dataset.jsonl_path.name}')
+        with open(dataset.jsonl_path, 'wb') as f:
+            for chunk in res.iter_content(chunk_size=8192):
+                f.write(chunk)
+
 
 
 @dataclass
@@ -32,12 +50,13 @@ class AlignmentDataset:
         """Returns a list of all the datasets"""
         return sorted(ALL_DATASETS)
 
-    def fetch(self, *names, rebuild=False) -> None:
+    def fetch(self, *names, rebuild=False, fetch_prev=False) -> None:
         """
         > This function takes a dataset name and writes the entries of that dataset to a file
 
         :param str name: The name of the dataset to fetch
         :param bool rebuild: Whether to remove the previous build before running
+        :param bool fetch_prev: Whether to fetch the previous dataset from Huggingface. Overrides rebuild
         :return: The path to the file that was written to.
         """
         missing = {name for name in names if name not in ALL_DATASETS}
@@ -45,7 +64,9 @@ class AlignmentDataset:
         for name in names:
             dataset = get_dataset(name)
 
-            if rebuild:
+            if fetch_prev:
+                download_from_hf(dataset)
+            elif rebuild:
                 dataset.jsonl_path.unlink(missing_ok=True)
 
             with dataset.writer(self.out_path) as writer:
@@ -54,23 +75,23 @@ class AlignmentDataset:
 
             print(dataset.jsonl_path)
 
-    def fetch_all(self, *skip, rebuild=False) -> str:
+    def fetch_all(self, *skip, rebuild=False, fetch_prev=False) -> str:
         """
         It downloads all the datasets, moves the alignment_newsletter.jsonl file to the processed
         folder, deletes the alignment_newsletter.jsonl file, adds the alignment_newsletter_summaries to
         the datasets, and merges all the files
 
         :param bool rebuild: Whether to remove the previous build before running
-        :params str|tuple skip: a comma separated list of datasources to be skipped
+        :param str|tuple skip: a comma separated list of datasources to be skipped
+        :param bool fetch_prev: Whether to fetch the previous datasets from Huggingface
         :return: The path to the merged file.
         """
-        for name in ALL_DATASETS:
-            if name in skip:
-                continue
+        names = [name for name in ALL_DATASETS if name not in skip]
+        for name in names:
             print(name)
-            self.fetch(name, rebuild)
+            self.fetch(name, rebuild=rebuild, fetch_prev=fetch_prev)
 
-        return None  #merge_all_files(out_dir = self.out_path)
+        return self.merge_summaries(*names)
 
     def merge_summaries(self, *names):
         """Update all source materials with summaries if they have any.
