@@ -1,10 +1,6 @@
-import regex as re
 from dataclasses import dataclass
-from markdownify import markdownify
-from align_data.common import utils
 from align_data.common.html_dataset import HTMLDataset, RSSDataset
 
-from datetime import datetime, timezone
 from dateutil.parser import parse
 
 @dataclass
@@ -12,15 +8,10 @@ class ColdTakes(HTMLDataset):
     title_selector = 'h2'
     item_selector = 'div.post-feed article'
 
-    cleaner = utils.HtmlCleaner(
-        ["You might also like\.\.\..*", "\\n+", "\#\# Create your profile.*", "\n\xa0Comment/discuss\n", '\nClick lower right to download or find on Apple Podcasts, Spotify, Stitcher, etc.\n'],
-        ["", "\\n", "", "", ''],
-        True,
-    )
+    ignored_selectors = ['center', 'div[style*="display:flex"]', 'footer']
 
     def _get_published_date(self, contents):
-        article = contents.find('article')
-        header = article.find('header').extract()
+        header = contents.select_one('article header').extract()
         date = header.find('time').get('datetime')
         return self._format_datetime(parse(date))
 
@@ -31,7 +22,7 @@ class GenerativeInk(HTMLDataset):
 
     def _get_published_date(self, contents):
         possible_date_elements = [
-            elem for info in contents.find_all('div', {'class': 'post-info'})
+            elem for info in contents.select('div.post-info')
             for elem in info.children
         ]
         date = self._find_date(possible_date_elements)
