@@ -9,15 +9,17 @@ import jsonlines
 from huggingface_hub import login
 from huggingface_hub import HfApi
 
+
 GDOCS_FOLDER = 'https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8'
+PRIVATE_FILES = ['ebooks.jsonl']
 
 
-def upload(api, filename):
-    print(f'Uploading {filename} as {filename.name}')
+def upload(api, filename, repo_name):
+    print(f'Uploading {filename} as {repo_name}/{filename.name}')
     api.upload_file(
         path_or_fileobj=filename,
         path_in_repo=filename.name,
-        repo_id='StampyAI/alignment-research-dataset',
+        repo_id=f'StampyAI/{repo_name}',
         repo_type='dataset'
     )
 
@@ -37,7 +39,7 @@ def get_gdoc_names(url):
     return [(id, name) for id, name, filetype in id_name_type_iter if name.endswith('.jsonl')]
 
 
-def upload_data_file(api, name, id):
+def upload_data_file(api, name, id, repo_name):
     """Upload the file with the given `name` to HF.
 
     If the file already exists locally, it will be used. Otherwise it will first be fetched from the GDrive.
@@ -58,24 +60,32 @@ def upload_data_file(api, name, id):
     except InvalidLineError as e:
         print(e)
     else:
-        upload(api, filename)
+        upload(api, filename, repo_name)
 
 
-def update_readme(api, files):
+def download_file(repo_name, filename, api):
+    headers = {'Authorization': f'Bearer {api.token}'}
+    url = f'https://huggingface.co/datasets/StampyAI/{repo_name}/raw/main/{filename.name}'
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        with open(filename, 'wb') as file:
+            file.write(response.content)
+
+
+def update_readme(api, files, repo_name):
     """Update the HuggingFace README with the new metadata.
 
     Huggingface doesn't seem to provide a nice way of updating the README metadata, hence this
     mucking around.
     """
     # Pretend to create the repo locally
-    repo = Path('alignment-research-dataset')
+    repo = Path(repo_name)
     repo.mkdir(exist_ok=True)
 
     # Fetch the current README and dataset script
-    for filename in ['README.md', 'alignment-research-dataset.py']:
-        with open(repo / filename, 'w') as f:
-            url = f'https://huggingface.co/datasets/StampyAI/alignment-research-dataset/raw/main/{filename}'
-            f.write(requests.get(url).text)
+    for filename in ['README.md', f'{repo_name}.py']:
+        download_file(repo_name, repo / filename, api)
 
     # Copy over all jsonl files that have been updated, and update the README to have the
     # current metadata
@@ -83,24 +93,21 @@ def update_readme(api, files):
         target = Path('data') / filename
         (repo / filename).write_text(target.read_text())
         output = subprocess.check_output([
-            'datasets-cli', 'test', 'alignment-research-dataset', '--save_info', f'--name={target.stem}'
+            'datasets-cli', 'test', repo_name, '--save_info', f'--name={target.stem}'
         ])
 
     # Now upload the updated README
-    api.upload_file(
-        path_or_fileobj=repo / 'README.md',
-        path_in_repo='README.md',
-        repo_id='StampyAI/alignment-research-dataset',
-        repo_type='dataset'
-    )
+    upload(api, repo / 'README.md', repo_name)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or not sys.argv[1]:
         print('Usage: python upload_to_huggingface <token> <datasource name | all>')
         sys.exit(2)
-    login(sys.argv[1])
-    api = HfApi()
+
+    token = sys.argv[1]
+    # login(sys.argv[1])
+    api = HfApi(token=token)
 
     files = get_gdoc_names(GDOCS_FOLDER)
     if len(sys.argv) > 2 and sys.argv[2] != 'all':
@@ -108,8 +115,14 @@ if __name__ == "__main__":
 
     data = Path('data/')
     for id, name in files:
-        upload_data_file(api, name, id)
+        upload_data_file(api, name, id, 'ard-private')
+        if name not in PRIVATE_FILES:
+            upload_data_file(api, name, id, 'alignment-research-dataset')
 
-    update_readme(api, [name for _, name in files])
+    update_readme(
+        api, [name for _, name in files if name not in PRIVATE_FILES],
+        'alignment-research-dataset'
+    )
+    update_readme(api, [name for _, name in files], 'ard-private')
 
     print('done')
