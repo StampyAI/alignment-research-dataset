@@ -11,8 +11,8 @@ from align_data.settings import PDFS_FOLDER_ID
 logger = logging.getLogger(__name__)
 
 
-REQUIRED_FIELDS = ['url', 'source_url', 'title', 'source_type', 'date_published']
-OPTIONAL_FIELDS = ['authors', 'summary']
+REQUIRED_FIELDS = ['url', 'title', 'source_type', 'date_published']
+OPTIONAL_FIELDS = ['source_url', 'authors', 'summary']
 
 
 def save_pdf(filename, link):
@@ -45,7 +45,8 @@ def process_row(row, sheets):
         logger.error('missing keys: ' + ', '.join(missing))
         return
 
-    contents = item_metadata(row['source_url'])
+    source_url = row.get('source_url') or row['url']
+    contents = item_metadata(source_url)
 
     if not contents or 'error' in contents:
         error = (contents and contents.get('error')) or 'text could not be fetched'
@@ -62,7 +63,7 @@ def process_row(row, sheets):
 
     extra_fields = []
     if data_source == 'pdf':
-        extra_fields = [save_pdf(row['title'], contents['source_url'])]
+        extra_fields = [save_pdf(row['title'], source_url)]
 
     sheets[data_source].append_row(
         [row.get(field) for field in REQUIRED_FIELDS + OPTIONAL_FIELDS] + extra_fields
@@ -87,7 +88,8 @@ def process_spreadsheets(source_sheet, output_sheets):
         if url
     }
     for row in tqdm(iterate_rows(source_sheet)):
-        if row.get('source_url') in seen:
+        source_url = row.get('source_url') or row['url']
+        if source_url in seen:
             title = row.get('title')
             logger.info(f'skipping "{title}", as it has already been seen')
         else:
