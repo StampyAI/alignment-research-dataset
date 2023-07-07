@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from bs4 import BeautifulSoup
 
-from align_data.articles.datasets import SpreadsheetDataset, PDFArticles, HTMLArticles, EbookArticles
+from align_data.articles.datasets import SpreadsheetDataset, PDFArticles, HTMLArticles, EbookArticles, XMLArticles
 
 
 @pytest.fixture
@@ -169,3 +169,29 @@ def test_ebook_articles_process_entry(articles):
                 'title': 'article no 0',
                 'url': 'http://example.com/item/0',
             }
+
+
+def test_xml_articles_get_text():
+    dataset = XMLArticles(name='bla', spreadsheet_id='123', sheet_id='456')
+    with patch('align_data.articles.datasets.extract_gdrive_contents', return_value={'text': 'bla bla'}):
+        assert dataset._get_text(Mock(source_url='bla.com')) == 'bla bla'
+
+
+def test_xml_articles_process_entry(articles):
+    dataset = XMLArticles(name='bla', spreadsheet_id='123', sheet_id='456')
+    with patch('pandas.read_csv', return_value=articles):
+        item = list(dataset.items_list)[0]
+
+    with patch('align_data.articles.datasets.extract_gdrive_contents', return_value={'text': 'bla bla'}):
+        assert dataset.process_entry(item) == {
+            'authors': ['John Snow', 'mr Blobby'],
+            'date_published': '2023-01-01T12:32:11Z',
+            'id': None,
+            'source': 'bla',
+            'source_filetype': 'xml',
+            'source_type': 'something',
+            'summary': ['the summary of article 0'],
+            'text': 'bla bla',
+            'title': 'article no 0',
+            'url': 'http://example.com/item/0',
+        }
