@@ -1,5 +1,6 @@
 name: Daily dataset updates
 on:
+  workflow_dispatch: # allow manual triggering
   schedule:
     - cron: "0 0 * * *"
 
