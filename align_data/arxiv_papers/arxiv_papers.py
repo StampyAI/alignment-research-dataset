@@ -139,6 +139,8 @@ class ArxivPapers(AlignmentDataset):
         pdf_link = f'https://arxiv.org/pdf/{paper_id}.pdf'
         logger.info(f"Fetching PDF from {pdf_link}")
         response = self._request_with_retries(pdf_link)
+        if not response:
+            return None
         try:
             pdf_bytes = io.BytesIO(response.content)
             reader = PdfReader(pdf_bytes)
