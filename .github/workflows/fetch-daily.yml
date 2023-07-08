@@ -1,0 +1,23 @@
+name: Daily dataset updates
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  call-fetch-dataset:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        datasource:
+          - lesswrong
+          - alignmentforum
+          - aisafety.info
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Fetch dataset for ${{ matrix.datasource }}
+        uses: ./.github/workflows/fetch-dataset.yml
+        with:
+          datasource: ${{ matrix.datasource }}
