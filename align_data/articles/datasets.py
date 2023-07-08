@@ -8,9 +8,10 @@ import requests
 import pypandoc
 import pandas as pd
 from gdown.download import download
+from markdownify import markdownify
 
 from align_data.articles.pdf import fetch_pdf, read_pdf, fetch
-from align_data.articles.parsers import HTML_PARSERS
+from align_data.articles.parsers import HTML_PARSERS, extract_gdrive_contents
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class SpreadsheetDataset(AlignmentDataset):
     spreadsheet_id: str
     sheet_id: str
     done_key = "title"
+    source_filetype = None
 
     @property
     def items_list(self):
@@ -41,7 +43,7 @@ class SpreadsheetDataset(AlignmentDataset):
 
     @staticmethod
     def extract_authors(item):
-        return [author.strip() for author in item.authors.split(',')]
+        return [author.strip() for author in item.authors.split(',') if author.strip()]
 
     def process_entry(self, item):
         text = self._get_text(item)
@@ -50,12 +52,12 @@ class SpreadsheetDataset(AlignmentDataset):
             return None
 
         return DataEntry({
-            'text': text,
+            'text': markdownify(text).strip(),
             'url': item.url,
             'title': item.title,
             'source': self.name,
             'source_type': item.source_type,
-            'source_filetype': 'pdf',
+            'source_filetype': self.source_filetype,
             'date_published': self._get_published_date(item),
             'authors': self.extract_authors(item),
             'summary': [] if pd.isna(item.summary) else [item.summary],
@@ -64,6 +66,7 @@ class SpreadsheetDataset(AlignmentDataset):
 
 class PDFArticles(SpreadsheetDataset):
 
+    source_filetype = 'pdf'
     COOLDOWN = 1
 
     def _get_text(self, item):
@@ -76,6 +79,8 @@ class PDFArticles(SpreadsheetDataset):
 
 class HTMLArticles(SpreadsheetDataset):
 
+    source_filetype = 'html'
+
     @staticmethod
     def _get_text(item):
         domain = urlparse(item.source_url).netloc.lstrip('www.')
@@ -85,9 +90,19 @@ class HTMLArticles(SpreadsheetDataset):
 
 class EbookArticles(SpreadsheetDataset):
 
+    source_filetype = 'epub'
     COOLDOWN = 10 # Add a large cooldown, as google complains a lot
 
     def _get_text(self, item):
         file_id = item.source_url.split('/')[-2]
         filename = download(output=str(self.files_path / f'{item.title}.epub'), id=file_id)
         return pypandoc.convert_file(filename, "plain",'epub', extra_args=['--wrap=none'])
+
+
+class XMLArticles(SpreadsheetDataset):
+
+    source_filetype = 'xml'
+
+    def _get_text(self, item):
+        vals = extract_gdrive_contents(item.source_url)
+        return vals['text']

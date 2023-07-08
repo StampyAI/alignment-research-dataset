@@ -5,6 +5,7 @@ import logging
 from tqdm import tqdm
 import feedparser
 
+from markdownify import markdownify
 from align_data.common import utils
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
@@ -28,7 +29,6 @@ class WordpressBlog(AlignmentDataset):
         """
         super().setup()
         self.feed_url = self.url + "/feed"
-        self.cleaner = utils.HtmlCleaner(self.strip)
         self.max_pages = self.max_pages
         self.name = utils.url_to_filename(self.url)
 
@@ -64,7 +64,7 @@ class WordpressBlog(AlignmentDataset):
             last_title = d["feed"]["title"]
 
             for entry in d["entries"]:
-                content_text = self.cleaner.clean(entry["content"][0]["value"])
+                content_text = markdownify(entry["content"][0]["value"]).strip()
                 text = entry["title"] + "\n\n" + content_text
 
                 new_entry = DataEntry({

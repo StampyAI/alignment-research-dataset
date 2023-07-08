@@ -24,14 +24,14 @@ class AlignmentNewsletter(AlignmentDataset):
 
     def get_item_key(self, row):
         return row.Title
-    
+
     @staticmethod
     def _get_published_date(year):
         if not year or pd.isna(year):
             return ''
         dt = datetime(int(year), 1, 1, tzinfo=timezone.utc)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        
+
     @property
     def items_list(self):
         return self.df.itertuples()
@@ -42,7 +42,7 @@ class AlignmentNewsletter(AlignmentDataset):
         converted_with, source_type, venue, newsletter_category, highlight, newsletter_number,
         summarizer, opinion, prerequisites, read_more, title, authors, date_published, text
         """
-        if not row.Summary or pd.isna(row.Summary):
+        if pd.isna(row.Summary) or not row.Summary:
             return None
 
         def handle_na(v, cast=None):

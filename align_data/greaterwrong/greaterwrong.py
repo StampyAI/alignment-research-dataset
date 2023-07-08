@@ -82,7 +82,7 @@ class GreaterWrong(AlignmentDataset):
 
     def get_item_key(self, item):
         return item['pageUrl']
-    
+
     @staticmethod
     def _get_published_date(item):
         date_published = item['postedAt']
@@ -149,9 +149,10 @@ class GreaterWrong(AlignmentDataset):
         if self.jsonl_path.exists() and self.jsonl_path.lstat().st_size:
             with jsonlines.open(self.jsonl_path) as f:
                 for item in f:
-                    pass
-                next_date = item['date_published']
+                    if item['date_published'] > next_date:
+                        next_date = item['date_published']
 
+        logger.info('Starting from %s', next_date)
         while next_date:
             posts = self.fetch_posts(self.make_query(next_date))
             if not posts['results']:
@@ -171,10 +172,10 @@ class GreaterWrong(AlignmentDataset):
         authors = [a['displayName'] for a in authors]
         return DataEntry({
             'title': item['title'],
+            'text': markdownify(item['htmlBody']),
             'url': item['pageUrl'],
             'date_published': self._get_published_date(item),
             'modified_at': item['modifiedAt'],
-            'text': markdownify(item['htmlBody']),
             "source": self.name,
             "source_type": "GreaterWrong",
             'votes': item['voteCount'],

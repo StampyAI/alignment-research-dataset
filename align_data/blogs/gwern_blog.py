@@ -41,14 +41,15 @@ class GwernBlog(HTMLDataset):
             return None
 
         # Some pages are returned as markdown, some as HTML, so handle both
-        if 'text/html' in article.headers.get('Content-Type'):
+        if 'text/html' in article.headers.get('Content-Type', ''):
             return super().process_entry(post_href)
 
         return self._process_markdown(post_href, article)
 
     def _process_markdown(self, post_href, article):
-        text = article.text
-        metadata = self._get_metadata(text)
+        parts = article.text.split('...')
+        metadata = self._get_metadata(parts[0])
+        text = self._extract_markdown('...'.join(parts[1:]))
 
         return DataEntry({
             "source": self.name,
@@ -61,12 +62,11 @@ class GwernBlog(HTMLDataset):
         })
 
     @staticmethod
-    def _get_metadata(text):
-        header = text.split('...')[0]
+    def _get_metadata(header):
         def extract(item):
             parts = item.split(': ')
             if len(parts) > 1:
-                return (parts[0], ': '.join(parts[1:]))
+                return (parts[0].strip(), ': '.join(parts[1:]))
             return None
 
         return dict(filter(None, map(extract, header.splitlines())))
@@ -79,11 +79,17 @@ class GwernBlog(HTMLDataset):
     def _get_title(contents):
         return contents.find('header').find('h1').text
 
-    def _get_published_date(self, metadata):
-        date_published = metadata.get('modified') or metadata.get('created')
+    def _get_published_date(self, contents):
+        if isinstance(contents, dict):
+            date_published = contents.get('modified') or contents.get('created')
+        else:
+            date_published = (
+                contents.select_one('.page-date-range .page-modified') or
+                contents.select_one('.page-date-range .page-created')
+            ).text.strip()
         if date_published:
             return self._format_datetime(parse(date_published))
         return ''
 
     def _get_text(self, contents):
-        return self.cleaner.clean(contents.find('div', {'id': 'markdownBody'}).text)
+        return self._extract_markdown(contents.select_one('div#markdownBody'))

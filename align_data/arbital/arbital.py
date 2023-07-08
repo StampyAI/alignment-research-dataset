@@ -144,7 +144,7 @@ class Arbital(AlignmentDataset):
         data = f'{{"pageAlias":"{subspace}"}}'
         response = requests.post('https://arbital.com/json/explore/', headers=headers, data=data).json()
         return list(response['pages'].keys())
-    
+
     @staticmethod
     def _get_published_date(page):
         date_published = page.get('editCreatedAt') or page.get('pageCreatedAt')
@@ -166,8 +166,9 @@ class Arbital(AlignmentDataset):
 
         try:
             page = self.get_page(itemId)
-        except Exception:
+        except Exception as e:
             # give up on this item - maybe next time will work
+            logger.error(e)
             return None
 
         if title := page.get('title'):

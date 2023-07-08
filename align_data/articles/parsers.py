@@ -1,11 +1,12 @@
 import logging
 from urllib.parse import urlparse
 
+import grobid_tei_xml
 import regex as re
+from align_data.articles.html import element_extractor, fetch, fetch_element
+from align_data.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page
 from markdownify import MarkdownConverter
-
-from align_data.articles.html import fetch, fetch_element, element_extractor
-from align_data.articles.pdf import get_pdf_from_page, fetch_pdf, doi_getter
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +20,38 @@ def google_doc(url: str) -> str:
     doc_id = res.group(1)
     body = fetch_element(f'https://docs.google.com/document/d/{doc_id}/export?format=html', 'body')
     if body:
-        return  MarkdownConverter().convert_soup(body).strip()
+        return MarkdownConverter().convert_soup(body).strip()
 
 
 def medium_blog(url):
     """Return the contents of the medium article at the given URL as markdown."""
     # Medium does some magic redirects if it detects that the request is from firefox
     article = fetch_element(url, 'article', headers=None)
-    article.find('h1').parent.extract()  # remove the header
-    if article:
-        return MarkdownConverter().convert_soup(article).strip()
+    if not article:
+        return None
+
+    # remove the header
+    if title := article.find('h1'):
+        title.parent.extract()
+
+    return MarkdownConverter().convert_soup(article).strip()
+
+
+def parse_grobid(contents):
+    doc_dict = grobid_tei_xml.parse_document_xml(contents).to_dict()
+    authors = [xx["full_name"].strip(' !') for xx in doc_dict["header"]["authors"]]
+    return {
+        "title": doc_dict["header"]["title"],
+        "abstract": doc_dict["abstract"],
+        "text": doc_dict["body"],
+        "authors": list(filter(None, authors)),
+    }
+
+
+def get_content_type(res):
+    header = res.headers.get('Content-Type') or ''
+    parts = [c_type.strip().lower() for c_type in header.split(';')]
+    return set(filter(None, parts))
 
 
 def extract_gdrive_contents(link):
@@ -44,7 +67,7 @@ def extract_gdrive_contents(link):
         'downloaded_from': 'google drive',
     }
 
-    content_type = {c_type.strip().lower() for c_type in res.headers.get('Content-Type').split(';')}
+    content_type = get_content_type(res)
     if not content_type:
         result['error'] = 'no content type'
     elif content_type & {'application/octet-stream', 'application/pdf'}:
@@ -52,7 +75,20 @@ def extract_gdrive_contents(link):
     elif content_type & {'application/epub+zip', 'application/epub'}:
         result['data_source'] = 'ebook'
     elif content_type & {'text/html'}:
-        result['error'] = f'XML is not yet handled'
+        res = fetch(url)
+        if 'Google Drive - Virus scan warning' in res.text:
+            element_extractor('form')
+            soup = BeautifulSoup(res.content, "html.parser")
+            res = fetch(soup.select_one('form').get('action'))
+
+        content_type = get_content_type(res)
+        if content_type & {'text/xml'}:
+            result.update(parse_grobid(res.content))
+        elif content_type & {'text/html'}:
+            soup = BeautifulSoup(res.content, "html.parser")
+            result['text'] = MarkdownConverter().convert_soup(soup.select_one('body')).strip()
+        else:
+            result['error'] = f'unknown content type: {content_type}'
     else:
         result['error'] = f'unknown content type: {content_type}'
 
