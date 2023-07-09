@@ -1,4 +1,4 @@
-name: Daily dataset updates
+name: Weekly dataset updates
 on:
   schedule:
     - cron: "0 0 * * 0"  # Every Sunday at midnight
