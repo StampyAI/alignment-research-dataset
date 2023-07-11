@@ -72,9 +72,9 @@ def delete_all_txt_and_jsonl(data_dir):
     Deletes all txt and jsonl files in the given directory.
     """
     for path in Path(data_dir).glob('*.txt'):
-        os.remove(path)
+        path.unlink()
     for path in Path(data_dir).glob('*.jsonl'):
-        os.remove(path)
+        path.unlink()
 
 if __name__ == "__main__":
     process_jsonl_files("data/")
