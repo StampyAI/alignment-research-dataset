@@ -14,7 +14,7 @@ def is_valid_date_format(data_dict, format="%Y-%m-%dT%H:%M:%SZ"):
     except ValueError:
         return False
 
-def validate_data(data_dict, seen_urls):
+def validate_data(data_dict):
     """
     Processes each dictionary element in the jsonl file. 
     """
@@ -24,11 +24,9 @@ def validate_data(data_dict, seen_urls):
 
 def check_for_duplicates(data_dict, seen_urls):
     id = data_dict.get('id')
-    if id in seen_urls:
-        #raise ValueError(f"Duplicate id found. \nId: {id}\nfirst_duplicate: {get_data_dict_str(seen_urls[id])}\nsecond_duplicate: {get_data_dict_str(data_dict)}\n\n\n\n")
-        seen_urls[id].append(data_dict)
-    else:
-        seen_urls[id] = [data_dict]
+    if not id in seen_urls:
+        seen_urls[id] = []
+    seen_urls[id].append(data_dict)
 
     #TODO: Add more validation logic here
     return seen_urls 
@@ -53,13 +51,21 @@ def process_jsonl_files(data_dir):
     seen_urls = dict()  # holds all seen urls
     for data_dict in files_iterator(data_dir):
         try:
-            validate_data(data_dict, seen_urls)
+            validate_data(data_dict)
             seen_urls = check_for_duplicates(data_dict, seen_urls)
         except ValueError as e:
             print(e)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+    dup_count = 0
+    print(len(seen_urls))
+    print(type(seen_urls))
     for id, duplicates in seen_urls.items():
         if len(duplicates) > 1:
-            print(f"{len(duplicates)} duplicate ids found. \nId: {id}\n{''.join([f'id {i+1}: {get_data_dict_str(duplicate)}' for i, duplicate in enumerate(duplicates)])}\n\n\n\n")
+            list_of_duplicates = '\n'.join(get_data_dict_str(duplicate) for duplicate in duplicates)
+            print(f"{len(duplicates)} duplicate ids found. \nId: {id}\n{list_of_duplicates}\n\n\n\n")
+            dup_count += 1
+    print(f"Total number of duplicate ids found: {dup_count}")
 
 def delete_all_txt_and_jsonl(data_dir):
     """
