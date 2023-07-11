@@ -276,21 +276,20 @@ class DataEntry(UserDict):
         return ''.join(str(self[field]) for field in self.__id_fields).encode("utf-8")
 
     def verify_fields(self):
-        missing = [field for field in self.__id_fields if self.get(field) is None]
+        missing = [field for field in self.__id_fields if not self.get(field)]
         assert not missing, f'Entry is missing the following fields: {missing}'
-
-        id_string = self.generate_id_string()
-        assert id_string, "Entry has empty id_fields"
-        return id_string
         
     def add_id(self):
-        id_string = self.verify_fields()
+        self.verify_fields()
+
+        id_string = self.generate_id_string()
         self["id"] = hashlib.md5(id_string).hexdigest()
 
     def _verify_id(self):
         assert self["id"] is not None, "Entry is missing id"
-        id_string = self.verify_fields()
+        self.verify_fields()
 
+        id_string = self.generate_id_string()
         id_from_fields = hashlib.md5(id_string).hexdigest()
         assert self["id"] == id_from_fields, f"Entry id {self['id']} does not match id from id_fields, {id_from_fields}"
 
