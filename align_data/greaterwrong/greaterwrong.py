@@ -78,18 +78,13 @@ class GreaterWrong(AlignmentDataset):
         self.ai_tags = get_allowed_tags(self.base_url, self.name)
 
     def tags_ok(self, post):
-        return not self.ai_tags or {t['name'] for t in post['tags']} & self.ai_tags
+        return not self.ai_tags or {t['name'] for t in post['tags'] if t.get('name')} & self.ai_tags
 
     def get_item_key(self, item):
         return item['pageUrl']
 
-    @staticmethod
-    def _get_published_date(item):
-        date_published = item['postedAt']
-        if date_published:
-            dt = parse(date_published).astimezone(timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return ''
+    def _get_published_date(self, item):
+        return super()._get_published_date(item.get('postedAt'))
 
     def make_query(self, after: str):
         return """{
@@ -172,7 +167,7 @@ class GreaterWrong(AlignmentDataset):
         authors = [a['displayName'] for a in authors]
         return DataEntry({
             'title': item['title'],
-            'text': markdownify(item['htmlBody']),
+            'text': markdownify(item['htmlBody']).strip(),
             'url': item['pageUrl'],
             'date_published': self._get_published_date(item),
             'modified_at': item['modifiedAt'],

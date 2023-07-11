@@ -2,7 +2,6 @@ import hashlib
 import logging
 import time
 import zipfile
-import pytz
 from collections import UserDict
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -11,6 +10,8 @@ from pathlib import Path
 
 import gdown
 import jsonlines
+import pytz
+from dateutil.parser import parse
 from tqdm import tqdm
 
 INIT_DICT = {
@@ -212,6 +213,11 @@ class AlignmentDataset:
         # Totally ignore any timezone info, forcing everything to UTC
         dt = date.replace(tzinfo=pytz.UTC)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _get_published_date(self, date):
+        if date:
+            return self._format_datetime(parse(date))
+        return ''
 
 
 @dataclass
