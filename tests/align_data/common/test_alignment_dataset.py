@@ -50,10 +50,10 @@ def test_data_entry_id_from_urls_and_title():
     data = {'key1': 12, 'key2': 312, 'url': 'www.arbital.org', 'title': 'once upon a time'}
     entry = DataEntry(data)
     entry.add_id()
-
+    print(entry)
     assert entry == dict({
         'date_published': None,
-        'id': '42cdea045ce175c4aa8de1343755d60c',
+        'id': '770fe57c8c2130eda08dc392b8696f97',
         'source': None,
         'text': None,
         'summary': [],
@@ -84,19 +84,21 @@ def test_data_entry_none_title():
     
 def test_data_entry_empty_url_and_title():
     entry = DataEntry({'key1': 12, 'key2': 312, 'url': '', 'title': ''})
-    with pytest.raises(AssertionError, match='Entry has empty id_fields'):
+    with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url', 'title'\\]"):
         entry.add_id()
 
 def test_data_entry_empty_url_only():
     entry = DataEntry({'key1': 12, 'key2': 312, 'url': '', 'title': 'once upon a time'})
-    entry.add_id()
+    with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url'\\]"):
+        entry.add_id()
 
 def test_data_entry_empty_title_only():
     entry = DataEntry({'key1': 12, 'key2': 312, 'url': 'www.wikipedia.org', 'title':''})
-    entry.add_id()
+    with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['title'\\]"):
+        entry.add_id()
 
 def test_data_entry_verify_id_passes():
-    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'url': 'www.arbital.org', 'title': 'once upon a time', 'id': '42cdea045ce175c4aa8de1343755d60c'})
+    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'url': 'www.arbital.org', 'title': 'once upon a time', 'id': '770fe57c8c2130eda08dc392b8696f97'})
     entry._verify_id()
 
 def test_data_entry_verify_id_fails():
@@ -111,7 +113,7 @@ def test_data_entry_id_fields_url_no_url():
 
 def test_data_entry_id_fields_url_empty_url():
     entry = DataEntry({'url': ''}, id_fields=['url'])
-    with pytest.raises(AssertionError, match='Entry has empty id_fields'):
+    with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url'\\]"):
         entry.add_id()
     
 def test_data_entry_id_fields_url():
@@ -119,7 +121,7 @@ def test_data_entry_id_fields_url():
     entry.add_id()
 
 def test_data_entry_id_fields_url_verify_id_passes():
-    entry = DataEntry({'url': 'arbitalonce upon a time', 'id':'f2b4e02fc1dd8ae43845e4f930f2d84f'}, id_fields=['url'])
+    entry = DataEntry({'url': 'arbitalonce upon a time', 'id':'809d336a0b9b38c4f585e862317e667d'}, id_fields=['url'])
     entry._verify_id()
 
 def test_data_entry_different_id_from_different_url():
@@ -138,7 +140,7 @@ def test_data_entry_different_id_from_different_url():
     ({'id': '123', 'url': None}, "Entry is missing the following fields: \\['url', 'title'\\]"),
     ({'id': '123', 'url': 'www.google.com/'}, "Entry is missing the following fields: \\['title'\\]"),
     ({'id': '123', 'url': 'google', 'text': None}, "Entry is missing the following fields: \\['title'\\]"),
-    ({'id': '123', 'url': '', 'title': ''}, 'Entry has empty id_fields'),
+    ({'id': '123', 'url': '', 'title': ''}, "Entry is missing the following fields: \\['url', 'title'\\]"),
 
     ({'id': '123', 'url':'www.google.com/winter_wonderland','title': 'winter wonderland'}, 'Entry id 123 does not match id from id_fields, [0-9a-fA-F]{32}'),
     ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'url':'www.google.com', 'title': 'winter wonderland'}, 'Entry id [0-9a-fA-F]{32} does not match id from id_fields, [0-9a-fA-F]{32}'),
