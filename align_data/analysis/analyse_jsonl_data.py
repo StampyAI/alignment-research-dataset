@@ -1,7 +1,8 @@
-import os
-import json
 from datetime import datetime
 from pathlib import Path
+import jsonlines
+
+from collections import defaultdict
 
 def is_valid_date_format(data_dict, format="%Y-%m-%dT%H:%M:%SZ"):
     """
@@ -24,8 +25,6 @@ def validate_data(data_dict):
 
 def check_for_duplicates(data_dict, seen_urls):
     id = data_dict.get('id')
-    if not id in seen_urls:
-        seen_urls[id] = []
     seen_urls[id].append(data_dict)
 
     #TODO: Add more validation logic here
@@ -43,12 +42,12 @@ def files_iterator(data_dir):
     and yields every element (which is a dictionary) in the jsonl file.
     """
     for path in Path(data_dir).glob('*.jsonl'):
-        with open(path, encoding='utf-8') as f:
+        with jsonlines.open(path) as f:
             for line in f:
-                yield json.loads(line)
+                yield line
 
 def process_jsonl_files(data_dir):
-    seen_urls = dict()  # holds all seen urls
+    seen_urls = defaultdict(list)  # holds all seen urls
     for data_dict in files_iterator(data_dir):
         try:
             validate_data(data_dict)
@@ -58,8 +57,7 @@ def process_jsonl_files(data_dir):
         except Exception as e:
             print(f"Unexpected error: {e}")
     dup_count = 0
-    print(len(seen_urls))
-    print(type(seen_urls))
+    
     for id, duplicates in seen_urls.items():
         if len(duplicates) > 1:
             list_of_duplicates = '\n'.join(get_data_dict_str(duplicate) for duplicate in duplicates)
