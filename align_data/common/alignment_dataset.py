@@ -270,26 +270,29 @@ class DataEntry(UserDict):
             if k not in self:
                 self[k] = default and default()
         # Store id_fields in a way that does not interfere with UserDict's functionality
-        self.__id_fields = id_fields or ["source", "text"]
+        self.__id_fields = id_fields or ["url", "title"]
 
-    def add_id(self):
-        for field in self.__id_fields:
-            assert self[field] is not None, f"Entry is missing {field}"
+    def generate_id_string(self):
+        return ''.join(str(self[field]) for field in self.__id_fields).encode("utf-8")
 
-        id_string = ''.join(self[field] for field in self.__id_fields)[:TEXT_LEN].encode("utf-8")
+    def verify_fields(self):
+        missing = [field for field in self.__id_fields if self.get(field) is None]
+        assert not missing, f'Entry is missing the following fields: {missing}'
+
+        id_string = self.generate_id_string()
         assert id_string, "Entry has empty id_fields"
-
+        return id_string
+        
+    def add_id(self):
+        id_string = self.verify_fields()
         self["id"] = hashlib.md5(id_string).hexdigest()
 
     def _verify_id(self):
         assert self["id"] is not None, "Entry is missing id"
-        for field in self.__id_fields:
-            assert self[field] is not None, f"Entry is missing {field}"
+        id_string = self.verify_fields()
 
-        id_string = ''.join(self[field] for field in self.__id_fields)[:TEXT_LEN].encode("utf-8")
-        assert id_string, "Entry has empty id_fields"
-
-        assert self["id"] == hashlib.md5(id_string).hexdigest(), "Entry id does not match id_fields"
+        id_from_fields = hashlib.md5(id_string).hexdigest()
+        assert self["id"] == id_from_fields, f"Entry id {self['id']} does not match id from id_fields, {id_from_fields}"
 
     def to_dict(self):
         for k, _ in INIT_DICT.items():

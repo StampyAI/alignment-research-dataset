@@ -23,10 +23,12 @@ def validate_data(data_dict, seen_urls):
     # TODO: add more checks here
 
 def check_for_duplicates(data_dict, seen_urls):
-    if data_dict.get('url') in seen_urls:
-        raise ValueError(f"Duplicate URL found. \nUrl: {data_dict['url']}\nfirst_duplicate: {get_data_dict_str(seen_urls[data_dict['url']])}\nsecond_duplicate: {get_data_dict_str(data_dict)}\n\n\n\n")
+    id = data_dict.get('id')
+    if id in seen_urls:
+        #raise ValueError(f"Duplicate id found. \nId: {id}\nfirst_duplicate: {get_data_dict_str(seen_urls[id])}\nsecond_duplicate: {get_data_dict_str(data_dict)}\n\n\n\n")
+        seen_urls[id].append(data_dict)
     else:
-        seen_urls[data_dict['url']] = data_dict
+        seen_urls[id] = [data_dict]
 
     #TODO: Add more validation logic here
     return seen_urls 
@@ -35,7 +37,7 @@ def get_data_dict_str(data_dict):
     """
     Returns a string representation of the given data_dict.
     """
-    return f"source: {data_dict['source']}, title: {data_dict['title'][:50]}, date_pub: {data_dict['date_published']}, url: {data_dict['url']}"
+    return f"source: {data_dict['source']}, title: {data_dict['title'][:50]}, date_pub: {data_dict['date_published']}, url: {data_dict['url']}\n"
 
 def files_iterator(data_dir):
     """
@@ -55,6 +57,9 @@ def process_jsonl_files(data_dir):
             seen_urls = check_for_duplicates(data_dict, seen_urls)
         except ValueError as e:
             print(e)
+    for id, duplicates in seen_urls.items():
+        if len(duplicates) > 1:
+            print(f"{len(duplicates)} duplicate ids found. \nId: {id}\n{''.join([f'id {i+1}: {get_data_dict_str(duplicate)}' for i, duplicate in enumerate(duplicates)])}\n\n\n\n")
 
 def delete_all_txt_and_jsonl(data_dir):
     """
@@ -67,3 +72,4 @@ def delete_all_txt_and_jsonl(data_dir):
 
 if __name__ == "__main__":
     process_jsonl_files("data/")
+    #delete_all_txt_and_jsonl("data/")
