@@ -4,7 +4,9 @@ import pytest
 from bs4 import BeautifulSoup
 from requests import request
 
-from align_data.blogs import CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog
+from align_data.blogs import (
+    CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog, OpenAIResearch
+)
 from align_data.blogs.blogs import EleutherAI
 
 
@@ -539,3 +541,92 @@ def test_eleutherai_process_entry():
             'title': 'Minetester: A fully open RL environment built on Minetest',
             'url': 'http://bla.bla/bla.bla',
         }
+
+
+OPENAI_HTML = """
+<div class="container">
+  <div class="cols-container">
+    <span class="f-meta-2">July 6, 2023</span>
+    <a class="ui-link" href="https://arxiv.org">Read paper</a>
+  </div>
+  <div>
+    <div>Authors</div>
+    <div>
+      <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+    </div>
+  </div>
+</div>
+"""
+def test_openai_research_get_published_date():
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    assert dataset._get_published_date(soup) == '2023-07-06T00:00:00Z'
+
+
+def test_openai_research_get_text():
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    with patch('requests.head', return_value=Mock(headers={'Content-Type': 'text/html'})):
+        with patch('align_data.articles.pdf.fetch_pdf', return_value={'text': 'bla bla bla'}):
+            assert dataset._get_text(soup) == 'bla bla bla'
+
+
+@pytest.mark.parametrize('html, expected', (
+    (
+        """<div>
+          <div>Authors</div>
+          <div>
+             <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+          </div>
+        </div>
+        """,
+        ["Mr. Blobby", "John Snow"]
+    ),
+    (
+        """<div>
+          <div>Acknowledgments</div>
+          <div>
+             <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+          </div>
+        </div>
+        """,
+        ["Mr. Blobby", "John Snow"]
+    ),
+    (
+        """<div>
+          <div>Bla Bla Bla</div>
+          <div>
+             <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+          </div>
+        </div>
+        """,
+        []
+    ),
+))
+def test_openai_research_extract_authors(html, expected):
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(html, "html.parser")
+    assert dataset.extract_authors(soup) == expected
+
+
+def test_openai_research_process_entry():
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    with patch('requests.head', return_value=Mock(headers={'Content-Type': 'text/html'})):
+        with patch('requests.get', return_value=Mock(content=OPENAI_HTML)):
+            with patch('align_data.articles.pdf.fetch_pdf', return_value={'text': 'bla bla bla'}):
+                assert dataset.process_entry(soup) == {
+                    'authors': ['Mr. Blobby', 'John Snow'],
+                    'date_published': '2023-07-06T00:00:00Z',
+                    'id': None,
+                    'source': 'openai',
+                    'source_type': 'blog',
+                    'summary': [],
+                    'text': 'bla bla bla',
+                    'title': None,
+                    'url': 'https://arxiv.org',
+                }

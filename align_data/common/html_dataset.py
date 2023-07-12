@@ -28,20 +28,14 @@ class HTMLDataset(AlignmentDataset):
     source_key: str = None
     summary_key: str = None
 
-    title_selector = 'h2'
     item_selector = 'article'
+    title_selector = 'article h1'
     text_selector = 'article'
     source_type = "blog"
     ignored_selectors = []
 
     def extract_authors(self, article):
         return self.authors
-
-    def extract_title(self, article):
-        title = article.find(self.title_selector)
-        if title is None:
-            return None
-        return title.text.strip()
 
     def get_item_key(self, item):
         article_url = item.find_all("a")[0]["href"].split("?")[0]
@@ -85,9 +79,8 @@ class HTMLDataset(AlignmentDataset):
         resp = requests.get(url, allow_redirects=True)
         return BeautifulSoup(resp.content, "html.parser")
 
-    @staticmethod
-    def _get_title(contents):
-        title = contents.select_one('article h1')
+    def _get_title(self, contents):
+        title = contents.select_one(self.title_selector)
         return title and title.extract().text.strip()
 
     def _get_text(self, contents):
@@ -96,10 +89,6 @@ class HTMLDataset(AlignmentDataset):
             for elem in article.select(selector):
                 elem.extract()
         return self._extract_markdown(article)
-
-    @staticmethod
-    def _get_published_date(contents):
-        return ''
 
     def _find_date(self, items):
         for i in items:
