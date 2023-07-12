@@ -6,13 +6,14 @@ from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
-from align_data.common.alignment_dataset import AlignmentDataset, GdocDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset, GdocDataset
 
 
 @pytest.fixture
 def data_entries():
+    dataset = AlignmentDataset(name='blaa')
     entries = [
-        DataEntry({
+        dataset.make_data_entry({
             'text': f'line {i}',
             'date_published': f'day {i}',
             'source': f'source {i}',
@@ -33,7 +34,8 @@ def dataset(tmp_path):
 
 
 def test_data_entry_default_fields():
-    entry = DataEntry({})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({})
 
     assert entry == {
         'date_published': None,
@@ -48,7 +50,8 @@ def test_data_entry_default_fields():
 
 def test_data_entry_id_from_urls_and_title():
     data = {'key1': 12, 'key2': 312, 'url': 'www.arbital.org', 'title': 'once upon a time'}
-    entry = DataEntry(data)
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry(data)
     entry.add_id()
     print(entry)
     assert entry == dict({
@@ -63,71 +66,85 @@ def test_data_entry_id_from_urls_and_title():
 
 
 def test_data_entry_no_url_and_title():
-    entry = DataEntry({'key1': 12, 'key2': 312})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'key1': 12, 'key2': 312})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url', 'title'\\]"):
         entry.add_id()
 
 def test_data_entry_no_url():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'title': 'wikipedia goes to war on porcupines'})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'key1': 12, 'key2': 312, 'title': 'wikipedia goes to war on porcupines'})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url'\\]"):
         entry.add_id()
 
 def test_data_entry_none_url():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'url': None})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'key1': 12, 'key2': 312, 'url': None})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url', 'title'\\]"):
         entry.add_id()
 
 def test_data_entry_none_title():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'url': 'www.wikipedia.org', 'title': None})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'key1': 12, 'key2': 312, 'url': 'www.wikipedia.org', 'title': None})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['title'\\]"):
         entry.add_id()
     
 def test_data_entry_empty_url_and_title():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'url': '', 'title': ''})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'key1': 12, 'key2': 312, 'url': '', 'title': ''})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url', 'title'\\]"):
         entry.add_id()
 
 def test_data_entry_empty_url_only():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'url': '', 'title': 'once upon a time'})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'key1': 12, 'key2': 312, 'url': '', 'title': 'once upon a time'})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url'\\]"):
         entry.add_id()
 
 def test_data_entry_empty_title_only():
-    entry = DataEntry({'key1': 12, 'key2': 312, 'url': 'www.wikipedia.org', 'title':''})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'key1': 12, 'key2': 312, 'url': 'www.wikipedia.org', 'title':''})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['title'\\]"):
         entry.add_id()
 
 def test_data_entry_verify_id_passes():
-    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'url': 'www.arbital.org', 'title': 'once upon a time', 'id': '770fe57c8c2130eda08dc392b8696f97'})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'source': 'arbital', 'text': 'once upon a time', 'url': 'www.arbital.org', 'title': 'once upon a time', 'id': '770fe57c8c2130eda08dc392b8696f97'})
     entry._verify_id()
 
 def test_data_entry_verify_id_fails():
-    entry = DataEntry({'url': 'www.arbital.org', 'title': 'once upon a time', 'id': 'f2b4e02fc1dd8ae43845e4f930f2d84f'})
+    dataset = AlignmentDataset(name='blaa')
+    entry = dataset.make_data_entry({'url': 'www.arbital.org', 'title': 'once upon a time', 'id': 'f2b4e02fc1dd8ae43845e4f930f2d84f'})
     with pytest.raises(AssertionError, match='Entry id does not match id_fields'):
         entry._verify_id()
 
 def test_data_entry_id_fields_url_no_url():
-    entry = DataEntry({'source': 'arbital', 'text': 'once upon a time'}, id_fields=['url'])
+    dataset = AlignmentDataset(name='blaa', id_fields=['url'])
+    entry = dataset.make_data_entry({'source': 'arbital', 'text': 'once upon a time'})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url'\\]"):
         entry.add_id()
 
 def test_data_entry_id_fields_url_empty_url():
-    entry = DataEntry({'url': ''}, id_fields=['url'])
+    dataset = AlignmentDataset(name='blaa', id_fields=['url'])
+    entry = dataset.make_data_entry({'url': ''})
     with pytest.raises(AssertionError, match="Entry is missing the following fields: \\['url'\\]"):
         entry.add_id()
     
 def test_data_entry_id_fields_url():
-    entry = DataEntry({'url': 'https://www.google.ca/once_upon_a_time'}, id_fields=['url'])
+    dataset = AlignmentDataset(name='blaa', id_fields=['url'])
+    entry = dataset.make_data_entry({'url': 'https://www.google.ca/once_upon_a_time'})
     entry.add_id()
 
 def test_data_entry_id_fields_url_verify_id_passes():
-    entry = DataEntry({'url': 'arbitalonce upon a time', 'id':'809d336a0b9b38c4f585e862317e667d'}, id_fields=['url'])
+    dataset = AlignmentDataset(name='blaa', id_fields=['url'])
+    entry = dataset.make_data_entry({'url': 'arbitalonce upon a time', 'id':'809d336a0b9b38c4f585e862317e667d'})
     entry._verify_id()
 
 def test_data_entry_different_id_from_different_url():
-    entry1 = DataEntry({'url': ' https://aisafety.info?state=6478'}, id_fields=['url'])
+    dataset = AlignmentDataset(name='blaa', id_fields=['url'])
+    entry1 = dataset.make_data_entry({'url': ' https://aisafety.info?state=6478'})
     entry1.add_id()
-    entry2 = DataEntry({'source': 'arbital', 'text': 'once upon a time', 'url': ' https://aisafety.info?state=6479'}, id_fields=['url'])
+    entry2 = dataset.make_data_entry({'source': 'arbital', 'text': 'once upon a time', 'url': ' https://aisafety.info?state=6479'})
     entry2.add_id()
     assert entry1['id'] != entry2['id']
 
@@ -147,7 +164,8 @@ def test_data_entry_different_id_from_different_url():
     ({'id': '457c21e0ecabebcb85c12022d481d9f4', 'url':'www.google.com', 'title': 'Once upon a time'}, 'Entry id [0-9a-fA-F]{32} does not match id from id_fields, [0-9a-fA-F]{32}'),
 ))
 def test_data_entry_verify_id_fails(data, error):
-    entry = DataEntry(data)
+    dataset = AlignmentDataset(name='blaa', id_fields=['url', 'title'])
+    entry = dataset.make_data_entry(data)
     with pytest.raises(AssertionError, match=error):
         entry._verify_id()
 
@@ -284,7 +302,7 @@ def numbers_dataset(tmp_path):
             return item
 
         def process_entry(self, item):
-            return DataEntry({
+            return self.make_data_entry({
                 'text': f'line {item}',
                 'date_published': f'day {item}',
                 'source': f'source {item}',

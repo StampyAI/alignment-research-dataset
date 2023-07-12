@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from dateutil.parser import parse
 
-from align_data.common.alignment_dataset import DataEntry
 from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)

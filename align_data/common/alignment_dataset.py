@@ -4,9 +4,10 @@ import time
 import zipfile
 from collections import UserDict
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field, KW_ONLY
 from functools import partial
 from pathlib import Path
+from typing import Optional, List
 
 import gdown
 import jsonlines
@@ -34,6 +35,9 @@ class AlignmentDataset:
 
     name: str
     """The name of the dataset"""
+
+    _: KW_ONLY
+
     files_path = Path('')
     """The path where data can be found. Usually a folder"""
 
@@ -62,9 +66,9 @@ class AlignmentDataset:
     """Used internally for writing debugging info - each file write will increment it"""
     _outputted_items = set()
     """A set of the ids of all previously processed items"""
-
-    id_fields = None
-    """A list of fields to use as the id of the entry. If not set, will use the default, ['url', 'title']"""
+    _: KW_ONLY
+    id_fields: List[str] = field(default_factory=lambda: ['url', 'title'])
+    """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
     def __str__(self) -> str:
         return f"{self.name} dataset will be written to {self.jsonl_path}"
@@ -261,13 +265,16 @@ class GdocDataset(AlignmentDataset):
 
 
 class DataEntry(UserDict):
-    def __init__(self, *args, id_fields=None, **kwargs):
+    def __init__(self, *args, id_fields,  **kwargs):
         super().__init__(*args, **kwargs)
         for k, default in INIT_DICT.items():
             if k not in self:
                 self[k] = default and default()
         # Store id_fields in a way that does not interfere with UserDict's functionality
-        self.__id_fields = id_fields or ["url", "title"]
+        assert isinstance(id_fields, list), "id_fields must be a list"
+        assert id_fields, "id_fields must not be empty"
+        assert all(isinstance(field, str) for field in id_fields), "id_fields must be a list of strings"
+        self.__id_fields = id_fields
 
     def generate_id_string(self):
         return ''.join(str(self[field]) for field in self.__id_fields).encode("utf-8")
