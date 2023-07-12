@@ -2,6 +2,7 @@ from unittest.mock import patch, Mock
 
 import pytest
 from bs4 import BeautifulSoup
+from requests import request
 
 from align_data.blogs import CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog
 
@@ -441,33 +442,28 @@ WORDPRESS_FEED = {
 
 def test_wordpress_blog_setup():
     blog = WordpressBlog(
-        name='blog',
+        name='blog_name',
         url="https://www.bla.yudkowsky.net",
     )
-    blog.setup()
     assert blog.feed_url == 'https://www.bla.yudkowsky.net/feed'
-    assert blog.name == "www.bla.yudkowsky.net"
+    assert blog.name == "blog_name"
+
 
 @patch('feedparser.parse', return_value=WORDPRESS_FEED)
 def test_wordpress_blog_items_list(feedparser_parse):
-    blog = WordpressBlog(
-        name='blog',
-        url="https://www.bla.yudkowsky.net",
-    )
-    blog.setup()
-    items = blog.items_list
-    assert len(items) == 1
-    assert items[0]['title'] == 'Prospiracy Theory'
-    
+    blog = WordpressBlog(name='blog', url="https://www.bla.yudkowsky.net")
+    assert blog.items_list == ['https://www.yudkowsky.net/other/fiction/prospiracy-theory']
+
 
 def test_wordpress_blog_get_item_key():
     blog = WordpressBlog(
         name='blog',
         url="https://www.bla.yudkowsky.net",
     )
-    item_key = blog.get_item_key({'title': 'Test Entry'})
-    assert item_key == 'Test Entry'
-    
+    item = {'title': 'Test Entry'}
+    assert item ==  blog.get_item_key(item)
+
+
 def test_wordpress_blog_get_published_date():
     blog = WordpressBlog(
         name='blog',
@@ -476,20 +472,23 @@ def test_wordpress_blog_get_published_date():
     date_published = blog._get_published_date({'published': "Mon, 26 Jun 2023 13:40:01 +0000"})
     assert date_published == '2023-06-26T13:40:01Z'
 
+
 @patch('feedparser.parse', return_value=WORDPRESS_FEED)
-def test_wordpress_blog_fetch_entries(feedparser_parse):
+def test_wordpress_blog_process_entry(feedparser_parse):
     blog = WordpressBlog(
-        name='blog',
+        name='blog_name',
         url="https://www.bla.yudkowsky.net",
     )
-    blog.setup()
-    entries = list(blog.fetch_entries())
-    assert len(entries) == 1
-    entry = entries[0].to_dict()
-    assert entry['url'] == 'https://www.yudkowsky.net/other/fiction/prospiracy-theory'
-    assert entry['title'] == 'Prospiracy Theory'
-    assert entry['source'] == 'www.bla.yudkowsky.net'
-    assert entry['source_type'] == 'blog'
-    assert entry['date_published'] == '2020-09-04T04:11:23Z'
-    assert entry['authors'] == ['Eliezer S. Yudkowsky']
-    assert entry['text'] == 'Prospiracy Theory\n\nbla bla bla [a link](http://ble.com) bla bla'
+    blog.items = {i['link']: i for i in WORDPRESS_FEED['entries']}
+    entry = blog.process_entry('https://www.yudkowsky.net/other/fiction/prospiracy-theory')
+    assert entry == {
+        'authors': ['Eliezer S. Yudkowsky'],
+        'date_published': '2020-09-04T04:11:23Z',
+        'id': None,
+        'source': 'blog_name',
+        'source_type': 'blog',
+        'summary': [],
+        'text': 'bla bla bla [a link](http://ble.com) bla bla',
+        'title': 'Prospiracy Theory',
+        'url': 'https://www.yudkowsky.net/other/fiction/prospiracy-theory',
+    }
