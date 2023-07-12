@@ -3,6 +3,7 @@ from calendar import c
 from dataclasses import dataclass, field
 import logging
 import feedparser
+from tqdm import tqdm
 
 from align_data.common import utils
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
@@ -38,21 +39,34 @@ class WordpressBlog(AlignmentDataset):
         pages = []
         page_number = 0
         last_title = None
-        while True:
-            paged_url = f"{self.feed_url}?paged={page_number + 1}"
-            logging.info(f"Fetching {paged_url}")
 
-            feed = feedparser.parse(paged_url)
-            if (("feed" not in feed) or ("title" not in feed["feed"]) or (feed["feed"]["title"] == last_title)):
-                break
-            last_title = feed["feed"]["title"]
+        with tqdm(desc=f"Loading {self.name} pages") as pbar:
+            while True:
+                paged_url = f"{self.feed_url}?paged={page_number + 1}"
+                logging.info(f"Fetching {paged_url}")
 
-            pages.extend({**entry, 'paged_url': paged_url} for entry in feed['entries'])
-            page_number += 1
+                feed = feedparser.parse(paged_url)
+                if (("feed" not in feed) or ("title" not in feed["feed"]) or (feed["feed"]["title"] == last_title)):
+                    break
+                last_title = feed["feed"]["title"]
+
+                pages.extend({**entry, 'paged_url': paged_url} for entry in feed['entries'])
+                page_number += 1
+
+                # update the tqdm progress bar
+                pbar.set_postfix_str(f"page {page_number}", refresh=True)  # Set postfix to "page X"
+                pbar.update()  # Here we increment the progress bar by 1
 
         logger.info(f'Got {len(pages)} pages')
 
         return pages
+    
+    def get_item_key(self, item):
+        """Get the identifier of the given `item` so it can be checked to see whether it's been output.
+
+        The default assumption is that the `item` is a Path to a file.
+        """
+        return item['title']
 
     def _get_published_date(self, item):
         date_published = item.get('published')
