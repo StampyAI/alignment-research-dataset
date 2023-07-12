@@ -25,15 +25,6 @@ INIT_DICT = {
     "authors": lambda: [],
 }
 
-# Used to limit the size of the text used when generating hashes.
-# TODO: Why is this even needed? It doesn't seem likely that any individual entry
-# will be hundreds of MB large, and if not, then why bother with limiting the length of
-# text for hashing? Speed might be an issue, but I'm guessing that I/O, especially network
-# stuff, will be a much larger problem.
-# One possible reason could be dynamic http sites etc. But that's all the more reason to check
-# the whole text, rather than just the header...
-TEXT_LEN = -1
-
 logger = logging.getLogger(__name__)
 
 
