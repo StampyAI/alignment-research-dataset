@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, timezone
 from dateutil.parser import parse
 
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -122,7 +122,7 @@ class Arbital(AlignmentDataset):
             page = self.get_page(alias)
             summary, text = extract_text(page['text'])
 
-            return DataEntry({
+            return self.make_data_entry({
                 'title': page.get('title') or '',
                 'text': text,
                 'date_published': self._get_published_date(page),

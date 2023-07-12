@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from markdownify import markdownify
 from align_data.common import utils
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 
 from typing import List
 

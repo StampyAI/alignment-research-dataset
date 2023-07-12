@@ -63,6 +63,9 @@ class AlignmentDataset:
     _outputted_items = set()
     """A set of the ids of all previously processed items"""
 
+    id_fields = None
+    """A list of fields to use as the id of the entry. If not set, will use the default, ['url', 'title']"""
+
     def __str__(self) -> str:
         return f"{self.name} dataset will be written to {self.jsonl_path}"
 
@@ -89,6 +92,9 @@ class AlignmentDataset:
 
         self._entry_idx += 1
         self._outputted_items.add(entry[self.done_key])
+    
+    def make_data_entry(self, data, **kwargs):
+        return DataEntry(dict(data, **kwargs), id_fields=self.id_fields)
 
     @contextmanager
     def writer(self, out_path=None, overwrite=False):

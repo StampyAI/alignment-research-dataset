@@ -11,7 +11,7 @@ import feedparser
 from bs4 import BeautifulSoup
 from markdownify import markdownify
 
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class HTMLDataset(AlignmentDataset):
         if not text:
             return None
 
-        return DataEntry({
+        return self.make_data_entry({
             "text": text,
             "url": article_url,
             "title": title,

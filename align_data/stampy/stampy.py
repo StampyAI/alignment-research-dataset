@@ -6,7 +6,7 @@ from codaio import Coda, Document
 from datetime import timezone
 from dateutil.parser import parse
 
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class Stampy(AlignmentDataset):
 
         logger.info(f"Processing {question}")
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": "markdown",
             "url": url,
@@ -61,4 +61,4 @@ class Stampy(AlignmentDataset):
             "authors": ['Stampy aisafety.info'],
             "date_published": self._get_published_date(entry),
             "text": answer,
-        }, id_fields=['url'])
+        })

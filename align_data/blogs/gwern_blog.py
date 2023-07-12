@@ -51,7 +51,7 @@ class GwernBlog(HTMLDataset):
         metadata = self._get_metadata(parts[0])
         text = self._extract_markdown('...'.join(parts[1:]))
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": self.source_type,
             "url": post_href,
