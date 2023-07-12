@@ -5,8 +5,8 @@ import grobid_tei_xml
 import regex as re
 from align_data.articles.html import element_extractor, fetch, fetch_element
 from align_data.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page
-from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
+from markdownify import MarkdownConverter
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +39,20 @@ def medium_blog(url):
 
 def parse_grobid(contents):
     doc_dict = grobid_tei_xml.parse_document_xml(contents).to_dict()
-    authors = [xx["full_name"].strip(' !') for xx in doc_dict["header"]["authors"]]
+    authors = [xx["full_name"].strip(' !') for xx in doc_dict.get("header", {}).get("authors", [])]
+
+    if not doc_dict.get('body'):
+        return {
+            'error': 'No contents in XML file',
+            'data_source': 'xml',
+        }
+
     return {
-        "title": doc_dict["header"]["title"],
-        "abstract": doc_dict["abstract"],
+        "title": doc_dict.get("header", {}).get("title"),
+        "abstract": doc_dict.get("abstract"),
         "text": doc_dict["body"],
         "authors": list(filter(None, authors)),
+        "data_source": "xml",
     }
 
 
@@ -86,7 +94,10 @@ def extract_gdrive_contents(link):
             result.update(parse_grobid(res.content))
         elif content_type & {'text/html'}:
             soup = BeautifulSoup(res.content, "html.parser")
-            result['text'] = MarkdownConverter().convert_soup(soup.select_one('body')).strip()
+            result.update({
+                'text': MarkdownConverter().convert_soup(soup.select_one('body')).strip(),
+                'data_source': 'html',
+            })
         else:
             result['error'] = f'unknown content type: {content_type}'
     else:
@@ -196,6 +207,7 @@ HTML_PARSERS = {
             '.LicenseInfo', '.ArticleIdentifierLinks', '.Banner', '.screen-reader-main-title', '.Publication'
         ]
     ),
+    'transformer-circuits.pub': error('not handled yet - same codebase as distill'),
     'vox.com': element_extractor('did.c-entry-content', remove=['c-article-footer']),
     'weforum.org': element_extractor('div.wef-0'),
     'www6.inrae.fr': element_extractor('div.ArticleContent'),

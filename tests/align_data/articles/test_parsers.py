@@ -134,7 +134,29 @@ def test_parse_grobid():
         'authors': ['Cullen Oâ\x80\x99Keefe'],
         'text': 'This is the contents',
         'title': 'The title!!',
+        'data_source': 'xml',
     }
+
+
+def test_parse_grobid_no_body():
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <TEI xml:space="preserve" xmlns="http://www.tei-c.org/ns/1.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.tei-c.org/ns/1.0 https://raw.githubusercontent.com/kermitt2/grobid/master/grobid-home/schemas/xsd/Grobid.xsd"
+        xmlns:xlink="http://www.w3.org/1999/xlink">
+            <teiHeader xml:lang="en">
+            <encodingDesc>
+               <appInfo>
+                 <application version="0.7.0" ident="GROBID" when="2022-03-25T06:04+0000">
+                 </application>
+                </appInfo>
+            </encodingDesc>
+            </teiHeader>
+            <text xml:lang="en">
+            </text>
+        </TEI>
+    """
+    assert parse_grobid(xml) == {'error': 'No contents in XML file', 'data_source': 'xml'}
 
 
 @pytest.mark.parametrize('header, expected', (
@@ -219,6 +241,7 @@ def test_extract_gdrive_contents_html():
                 'downloaded_from': 'google drive',
                 'source_url': 'https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing',
                 'text': 'bla bla',
+                'data_source': 'html',
             }
 
 
@@ -240,6 +263,7 @@ def test_extract_gdrive_contents_xml():
                 'source_url': 'https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing',
                 'text': 'This is the contents',
                 'title': 'The title!!',
+                'data_source': 'xml',
             }
 
 
@@ -270,6 +294,7 @@ def test_extract_gdrive_contents_xml_with_confirm():
                 'source_url': 'https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing',
                 'text': 'This is the contents',
                 'title': 'The title!!',
+                'data_source': 'xml',
             }
 
 

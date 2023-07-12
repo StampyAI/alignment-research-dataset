@@ -1,7 +1,8 @@
 import logging
+from typing import Union
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from markdownify import MarkdownConverter
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def fetch(url, method='get', headers=DEFAULT_HEADERS):
     return getattr(requests, method)(url, allow_redirects=True, headers=headers)
 
 
-def fetch_element(url, selector, headers=DEFAULT_HEADERS):
+def fetch_element(url: str, selector: str, headers=DEFAULT_HEADERS) -> Union[Tag, None]:
     """Fetch the first HTML element that matches the given CSS `selector` on the page found at `url`."""
     try:
         resp = fetch(url, headers=headers)

@@ -9,7 +9,7 @@ import requests
 
 from align_data import ALL_DATASETS, DATASET_REGISTRY, get_dataset
 from align_data.analysis.count_tokens import count_token
-from align_data.articles.articles import update_new_items
+from align_data.articles.articles import update_new_items, check_new_articles
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_SOURCE_SPREADSHEET
 )
@@ -37,7 +37,6 @@ def download_from_hf(dataset):
         with open(dataset.jsonl_path, 'wb') as f:
             for chunk in res.iter_content(chunk_size=8192):
                 f.write(chunk)
-
 
 
 @dataclass
@@ -134,6 +133,14 @@ class AlignmentDataset:
         :param str output_spreadsheet: The id of the output google sheet where processed metadata should be added. This sheet should have a worksheet for each expected data type (e.g. "pdf", "html")
         """
         return update_new_items(source_spreadsheet, source_sheet, output_spreadsheet)
+
+    def fetch_new_articles(self, source_spreadsheet=METADATA_SOURCE_SPREADSHEET, source_sheet=METADATA_SOURCE_SHEET):
+        """Look for unseen articles in the special indices, adding any that are found to the provided spreadsheet.
+
+        :param str source_spreadsheet: The id of the google docs spreadsheet containing the items to be processed
+        :param str source_sheet: The name of the worksheet to be processed
+        """
+        return check_new_articles(source_spreadsheet, source_sheet)
 
 
 if __name__ == "__main__":
