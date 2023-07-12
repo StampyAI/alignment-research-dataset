@@ -90,7 +90,7 @@ class AlignmentDataset:
         self.txt_path = Path(out_path) / f"{self.name}.txt"
 
     def write_entry(self, entry, jsonl_writer, text_writer):
-        jsonl_writer.write(entry.as_dict())
+        jsonl_writer.write(entry.to_dict())
 
         # Save the entry in plain text, mainly for debugging
         text = entry["text"].lstrip().replace('\n', '\n    ')
@@ -283,7 +283,7 @@ class DataEntry(UserDict):
         assert self["id"] == hashlib.md5(
             text_excerpt).hexdigest(), "Entry id does not match text"
 
-    def as_dict(self):
+    def to_dict(self):
         for k, _ in INIT_DICT.items():
             assert self[k] is not None, f"Entry is missing key {k}"
         self._verify_id()

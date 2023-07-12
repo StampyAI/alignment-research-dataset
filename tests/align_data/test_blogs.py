@@ -3,8 +3,9 @@ from unittest.mock import patch, Mock
 import pytest
 from bs4 import BeautifulSoup
 
-from align_data.blogs import CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog
+from align_data.blogs import CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog
 
+import feedparser
 
 SAMPLE_HTML = """
 <div>
@@ -416,3 +417,79 @@ def test_substack_blog_process_entry():
         'title': 'the article title',
         'url': 'http://example.org/bla',
     }
+
+WORDPRESS_FEED = {
+    "entries": [
+        {
+            "title": "Prospiracy Theory",
+            "link": "https://www.yudkowsky.net/other/fiction/prospiracy-theory",
+            "authors": [{"name": "Eliezer S. Yudkowsky"}],
+            "published": "Fri, 04 Sep 2020 04:11:23 +0000",
+            "summary": "Rwanda and I sat on a park bench. Above us the birds flutteredgracefully through a shamefully blue s",
+            "content": [{"value": SAMPLE_HTML}],
+        },
+    ],
+    "feed": {
+        "title": "Eliezer S. Yudkowsky",
+        "link": "https://www.yudkowsky.net",
+    },
+    "headers": {
+        "link": "<https://www.yudkowsky.net/wp-json/>; rel=\"https://api.w.org/\""
+    }
+}
+
+
+def test_wordpress_blog_setup():
+    blog = WordpressBlog(
+        name='blog',
+        url="https://www.bla.yudkowsky.net",
+    )
+    blog.setup()
+    assert blog.feed_url == 'https://www.bla.yudkowsky.net/feed'
+    assert blog.name == "www.bla.yudkowsky.net"
+
+@patch('feedparser.parse', return_value=WORDPRESS_FEED)
+def test_wordpress_blog_items_list(feedparser_parse):
+    blog = WordpressBlog(
+        name='blog',
+        url="https://www.bla.yudkowsky.net",
+    )
+    blog.setup()
+    items = blog.items_list
+    assert len(items) == 1
+    assert items[0]['title'] == 'Prospiracy Theory'
+    
+
+def test_wordpress_blog_get_item_key():
+    blog = WordpressBlog(
+        name='blog',
+        url="https://www.bla.yudkowsky.net",
+    )
+    item_key = blog.get_item_key({'title': 'Test Entry'})
+    assert item_key == 'Test Entry'
+    
+def test_wordpress_blog_get_published_date():
+    blog = WordpressBlog(
+        name='blog',
+        url="https://www.bla.yudkowsky.net",
+    )
+    date_published = blog._get_published_date({'published': "Mon, 26 Jun 2023 13:40:01 +0000"})
+    assert date_published == '2023-06-26T13:40:01Z'
+
+@patch('feedparser.parse', return_value=WORDPRESS_FEED)
+def test_wordpress_blog_fetch_entries(feedparser_parse):
+    blog = WordpressBlog(
+        name='blog',
+        url="https://www.bla.yudkowsky.net",
+    )
+    blog.setup()
+    entries = list(blog.fetch_entries())
+    assert len(entries) == 1
+    entry = entries[0].to_dict()
+    assert entry['url'] == 'https://www.yudkowsky.net/other/fiction/prospiracy-theory'
+    assert entry['title'] == 'Prospiracy Theory'
+    assert entry['source'] == 'www.bla.yudkowsky.net'
+    assert entry['source_type'] == 'blog'
+    assert entry['date_published'] == '2020-09-04T04:11:23Z'
+    assert entry['authors'] == ['Eliezer S. Yudkowsky']
+    assert entry['text'] == 'Prospiracy Theory\n\nbla bla bla [a link](http://ble.com) bla bla'
