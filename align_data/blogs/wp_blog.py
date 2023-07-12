@@ -80,7 +80,7 @@ class WordpressBlog(AlignmentDataset):
             content_text = markdownify(entry["content"][0]["value"]).strip()
             text = entry["title"] + "\n\n" + content_text
             
-            new_entry = DataEntry({
+            new_entry = self.make_data_entry({
                 "text": text,
                 "url": entry['link'],
                 "title": text.split("\n")[0],
