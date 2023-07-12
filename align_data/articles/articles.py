@@ -5,14 +5,16 @@ from tqdm import tqdm
 
 from align_data.articles.google_cloud import iterate_rows, get_spreadsheet, get_sheet, upload_file, OK, with_retry
 from align_data.articles.parsers import item_metadata, fetch
+from align_data.articles.indices import fetch_all
 from align_data.settings import PDFS_FOLDER_ID
 
 
 logger = logging.getLogger(__name__)
 
 
-REQUIRED_FIELDS = ['url', 'title', 'source_type', 'date_published']
-OPTIONAL_FIELDS = ['source_url', 'authors', 'summary']
+# Careful changing these - the sheets assume this ordering
+REQUIRED_FIELDS = ['url', 'source_url', 'title', 'source_type', 'date_published']
+OPTIONAL_FIELDS = ['authors', 'summary']
 
 
 def save_pdf(filename, link):
@@ -45,7 +47,7 @@ def process_row(row, sheets):
         logger.error('missing keys: ' + ', '.join(missing))
         return
 
-    source_url = row.get('source_url') or row['url']
+    source_url = row.get('source_url')
     contents = item_metadata(source_url)
 
     if not contents or 'error' in contents:
@@ -54,7 +56,7 @@ def process_row(row, sheets):
         row.set_status(error)
         return
 
-    data_source = contents['data_source']
+    data_source = contents.get('data_source')
     if data_source not in sheets:
         error = 'Unhandled data type'
         logger.error(error)
@@ -88,8 +90,9 @@ def process_spreadsheets(source_sheet, output_sheets):
         if url
     }
     for row in tqdm(iterate_rows(source_sheet)):
-        source_url = row.get('source_url') or row['url']
-        if source_url in seen:
+        if not row.get('source_url'):
+            row['source_url'] = row['url']
+        if row.get('source_url') in seen:
             title = row.get('title')
             logger.info(f'skipping "{title}", as it has already been seen')
         else:
@@ -101,3 +104,29 @@ def update_new_items(source_spreadsheet, source_sheet, output_spreadsheet):
     source_sheet = get_sheet(source_spreadsheet, source_sheet)
     sheets = {sheet.title: sheet for sheet in get_spreadsheet(output_spreadsheet).worksheets()}
     return process_spreadsheets(source_sheet, sheets)
+
+
+def check_new_articles(source_spreadsheet, source_sheet):
+    """Goes through the special indices looking for unseen articles."""
+    source_sheet = get_sheet(source_spreadsheet, source_sheet)
+    current = {row.get('title'): row for row in iterate_rows(source_sheet)}
+    seen_urls = {url for item in current.values() for url in [item.get('url'), item.get('source_url')] if url}
+
+    indices_items = fetch_all()
+
+    missing = [
+        item for title, item in indices_items.items()
+        if title not in current and not {item.get('url'), item.get('source_url')} & seen_urls
+    ]
+    if not missing:
+        logger.info('No new articles found')
+        return 0
+
+    columns = ['status', 'source_url', 'url', 'title', 'date_published', 'authors', 'publication_title', 'source_type']
+    res = source_sheet.append_rows([
+        [item.get(col) for col in columns]
+        for item in missing
+    ])
+    updated = res['updates']['updatedRows']
+    logger.info('Added %s rows', updated)
+    return updated

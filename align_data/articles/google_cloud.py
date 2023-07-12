@@ -1,9 +1,14 @@
+import logging
 import time
 from collections import UserDict
+
 import gspread
+from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-from google.oauth2.service_account import Credentials
+
+logger = logging.getLogger(__name__)
+
 
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
@@ -50,6 +55,10 @@ class Row(UserDict):
         self.sheet.format(f'{col_letter}{self.row_id}', {"backgroundColor": colour})
 
     def set_status(self, status, status_col='status'):
+        if self.get(status_col) == status:
+            # Don't update anything if the status is the same - this saves on gdocs calls
+            return
+
         if status == OK:
             colour = {'red': 0, 'green': 1, 'blue': 0}
         elif status == '':
@@ -104,6 +113,6 @@ def with_retry(times=3):
                     logger.error(f'{e} - retrying up to {times - i} times')
                     # Do a logarithmic backoff
                     time.sleep((i + 1) ** 2)
-            raise e
+            raise ValueError(f'Gave up after {times} tries')
         return retrier
     return wrapper
