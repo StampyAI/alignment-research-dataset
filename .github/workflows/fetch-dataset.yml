@@ -1,6 +1,11 @@
 name: Fetch Alignment Research Dataset
 
 on:
+  workflow_call:
+    inputs:
+      datasource:
+        type: string
+        required: true
   workflow_dispatch: # allow manual triggering
     inputs:
       datasource:
@@ -57,7 +62,9 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Fetch dataset
-      run: python main.py fetch ${{ inputs.datasource }}
+      env:
+        CODA_TOKEN: ${{ secrets.CODA_TOKEN }}
+      run: python main.py fetch ${{ inputs.datasource }} --fetch_prev=True
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v3
@@ -81,7 +88,7 @@ jobs:
           python-version: '3.x'
 
       - name: Setup Huggingface client
-        run: pip install huggingface_hub gdown jsonlines
+        run: pip install huggingface_hub gdown jsonlines datasets
 
       - name: Download a single artifact
         uses: actions/download-artifact@v3

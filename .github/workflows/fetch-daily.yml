@@ -1,0 +1,19 @@
+name: Daily dataset updates
+on:
+  workflow_dispatch: # allow manual triggering
+  schedule:
+    - cron: "0 0 * * *"  # Every day at midnight
+
+jobs:
+  update_dateset:
+    strategy:
+      matrix:
+        datasource:
+          - lesswrong
+          - alignmentforum
+          - aisafety.info
+
+    uses: ./.github/workflows/fetch-dataset.yml
+    with:
+      datasource: ${{ matrix.datasource }}
+    secrets: inherit

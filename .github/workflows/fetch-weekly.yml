@@ -1,0 +1,45 @@
+name: Weekly dataset updates
+on:
+  schedule:
+    - cron: "0 0 * * 0"  # Every Sunday at midnight
+
+jobs:
+  update_dateset:
+    strategy:
+      matrix:
+        datasource:
+          - agentmodels
+          - aiimpacts
+          - aipulse
+          - aisafety.camp
+          - alignment_newsletter
+          - arbital
+          - arxiv
+          - audio_transcripts
+          - carado.moe
+          - cold_takes
+          - deepmind_blog
+          - distill
+          - eaforum
+          - ebooks
+          - gdocs
+          - gdrive_ebooks
+          - generative.ink
+          - gwern_blog
+          - html_articles
+          - importai
+          - jsteinhardt_blog
+          - markdown.ebooks
+          - miri
+          - ml_safety_newsletter
+          - nonarxiv_papers
+          - qualiacomputing
+          - pdfs
+          - reports
+          - vkrakovna_blog
+          - yudkowsky_blog
+
+    uses: ./.github/workflows/fetch-dataset.yml
+    with:
+      datasource: ${{ matrix.datasource }}
+    secrets: inherit

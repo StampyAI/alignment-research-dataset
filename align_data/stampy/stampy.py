@@ -36,14 +36,10 @@ class Stampy(AlignmentDataset):
 
     def get_item_key(self, entry):
         return html.unescape(entry['Question'])
-    
-    @staticmethod
-    def _get_published_date(entry):
+
+    def _get_published_date(self, entry):
         date_published = entry['Doc Last Edited']
-        if date_published:
-            dt = parse(date_published).astimezone(timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return ''
+        return super()._get_published_date(date_published)
 
     def process_entry(self, entry):
         def clean_text(text):

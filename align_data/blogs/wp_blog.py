@@ -5,6 +5,7 @@ import logging
 import feedparser
 from tqdm import tqdm
 
+from markdownify import markdownify
 from align_data.common import utils
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
@@ -26,7 +27,6 @@ class WordpressBlog(AlignmentDataset):
         """
         super().setup()
         self.feed_url = self.url + "/feed"
-        self.cleaner = utils.HtmlCleaner(self.strip)
         self.name = utils.url_to_filename(self.url)
 
     def get_item_key(self, item):

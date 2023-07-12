@@ -3,7 +3,6 @@ import align_data.articles as articles
 import align_data.blogs as blogs
 import align_data.ebooks as ebooks
 import align_data.arxiv_papers as arxiv_papers
-import align_data.nonarxiv_papers as nonarxiv_papers
 import align_data.reports as reports
 import align_data.greaterwrong as greaterwrong
 import align_data.stampy as stampy
@@ -18,7 +17,6 @@ DATASET_REGISTRY = (
     + blogs.BLOG_REGISTRY
     + ebooks.EBOOK_REGISTRY
     + arxiv_papers.ARXIV_REGISTRY
-    + nonarxiv_papers.NONARXIV_PAPER_REGISTRY
     + reports.REPORT_REGISTRY
     + greaterwrong.GREATERWRONG_REGISTRY
     + stampy.STAMPY_REGISTRY

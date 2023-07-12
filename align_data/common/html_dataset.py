@@ -1,7 +1,6 @@
 import regex as re
-import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from dateutil.parser import parse
 from dataclasses import dataclass, field, KW_ONLY
 from urllib.parse import urljoin
@@ -12,7 +11,6 @@ import feedparser
 from bs4 import BeautifulSoup
 from markdownify import markdownify
 
-from align_data.common import utils
 from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
 
 logger = logging.getLogger(__name__)
@@ -34,12 +32,7 @@ class HTMLDataset(AlignmentDataset):
     title_selector = 'h2'
     item_selector = 'article'
     source_type = "blog"
-
-    cleaner = utils.HtmlCleaner(
-        ["You might also like\.\.\..*", "\\n+", "\#\# Create your profile.*"],
-        ["", "\\n", ""],
-        True,
-    )
+    ignored_selectors = []
 
     def extract_authors(self, article):
         return self.authors
@@ -48,7 +41,7 @@ class HTMLDataset(AlignmentDataset):
         title = article.find(self.title_selector)
         if title is None:
             return None
-        return title.text
+        return title.text.strip()
 
     def get_item_key(self, item):
         article_url = item.find_all("a")[0]["href"].split("?")[0]
@@ -73,6 +66,8 @@ class HTMLDataset(AlignmentDataset):
         title = self._get_title(contents)
         date_published = self._get_published_date(contents)
         text = self._get_text(contents)
+        if not text:
+            return None
 
         return DataEntry({
             "text": text,
@@ -92,10 +87,15 @@ class HTMLDataset(AlignmentDataset):
 
     @staticmethod
     def _get_title(contents):
-        return contents.find('article').find('h1').text
+        title = contents.select_one('article h1')
+        return title and title.extract().text.strip()
 
     def _get_text(self, contents):
-        return self.cleaner.clean(contents.find('article').text)
+        article = contents.find('article')
+        for selector in self.ignored_selectors:
+            for elem in article.select(selector):
+                elem.extract()
+        return self._extract_markdown(article)
 
     @staticmethod
     def _get_published_date(contents):
@@ -107,7 +107,7 @@ class HTMLDataset(AlignmentDataset):
                 return self._format_datetime(datetime.strptime(i.text, '%b %d, %Y'))
 
     def _extract_markdown(self, element):
-        return markdownify(str(element))
+        return element and markdownify(str(element)).strip()
 
 @dataclass
 class RSSDataset(HTMLDataset):
@@ -122,7 +122,7 @@ class RSSDataset(HTMLDataset):
 
     def extract_authors(self, item):
         if 'authors' in item:
-            return [a['name'] for a in item['authors'] if 'name' in a]
+            return [a['name'] for a in item['authors'] if a.get('name')]
         return self.authors
 
     @staticmethod
@@ -135,10 +135,9 @@ class RSSDataset(HTMLDataset):
             return self._format_datetime(parse(date_published))
         return ''
 
-    @staticmethod
-    def _get_text(item):
+    def _get_text(self, item):
         text = item.get('content') and item['content'][0].get('value')
-        return text and markdownify(text)
+        return self._extract_markdown(text)
 
     def _get_contents(self, url):
         item = self.items[url]

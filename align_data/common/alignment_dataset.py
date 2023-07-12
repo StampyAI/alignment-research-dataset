@@ -1,19 +1,18 @@
-import time
 import hashlib
-import os
 import logging
-from datetime import datetime, timezone
-from dataclasses import dataclass
+import time
+import zipfile
 from collections import UserDict
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
-import jsonlines
 import gdown
-import zipfile
+import jsonlines
+import pytz
+from dateutil.parser import parse
 from tqdm import tqdm
-
 
 INIT_DICT = {
     "source": None,
@@ -79,12 +78,9 @@ class AlignmentDataset:
     def __post_init__(self, data_path=Path(__file__).parent / '../../data/'):
         self.data_path = data_path
         self.raw_data_path = self.data_path / 'raw'
-        # make sure the path to the raw data exists
-        self.raw_data_path.mkdir(parents=True, exist_ok=True)
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
-        self.files_path.mkdir(parents=True, exist_ok=True)
 
         # and the default place to write data
         self._set_output_paths(self.data_path)
@@ -150,6 +146,9 @@ class AlignmentDataset:
         tmp_file.rename(self.jsonl_path)
 
     def setup(self):
+        # make sure the path to the raw data exists
+        self.files_path.mkdir(parents=True, exist_ok=True)
+
         self._outputted_items = self._load_outputted_items()
 
     @property
@@ -211,8 +210,14 @@ class AlignmentDataset:
 
     @staticmethod
     def _format_datetime(date):
-        dt = date.astimezone(timezone.utc)
+        # Totally ignore any timezone info, forcing everything to UTC
+        dt = date.replace(tzinfo=pytz.UTC)
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _get_published_date(self, date):
+        if date:
+            return self._format_datetime(parse(date))
+        return ''
 
 
 @dataclass
