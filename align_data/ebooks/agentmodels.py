@@ -1,4 +1,4 @@
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 from dataclasses import dataclass
 from git import Repo
 import logging
@@ -30,7 +30,7 @@ class AgentModels(AlignmentDataset):
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def process_entry(self, filename):
-        return DataEntry({
+        return self.make_data_entry({
             'source': self.name,
             'source_type': 'markdown',
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],

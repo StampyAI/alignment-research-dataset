@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from markdownify import markdownify
 
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ class GreaterWrong(AlignmentDataset):
         if item['user']:
             authors = [item['user']] + authors
         authors = [a['displayName'] for a in authors]
-        return DataEntry({
+        return self.make_data_entry({
             'title': item['title'],
             'text': markdownify(item['htmlBody']).strip(),
             'url': item['pageUrl'],

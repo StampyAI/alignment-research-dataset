@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import os
 import pypandoc
 import epub_meta
-from align_data.common.alignment_dataset import GdocDataset, DataEntry
+from align_data.common.alignment_dataset import GdocDataset
 from path import Path
 
 from datetime import datetime, timezone
@@ -48,7 +48,7 @@ class GDrive(GdocDataset):
             logger.error(e)
             return None
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": "epub",
             "converted_with": "pandoc",

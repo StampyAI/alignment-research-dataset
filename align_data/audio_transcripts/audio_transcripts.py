@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import GdocDataset, DataEntry
+from align_data.common.alignment_dataset import GdocDataset
 import logging
 import re
 from datetime import datetime, timezone
@@ -66,7 +66,7 @@ class AudioTranscripts(GdocDataset):
         text = filename.read_text(encoding="utf-8")
         title = filename.stem
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": "audio",
             "url": "",

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import GdocDataset, DataEntry
+from align_data.common.alignment_dataset import GdocDataset
 import logging
 import grobid_tei_xml
 
@@ -41,7 +41,7 @@ class Reports(GdocDataset):
             doc_dict = grobid_tei_xml.parse_document_xml(xml_text).to_dict()
             abstract = doc_dict.get("abstract")
             logger.info(f"Doc: {list(doc_dict.keys())}")
-            return DataEntry({
+            return self.make_data_entry({
                 "summary": [abstract] if abstract else [],
                 "authors": [xx["full_name"] for xx in doc_dict["header"]["authors"]],
                 "title": doc_dict["header"]["title"],

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class ArxivPapers(AlignmentDataset):
             logger.info(f"Skipping {ids}")
             return None
         else:
-            new_entry = DataEntry({
+            new_entry = self.make_data_entry({
                 "url": self.get_item_key(ids),
                 "source": self.name,
                 "source_type": "html",

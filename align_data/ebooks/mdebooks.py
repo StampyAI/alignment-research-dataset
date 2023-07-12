@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import re
-from align_data.common.alignment_dataset import GdocDataset, DataEntry
+from align_data.common.alignment_dataset import GdocDataset
 import logging
 from datetime import datetime, timezone
 
@@ -24,7 +24,7 @@ class MDEBooks(GdocDataset):
         title = re.search(r"(.*)-by", filename.name, re.MULTILINE).group(1)
         authors = re.search(r"-by\s(.*)-date", filename.name).group(1)
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": "markdown",
             "title": title,

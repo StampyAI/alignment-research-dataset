@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import GdocDataset, DataEntry
+from align_data.common.alignment_dataset import GdocDataset
 import logging
 import pypandoc
 from path import Path
@@ -37,7 +37,7 @@ class Gdocs(GdocDataset):
             logger.error(e)
             return None
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": "docx",
             "converted_with": "pandoc",

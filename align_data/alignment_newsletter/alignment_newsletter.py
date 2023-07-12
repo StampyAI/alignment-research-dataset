@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class AlignmentNewsletter(AlignmentDataset):
                 return cast(v)
             return v
 
-        return DataEntry({
+        return self.make_data_entry({
             "url": handle_na(row.URL),
             "source": handle_na(self.name),
             "converted_with": "python",

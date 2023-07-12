@@ -4,9 +4,10 @@ import time
 import zipfile
 from collections import UserDict
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field, KW_ONLY
 from functools import partial
 from pathlib import Path
+from typing import Optional, List
 
 import gdown
 import jsonlines
@@ -25,15 +26,6 @@ INIT_DICT = {
     "authors": lambda: [],
 }
 
-# Used to limit the size of the text used when generating hashes.
-# TODO: Why is this even needed? It doesn't seem likely that any individual entry
-# will be hundreds of MB large, and if not, then why bother with limiting the length of
-# text for hashing? Speed might be an issue, but I'm guessing that I/O, especially network
-# stuff, will be a much larger problem.
-# One possible reason could be dynamic http sites etc. But that's all the more reason to check
-# the whole text, rather than just the header...
-TEXT_LEN = -1
-
 logger = logging.getLogger(__name__)
 
 
@@ -43,6 +35,9 @@ class AlignmentDataset:
 
     name: str
     """The name of the dataset"""
+
+    _: KW_ONLY
+
     files_path = Path('')
     """The path where data can be found. Usually a folder"""
 
@@ -71,6 +66,9 @@ class AlignmentDataset:
     """Used internally for writing debugging info - each file write will increment it"""
     _outputted_items = set()
     """A set of the ids of all previously processed items"""
+    _: KW_ONLY
+    id_fields: List[str] = field(default_factory=lambda: ['url', 'title'])
+    """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
     def __str__(self) -> str:
         return f"{self.name} dataset will be written to {self.jsonl_path}"
@@ -98,6 +96,9 @@ class AlignmentDataset:
 
         self._entry_idx += 1
         self._outputted_items.add(entry[self.done_key])
+    
+    def make_data_entry(self, data, **kwargs):
+        return DataEntry(dict(data, **kwargs), id_fields=self.id_fields)
 
     @contextmanager
     def writer(self, out_path=None, overwrite=False):
@@ -264,24 +265,37 @@ class GdocDataset(AlignmentDataset):
 
 
 class DataEntry(UserDict):
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, id_fields,  **kwargs):
         super().__init__(*args, **kwargs)
         for k, default in INIT_DICT.items():
             if k not in self:
                 self[k] = default and default()
+        # Store id_fields in a way that does not interfere with UserDict's functionality
+        assert isinstance(id_fields, list), "id_fields must be a list"
+        assert id_fields, "id_fields must not be empty"
+        assert all(isinstance(field, str) for field in id_fields), "id_fields must be a list of strings"
+        self.__id_fields = id_fields
 
+    def generate_id_string(self):
+        return ''.join(str(self[field]) for field in self.__id_fields).encode("utf-8")
+
+    def verify_fields(self):
+        missing = [field for field in self.__id_fields if not self.get(field)]
+        assert not missing, f'Entry is missing the following fields: {missing}'
+        
     def add_id(self):
-        assert self["text"] is not None, "Entry is missing text"
-        text_excerpt = self["text"][:TEXT_LEN].encode("utf-8")
-        self["id"] = hashlib.md5(text_excerpt).hexdigest()
+        self.verify_fields()
+
+        id_string = self.generate_id_string()
+        self["id"] = hashlib.md5(id_string).hexdigest()
 
     def _verify_id(self):
         assert self["id"] is not None, "Entry is missing id"
-        assert self["text"] is not None, "Entry is missing text"
-        text_excerpt = self["text"][:TEXT_LEN].encode("utf-8")
-        assert self["id"] == hashlib.md5(
-            text_excerpt).hexdigest(), "Entry id does not match text"
+        self.verify_fields()
+
+        id_string = self.generate_id_string()
+        id_from_fields = hashlib.md5(id_string).hexdigest()
+        assert self["id"] == id_from_fields, f"Entry id {self['id']} does not match id from id_fields, {id_from_fields}"
 
     def to_dict(self):
         for k, _ in INIT_DICT.items():

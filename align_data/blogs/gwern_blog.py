@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from dateutil.parser import parse
 
-from align_data.common.alignment_dataset import DataEntry
 from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,7 @@ class GwernBlog(HTMLDataset):
         metadata = self._get_metadata(parts[0])
         text = self._extract_markdown('...'.join(parts[1:]))
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": self.source_type,
             "url": post_href,

@@ -6,7 +6,7 @@ from codaio import Coda, Document
 from datetime import timezone
 from dateutil.parser import parse
 
-from align_data.common.alignment_dataset import AlignmentDataset, DataEntry
+from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class Stampy(AlignmentDataset):
     def get_item_key(self, entry):
         return html.unescape(entry['Question'])
 
+    
     def _get_published_date(self, entry):
         date_published = entry['Doc Last Edited']
         return super()._get_published_date(date_published)
@@ -52,7 +53,7 @@ class Stampy(AlignmentDataset):
 
         logger.info(f"Processing {question}")
 
-        return DataEntry({
+        return self.make_data_entry({
             "source": self.name,
             "source_type": "markdown",
             "url": url,
