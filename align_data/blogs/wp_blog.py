@@ -77,7 +77,7 @@ class WordpressBlog(AlignmentDataset):
 
     def fetch_entries(self):
         for entry in self.unprocessed_items():
-            content_text = self.cleaner.clean(entry["content"][0]["value"])
+            content_text = markdownify(entry["content"][0]["value"]).strip()
             text = entry["title"] + "\n\n" + content_text
             
             new_entry = DataEntry({
