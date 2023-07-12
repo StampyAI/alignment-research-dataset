@@ -27,6 +27,7 @@ on:
           - distill
           - eaforum
           - ebooks
+          - eleuther.ai
           - gdocs
           - gdrive_ebooks
           - generative.ink

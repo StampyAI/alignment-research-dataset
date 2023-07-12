@@ -1,7 +1,7 @@
 from align_data.blogs.wp_blog import WordpressBlog
 from align_data.blogs.medium_blog import MediumBlog
 from align_data.blogs.gwern_blog import GwernBlog
-from align_data.blogs.blogs import ColdTakes, GenerativeInk, CaradoMoe
+from align_data.blogs.blogs import ColdTakes, GenerativeInk, CaradoMoe, EleutherAI
 from align_data.blogs.substack_blog import SubstackBlog
 
 
@@ -38,4 +38,5 @@ BLOG_REGISTRY = [
         name="ml_safety_newsletter",
         url="https://newsletter.mlsafety.org"
     ),
+    EleutherAI(name='eleuther.ai', url='https://blog.eleuther.ai/'),
 ]

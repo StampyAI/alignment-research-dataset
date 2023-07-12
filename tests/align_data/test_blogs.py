@@ -5,8 +5,8 @@ from bs4 import BeautifulSoup
 from requests import request
 
 from align_data.blogs import CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog
+from align_data.blogs.blogs import EleutherAI
 
-import feedparser
 
 SAMPLE_HTML = """
 <div>
@@ -449,6 +449,7 @@ def test_wordpress_blog_setup():
     assert blog.name == "blog_name"
 
 
+
 @patch('feedparser.parse', return_value=WORDPRESS_FEED)
 def test_wordpress_blog_items_list(feedparser_parse):
     blog = WordpressBlog(name='blog', url="https://www.bla.yudkowsky.net")
@@ -492,3 +493,49 @@ def test_wordpress_blog_process_entry(feedparser_parse):
         'title': 'Prospiracy Theory',
         'url': 'https://www.yudkowsky.net/other/fiction/prospiracy-theory',
     }
+
+
+ELEUTHER_HTML = """
+    <article class="post-single">
+      <header class="post-header">
+        <h1 class="post-title">Minetester: A fully open RL environment built on Minetest</h1>
+        <div class="post-description">An overview of the minetester and preliminary work</div>
+        <div class="post-meta">July 8, 2023&nbsp;·&nbsp;Curtis Huebner, Robert Klassert, Stepan Shabalin, Edwin Fennell, Delta Hessler
+</div>
+      </header>
+      <div class="post-content">
+        bla bla bla
+      </div>
+    </article>
+"""
+
+def test_eleutherai_get_published_date():
+    dataset = EleutherAI(name='eleuther', url='http://bla.bla')
+
+    soup = BeautifulSoup(ELEUTHER_HTML, "html.parser")
+    assert dataset._get_published_date(soup) == "2023-07-08T00:00:00Z"
+
+
+def test_eleutherai_extract_authors():
+    dataset = EleutherAI(name='eleuther', url='http://bla.bla')
+
+    soup = BeautifulSoup(ELEUTHER_HTML, "html.parser")
+    assert dataset.extract_authors(soup) == ['Curtis Huebner', 'Robert Klassert', 'Stepan Shabalin', 'Edwin Fennell', 'Delta Hessler']
+
+
+def test_eleutherai_process_entry():
+    dataset = EleutherAI(name='eleuther', url='http://bla.bla')
+
+    article = BeautifulSoup('<a href="bla.bla"></a>', "html.parser")
+    with patch('requests.get', return_value=Mock(content=ELEUTHER_HTML)):
+        assert dataset.process_entry(article) == {
+            'authors': ['Curtis Huebner', 'Robert Klassert', 'Stepan Shabalin', 'Edwin Fennell', 'Delta Hessler'],
+            'date_published': '2023-07-08T00:00:00Z',
+            'id': None,
+            'source': 'eleuther',
+            'source_type': 'blog',
+            'summary': [],
+            'text': 'bla bla bla',
+            'title': 'Minetester: A fully open RL environment built on Minetest',
+            'url': 'http://bla.bla/bla.bla',
+        }

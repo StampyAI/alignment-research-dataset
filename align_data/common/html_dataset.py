@@ -30,6 +30,7 @@ class HTMLDataset(AlignmentDataset):
 
     title_selector = 'h2'
     item_selector = 'article'
+    text_selector = 'article'
     source_type = "blog"
     ignored_selectors = []
 
@@ -90,7 +91,7 @@ class HTMLDataset(AlignmentDataset):
         return title and title.extract().text.strip()
 
     def _get_text(self, contents):
-        article = contents.find('article')
+        article = contents.select_one(self.text_selector)
         for selector in self.ignored_selectors:
             for elem in article.select(selector):
                 elem.extract()
@@ -107,6 +108,7 @@ class HTMLDataset(AlignmentDataset):
 
     def _extract_markdown(self, element):
         return element and markdownify(str(element)).strip()
+
 
 @dataclass
 class RSSDataset(HTMLDataset):
