@@ -1,7 +1,9 @@
 from align_data.blogs.wp_blog import WordpressBlog
 from align_data.blogs.medium_blog import MediumBlog
 from align_data.blogs.gwern_blog import GwernBlog
-from align_data.blogs.blogs import ColdTakes, GenerativeInk, CaradoMoe, EleutherAI, OpenAIResearch
+from align_data.blogs.blogs import (
+    ColdTakes, GenerativeInk, CaradoMoe, EleutherAI, OpenAIResearch, DeepMindTechnicalBlog
+)
 from align_data.blogs.substack_blog import SubstackBlog
 
 
@@ -40,4 +42,5 @@ BLOG_REGISTRY = [
     ),
     EleutherAI(name='eleuther.ai', url='https://blog.eleuther.ai/'),
     OpenAIResearch(name='openai.research', url='https://openai.com/research'),
+    DeepMindTechnicalBlog(name='deepmind_technical_blog', url='https://www.deepmind.com/blog-categories/technical-blogs'),
 ]

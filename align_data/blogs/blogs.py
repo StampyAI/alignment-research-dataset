@@ -1,10 +1,13 @@
-from dataclasses import dataclass
-from align_data import articles
-from align_data.common.html_dataset import HTMLDataset, RSSDataset, AlignmentDataset
+import logging
+
+import requests
 from align_data.articles.parsers import item_metadata
+from align_data.common.html_dataset import HTMLDataset, RSSDataset
+from bs4 import BeautifulSoup
+from dateutil.parser import ParserError
+from tqdm import tqdm
 
-from dateutil.parser import parse, ParserError
-
+logger = logging.getLogger(__name__)
 
 class ColdTakes(HTMLDataset):
     item_selector = 'div.post-feed article'
@@ -74,3 +77,44 @@ class OpenAIResearch(HTMLDataset):
             return []
 
         return [i.split('(')[0].strip() for i in authors.select_one('p').children if not i.name]
+
+
+class DeepMindTechnicalBlog(HTMLDataset):
+
+    item_selector = 'div.w-dyn-item .c_card_list__item__blog'
+    title_selector = '.c_banner__blog__card h2'
+    text_selector = '.c_rich-text__cms'
+    ignored_selectors = ['.article-gtag-buttons']
+
+    @property
+    def items_list(self):
+        articles = []
+        page = 1
+        with tqdm(desc=f"Loading {self.name} pages") as pbar:
+            while True:
+                logger.info(f"Fetching entries from {self.url}")
+                response = requests.get(self.url, allow_redirects=True, params={'73df3071_page': page})
+                soup = BeautifulSoup(response.content, "html.parser")
+                items = soup.select(self.item_selector)
+                if not items:
+                    break
+                articles += items
+
+                page += 1
+
+                # update the tqdm progress bar
+                pbar.set_postfix_str(f"page {page}", refresh=True)  # Set postfix to "page X"
+                pbar.update()  # Here we increment the progress bar by 1
+
+        logger.info('Got %s pages', len(articles))
+        return articles
+
+    def _get_published_date(self, contents):
+        if date := contents.select_one('.c_banner__blog__card__meta'):
+            return super()._get_published_date(date.text)
+        return ''
+
+    def extract_authors(self, article):
+        if div := article.select_one('.c_cms_content__meta__wrapper div:-soup-contains("Authors") + div'):
+            return [author.strip() for author in div.text.split(',')]
+        return []

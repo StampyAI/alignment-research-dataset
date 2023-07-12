@@ -5,7 +5,8 @@ from bs4 import BeautifulSoup
 from requests import request
 
 from align_data.blogs import (
-    CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog, OpenAIResearch
+    CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog,
+    OpenAIResearch, DeepMindTechnicalBlog
 )
 from align_data.blogs.blogs import EleutherAI
 
@@ -630,3 +631,69 @@ def test_openai_research_process_entry():
                     'title': None,
                     'url': 'https://arxiv.org',
                 }
+
+
+def test_deepmind_technical_items_list():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+
+    def getter(url, *args, **params):
+        page = params.get('params')['73df3071_page']
+        if page < 3:
+            html = ''.join(
+                f'<div class="w-dyn-item"><div class="c_card_list__item__blog">{i}</div></div>'
+                for i in range(page * 10 - 10, page * 10)
+            )
+            return Mock(content=f'<div>{html}</div>')
+        return Mock(content='')
+
+    with patch('requests.get', getter):
+        assert [str(i) for i in dataset.items_list] == [
+            f'<div class="c_card_list__item__blog">{i}</div>' for i in range(0, 20)
+        ]
+
+
+DEEPMIND_HTML = """
+<div>
+  <div class="c_banner__blog__card">
+    <h2>title!</h2>
+    <div class="c_banner__blog__card__meta">July 11, 2023</div>
+  </div>
+  <div class="c_rich-text__cms">
+    bla bla bla
+    <div class="article-gtag-buttons">
+       this should be ignored
+    </div>
+   </div>
+   <div class="c_cms_content__meta__wrapper">
+     <div>Authors</div>
+     <div>Mr. Blobby, John Snow</div>
+  </div>
+</div>
+"""
+def test_deepmind_technical_get_published_date():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+    soup = BeautifulSoup(DEEPMIND_HTML, "html.parser")
+    assert dataset._get_published_date(soup) == '2023-07-11T00:00:00Z'
+
+
+def test_deepmind_technical_extract_authors():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+    soup = BeautifulSoup(DEEPMIND_HTML, "html.parser")
+    assert dataset.extract_authors(soup) == ['Mr. Blobby', 'John Snow']
+
+
+def test_deepmind_technical_proces_entry():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+    soup = BeautifulSoup('<div><a href="http://bla.bl"></a></div>', "html.parser")
+    with patch('requests.get', return_value=Mock(content=DEEPMIND_HTML)):
+        assert dataset.process_entry(soup) == {
+            'authors': ['Mr. Blobby', 'John Snow'],
+            'date_published': '2023-07-11T00:00:00Z',
+            'id': None,
+            'source': 'bla',
+            'source_type': 'blog',
+            'summary': [],
+            'text': 'bla bla bla',
+            'title': 'title!',
+            'url': 'http://bla.bl',
+        }

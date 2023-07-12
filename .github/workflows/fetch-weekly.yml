@@ -19,6 +19,7 @@ jobs:
           - carado.moe
           - cold_takes
           - deepmind_blog
+          - deepmind_technical_blog
           - distill
           - eaforum
           - ebooks
@@ -35,6 +36,7 @@ jobs:
           - ml_safety_newsletter
           - nonarxiv_papers
           - qualiacomputing
+          - openai.research
           - pdfs
           - reports
           - vkrakovna_blog
