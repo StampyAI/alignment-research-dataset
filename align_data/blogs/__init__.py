@@ -32,10 +32,12 @@ BLOG_REGISTRY = [
     ),
     SubstackBlog(
         name="importai",
-        url="https://importai.substack.com"
+        url="https://importai.substack.com",
+        id_fields=['url', 'title', 'source']
     ),
     SubstackBlog(
         name="ml_safety_newsletter",
-        url="https://newsletter.mlsafety.org"
+        url="https://newsletter.mlsafety.org",
+        id_fields=['url', 'title', 'source']
     ),
 ]
