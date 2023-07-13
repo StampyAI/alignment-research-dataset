@@ -28,7 +28,6 @@ class MediumBlog(HTMLDataset):
 
     url: str
     done_key = "url"
-    title_selector = 'h2'
     source_type = "medium_blog"
     ignored_selectors = ['div:first-child span']
 

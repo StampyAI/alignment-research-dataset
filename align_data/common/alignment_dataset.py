@@ -12,7 +12,7 @@ from typing import Optional, List
 import gdown
 import jsonlines
 import pytz
-from dateutil.parser import parse
+from dateutil.parser import parse, ParserError
 from tqdm import tqdm
 
 INIT_DICT = {
@@ -216,8 +216,10 @@ class AlignmentDataset:
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _get_published_date(self, date):
-        if date:
-            return self._format_datetime(parse(date))
+        try:
+            return self._format_datetime(parse(str(date)))
+        except ParserError:
+            pass
         return ''
 
 
