@@ -127,7 +127,7 @@ def multistrategy(*funcs):
     return getter
 
 
-UNINPLEMENTED_PARSERS = {
+UNIMPLEMENTED_PARSERS = {
     # Unhandled items that will be caught later. Though it would be good for them also to be done properly
     'oxford.universitypressscholarship.com': error(''),
 
@@ -270,10 +270,10 @@ def item_metadata(url) -> Dict[str, str]:
                 # A pdf was found - use it, though it might not be useable
                 return res
 
-        if parser := UNINPLEMENTED_PARSERS.get(domain):
+        if parser := UNIMPLEMENTED_PARSERS.get(domain):
             return {'error': parser(url)}
 
-        if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNINPLEMENTED_PARSERS.keys()):
+        if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()):
             return {'error': 'No domain handler defined'}
         return {'error': 'could not parse url'}
     elif content_type & {'application/octet-stream', 'application/pdf'}:
