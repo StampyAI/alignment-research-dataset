@@ -26,8 +26,6 @@ class MediumBlog(HTMLDataset):
     but various fixes were added to handle a wider range of Medium blogs.
     """
 
-    url: str
-    done_key = "url"
     source_type = "medium_blog"
     ignored_selectors = ['div:first-child span']
 

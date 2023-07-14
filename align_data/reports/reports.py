@@ -25,14 +25,13 @@ class Reports(GdocDataset):
     @property
     def zip_file(self):
         return self.raw_data_path / "report_teis.zip"
-    
+
     @staticmethod
     def _get_published_data(doc_dict):
         date_str = doc_dict["header"].get('date')
         if date_str:
-            dt = parse(date_str).astimezone(timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return ''
+            return parse(date_str).astimezone(timezone.utc)
+        return None
 
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")

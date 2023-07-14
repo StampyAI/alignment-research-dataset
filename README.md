@@ -52,13 +52,20 @@ The values of the keys are still being cleaned up for consistency. Additional ke
 
 ## Development Environment
 
-To set up the development environment, run the following steps:
+To set up the development environment, run the following steps. You'll have to also set up [mysqlclient](https://pypi.org/project/mysqlclient/):
 
 ```bash
 git clone https://github.com/StampyAI/alignment-research-dataset
 cd alignment-research-dataset
 pip install -r requirements.txt
 ```
+
+### Database
+
+You'll also have to set up a MySQL database. To do so with Docker, you can run `./local_db.sh` which should spin up a container
+with the database initialised.
+
+### CLI options
 
 The available CLI options are list, fetch, fetch-all, and count-tokens.
 

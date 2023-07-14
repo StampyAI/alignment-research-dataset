@@ -1,10 +1,8 @@
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
-from bs4 import BeautifulSoup
-
-from align_data.articles.datasets import SpreadsheetDataset, PDFArticles, HTMLArticles, EbookArticles, XMLArticles
+from align_data.articles.datasets import EbookArticles, HTMLArticles, PDFArticles, SpreadsheetDataset, XMLArticles
 
 
 @pytest.fixture
@@ -38,11 +36,6 @@ def test_spreadsheet_dataset_items_list(articles):
 def test_spreadsheet_dataset_get_item_key():
     dataset = SpreadsheetDataset(name='bla', spreadsheet_id='123', sheet_id='456')
     assert dataset.get_item_key(Mock(bla='ble', title='the key')) == 'the key'
-
-
-def test_spreadsheet_dataset_get_published_date():
-    dataset = SpreadsheetDataset(name='bla', spreadsheet_id='123', sheet_id='456')
-    assert dataset._get_published_date(Mock(date_published='2023/01/03 12:23:34')) == '2023-01-03T12:23:34Z'
 
 
 @pytest.mark.parametrize('authors, expected', (
@@ -80,14 +73,14 @@ def test_pdf_articles_process_item(articles):
 
     with patch('align_data.articles.datasets.download'):
         with patch('align_data.articles.datasets.read_pdf', return_value='pdf contents <a href="asd.com">bla</a>'):
-            assert dataset.process_entry(item) == {
+            assert dataset.process_entry(item).to_dict() == {
                 'authors': ['John Snow', 'mr Blobby'],
                 'date_published': '2023-01-01T12:32:11Z',
                 'id': None,
                 'source': 'bla',
                 'source_filetype': 'pdf',
                 'source_type': 'something',
-                'summary': ['the summary of article 0'],
+                'summaries': ['the summary of article 0'],
                 'text': 'pdf contents [bla](asd.com)',
                 'title': 'article no 0',
                 'url': 'http://example.com/item/0',
@@ -115,14 +108,14 @@ def test_html_articles_process_entry(articles):
 
     parsers = {'example.com': lambda _: '   html contents with <a href="bla.com">proper elements</a> ble ble   '}
     with patch('align_data.articles.datasets.HTML_PARSERS', parsers):
-        assert dataset.process_entry(item) == {
+        assert dataset.process_entry(item).to_dict() == {
             'authors': ['John Snow', 'mr Blobby'],
             'date_published': '2023-01-01T12:32:11Z',
             'id': None,
             'source': 'bla',
             'source_filetype': 'html',
             'source_type': 'something',
-            'summary': ['the summary of article 0'],
+            'summaries': ['the summary of article 0'],
             'text': 'html contents with [proper elements](bla.com) ble ble',
             'title': 'article no 0',
             'url': 'http://example.com/item/0',
@@ -157,14 +150,14 @@ def test_ebook_articles_process_entry(articles):
     contents = '   html contents with <a href="bla.com">proper elements</a> ble ble   '
     with patch('align_data.articles.datasets.download'):
         with patch('pypandoc.convert_file', return_value=contents):
-            assert dataset.process_entry(item) == {
+            assert dataset.process_entry(item).to_dict() == {
                 'authors': ['John Snow', 'mr Blobby'],
                 'date_published': '2023-01-01T12:32:11Z',
                 'id': None,
                 'source': 'bla',
                 'source_filetype': 'epub',
                 'source_type': 'something',
-                'summary': ['the summary of article 0'],
+                'summaries': ['the summary of article 0'],
                 'text': 'html contents with [proper elements](bla.com) ble ble',
                 'title': 'article no 0',
                 'url': 'http://example.com/item/0',
@@ -183,14 +176,14 @@ def test_xml_articles_process_entry(articles):
         item = list(dataset.items_list)[0]
 
     with patch('align_data.articles.datasets.extract_gdrive_contents', return_value={'text': 'bla bla'}):
-        assert dataset.process_entry(item) == {
+        assert dataset.process_entry(item).to_dict() == {
             'authors': ['John Snow', 'mr Blobby'],
             'date_published': '2023-01-01T12:32:11Z',
             'id': None,
             'source': 'bla',
             'source_filetype': 'xml',
             'source_type': 'something',
-            'summary': ['the summary of article 0'],
+            'summaries': ['the summary of article 0'],
             'text': 'bla bla',
             'title': 'article no 0',
             'url': 'http://example.com/item/0',

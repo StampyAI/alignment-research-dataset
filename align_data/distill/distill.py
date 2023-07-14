@@ -24,7 +24,7 @@ class Distill(RSSDataset):
 
         return {
             'doi': doi_elem and doi_elem.text,
-            'summary': [item['summary']],
+            'summary': item['summary'],
             'journal_ref': 'distill-pub',
             'bibliography': [
                 {'title': el.find('span').text, 'link': el.find('a').get('href')}

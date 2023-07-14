@@ -34,9 +34,6 @@ class SpreadsheetDataset(AlignmentDataset):
     def get_item_key(self, item):
         return getattr(item, self.done_key)
 
-    def _get_published_date(self, item):
-        return self._format_datetime(parse(item.date_published))
-
     @staticmethod
     def _get_text(item):
         raise NotImplemented
@@ -58,9 +55,9 @@ class SpreadsheetDataset(AlignmentDataset):
             'source': self.name,
             'source_type': item.source_type,
             'source_filetype': self.source_filetype,
-            'date_published': self._get_published_date(item),
+            'date_published': self._get_published_date(item.date_published),
             'authors': self.extract_authors(item),
-            'summary': [] if pd.isna(item.summary) else [item.summary],
+            'summary': None if pd.isna(item.summary) else item.summary,
         })
 
 

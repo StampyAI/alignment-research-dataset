@@ -1,19 +1,20 @@
-import hashlib
 import logging
 import time
 import zipfile
-from collections import UserDict
-from contextlib import contextmanager
 from dataclasses import dataclass, field, KW_ONLY
-from functools import partial
 from pathlib import Path
-from typing import Optional, List
+from typing import List
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 import gdown
 import jsonlines
 import pytz
 from dateutil.parser import parse, ParserError
 from tqdm import tqdm
+from align_data.db.models import Article, Author
+from align_data.db.session import make_session
+
 
 INIT_DICT = {
     "source": None,
@@ -22,7 +23,6 @@ INIT_DICT = {
     "date_published": None,
     "title": None,
     "url": None,
-    "summary": lambda: [],
     "authors": lambda: [],
 }
 
@@ -71,7 +71,7 @@ class AlignmentDataset:
     """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
     def __str__(self) -> str:
-        return f"{self.name} dataset will be written to {self.jsonl_path}"
+        return self.name
 
     def __post_init__(self, data_path=Path(__file__).parent / '../../data/'):
         self.data_path = data_path
@@ -79,72 +79,48 @@ class AlignmentDataset:
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
+        # TODO: get rid of self.jsonl_path
+        self.jsonl_path = self.data_path / f"{self.name}.jsonl"
 
-        # and the default place to write data
-        self._set_output_paths(self.data_path)
-
-    def _set_output_paths(self, out_path):
-        self.jsonl_path = Path(out_path) / f"{self.name}.jsonl"
-        self.txt_path = Path(out_path) / f"{self.name}.txt"
-
-    def write_entry(self, entry, jsonl_writer, text_writer):
-        jsonl_writer.write(entry.to_dict())
-
-        # Save the entry in plain text, mainly for debugging
-        text = entry["text"].lstrip().replace('\n', '\n    ')
-        text_writer.write(f'[ENTRY {self._entry_idx}]\n    {text}\n\n')
-
-        self._entry_idx += 1
-        self._outputted_items.add(entry[self.done_key])
-    
     def make_data_entry(self, data, **kwargs):
-        return DataEntry(dict(data, **kwargs), id_fields=self.id_fields)
+        data = dict(data, **kwargs)
+        # TODO: Don't keep adding the same authors - come up with some way to reuse them
+        # TODO: Prettify this
+        data['authors'] = [Author(name=name) for name in data.get('authors', [])]
+        if summary := ('summary' in data and data.pop('summary')):
+            data['summaries'] = [summary]
+        return Article(
+            id_fields=self.id_fields,
+            meta={k: v for k, v in data.items() if k not in INIT_DICT},
+            **{k: v for k, v in data.items() if k in INIT_DICT},
+        )
 
-    @contextmanager
-    def writer(self, out_path=None, overwrite=False):
-        """Returns a function that can be used to write entries to the output file.
+    def to_jsonl(self, out_path=None, filename=None):
+        if not out_path:
+            out_path=Path(__file__).parent / '../../data/'
 
-        The resulting function expects to only get a single `DataEntry`, which will then
-        be written as a json object.
-        """
-        if overwrite:
-            write_mode = 'w'
-            self._entry_idx = 0
-        else:
-            write_mode = 'a'
+        if not filename:
+            filename = f"{self.name}.jsonl"
 
-        if out_path:
-            self._set_output_paths(out_path)
-
-        with jsonlines.open(self.jsonl_path, mode=write_mode) as jsonl_writer:
-            with open(self.txt_path, mode=write_mode, errors="backslashreplace") as text_writer:
-                yield partial(self.write_entry, jsonl_writer=jsonl_writer, text_writer=text_writer)
+        with jsonlines.open(Path(out_path) / filename, 'w') as jsonl_writer:
+            for article in self.read_entries():
+                jsonl_writer.write(article.to_dict())
 
     def read_entries(self):
         """Iterate through all the saved entries."""
-        if not self.jsonl_path.exists():
-            return []
+        with make_session() as session:
+            for item in session.scalars(select(Article).where(Article.source==self.name)):
+                yield item
 
-        with jsonlines.open(self.jsonl_path) as f:
-            for line in f:
-                yield line
-
-    def merge_summaries(self, summaries):
-        if not self.summary_key or not self.jsonl_path.exists():
-            return
-
-        updated = 0
-        tmp_file = self.jsonl_path.parent / f'{self.jsonl_path.name}-tmp'
-        with jsonlines.open(tmp_file, 'w') as writer:
-            for line in self.read_entries():
-                url = line.get('url')
-                summary = summaries.get(url, {})
-                line[self.summary_key] += list(summary.values())
-                updated += bool(summary)
-                writer.write(line)
-
-        logger.info('Updated %s summaries for %s', updated, self.name)
-        tmp_file.rename(self.jsonl_path)
+    def add_entries(self, entries):
+        with make_session() as session:
+            for entry in entries:
+                session.add(entry)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    logger.error(f'found duplicate of {entry}')
+                    session.rollback()
 
     def setup(self):
         # make sure the path to the raw data exists
@@ -166,12 +142,11 @@ class AlignmentDataset:
 
     def _load_outputted_items(self):
         """Load the output file (if it exists) in order to know which items have already been output."""
-        if not self.jsonl_path.exists():
-            logger.info(f"No previous data found at {self.jsonl_path}")
-            return set()
-
-        with jsonlines.open(self.jsonl_path, mode='r') as reader:
-            return {entry.get(self.done_key) for entry in reader}
+        with make_session() as session:
+            if hasattr(Article, self.done_key):
+                return set(session.scalars(select(getattr(Article, self.done_key)).where(Article.source==self.name)).all())
+            # TODO: Properly handle this - it should create a proper SQL JSON select
+            return {getattr(item, self.done_key) for item in session.scalars(select(Article.meta).where(Article.source==self.name)).all()}
 
     def unprocessed_items(self, items=None):
         """Return a list of all items to be processed.
@@ -199,7 +174,6 @@ class AlignmentDataset:
              if not entry:
                  continue
 
-             entry.add_id()
              yield entry
 
              if self.COOLDOWN:
@@ -211,16 +185,15 @@ class AlignmentDataset:
 
     @staticmethod
     def _format_datetime(date):
-        # Totally ignore any timezone info, forcing everything to UTC
-        dt = date.replace(tzinfo=pytz.UTC)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _get_published_date(self, date):
         try:
-            return self._format_datetime(parse(str(date)))
+            # Totally ignore any timezone info, forcing everything to UTC
+            return parse(str(date)).replace(tzinfo=pytz.UTC)
         except ParserError:
             pass
-        return ''
+        return None
 
 
 @dataclass
@@ -264,43 +237,3 @@ class GdocDataset(AlignmentDataset):
             output=str(output or self.files_path),
             quiet=False
         )
-
-
-class DataEntry(UserDict):
-    def __init__(self, *args, id_fields,  **kwargs):
-        super().__init__(*args, **kwargs)
-        for k, default in INIT_DICT.items():
-            if k not in self:
-                self[k] = default and default()
-        # Store id_fields in a way that does not interfere with UserDict's functionality
-        assert isinstance(id_fields, list), "id_fields must be a list"
-        assert id_fields, "id_fields must not be empty"
-        assert all(isinstance(field, str) for field in id_fields), "id_fields must be a list of strings"
-        self.__id_fields = id_fields
-
-    def generate_id_string(self):
-        return ''.join(str(self[field]) for field in self.__id_fields).encode("utf-8")
-
-    def verify_fields(self):
-        missing = [field for field in self.__id_fields if not self.get(field)]
-        assert not missing, f'Entry is missing the following fields: {missing}'
-        
-    def add_id(self):
-        self.verify_fields()
-
-        id_string = self.generate_id_string()
-        self["id"] = hashlib.md5(id_string).hexdigest()
-
-    def _verify_id(self):
-        assert self["id"] is not None, "Entry is missing id"
-        self.verify_fields()
-
-        id_string = self.generate_id_string()
-        id_from_fields = hashlib.md5(id_string).hexdigest()
-        assert self["id"] == id_from_fields, f"Entry id {self['id']} does not match id from id_fields, {id_from_fields}"
-
-    def to_dict(self):
-        for k, _ in INIT_DICT.items():
-            assert self[k] is not None, f"Entry is missing key {k}"
-        self._verify_id()
-        return dict(self.data)

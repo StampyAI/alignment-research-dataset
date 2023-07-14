@@ -26,8 +26,7 @@ class AgentModels(AlignmentDataset):
 
     def _get_published_date(self, filename):
         last_commit = next(self.repository.iter_commits(paths=f'chapters/{filename.name}'))
-        dt = last_commit.committed_datetime.astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return last_commit.committed_datetime.astimezone(timezone.utc)
 
     def process_entry(self, filename):
         return self.make_data_entry({
@@ -36,6 +35,6 @@ class AgentModels(AlignmentDataset):
             'authors': ['Owain Evans', 'Andreas Stuhlmüller', 'John Salvatier', 'Daniel Filan'],
             'date_published': self._get_published_date(filename),
             'title': 'Modeling Agents with Probabilistic Programs',
-            'url': f'https://agentmodels.org/chapters/{filename.stem}.html', 
+            'url': f'https://agentmodels.org/chapters/{filename.stem}.html',
             'text': filename.read_text(encoding='utf-8'),
         })

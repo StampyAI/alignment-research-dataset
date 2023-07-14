@@ -28,9 +28,8 @@ class AlignmentNewsletter(AlignmentDataset):
     @staticmethod
     def _get_published_date(year):
         if not year or pd.isna(year):
-            return ''
-        dt = datetime(int(year), 1, 1, tzinfo=timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            return None
+        return datetime(int(year), 1, 1, tzinfo=timezone.utc)
 
     @property
     def items_list(self):

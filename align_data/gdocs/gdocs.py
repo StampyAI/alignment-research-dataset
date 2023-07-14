@@ -48,15 +48,14 @@ class Gdocs(GdocDataset):
             "url": "",
             "docx_name": docx_filename.name,
         })
-    
+
     @staticmethod
     def _get_published_date(metadata):
         date_published = metadata.created or metadata.modified
         if date_published:
             assert isinstance(date_published, datetime), f"Expected datetime, got {type(date_published)}"
-            dt = date_published.replace(tzinfo=timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return ''
+            return date_published.replace(tzinfo=timezone.utc)
+        return None
 
 
     def _get_metadata(self , docx_filename):

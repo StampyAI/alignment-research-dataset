@@ -72,11 +72,11 @@ def test_greaterwrong_get_item_key(dataset):
 
 
 def test_greaterwrong_get_published_date(dataset):
-    assert dataset._get_published_date({'postedAt': '2021/02/01'}) == '2021-02-01T00:00:00Z'
+    assert dataset._get_published_date({'postedAt': '2021/02/01'}) == parse('2021-02-01T00:00:00Z')
 
 
 def test_greaterwrong_get_published_date_missing(dataset):
-    assert dataset._get_published_date({}) == ''
+    assert dataset._get_published_date({}) == None
 
 
 def test_items_list_no_previous(dataset):
@@ -159,7 +159,7 @@ def test_process_entry(dataset):
         'wordCount': 123,
         'commentCount': 423,
     }
-    assert dataset.process_entry(entry) == {
+    assert dataset.process_entry(entry).to_dict() == {
         'authors': ['Me', 'John Snow', 'Mr Blobby'],
         'comment_count': 423,
         'date_published': '2012-02-01T12:23:34Z',
@@ -168,7 +168,7 @@ def test_process_entry(dataset):
         'modified_at': '2001-02-10',
         'source': 'bla',
         'source_type': 'GreaterWrong',
-        'summary': [],
+        'summaries': [],
         'tags': ['tag1', 'tag2'],
         'text': 'bla bla [a link](bla.com)',
         'title': 'The title',

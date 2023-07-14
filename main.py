@@ -64,14 +64,15 @@ class AlignmentDataset:
             dataset = get_dataset(name)
 
             if fetch_prev:
+                # TODO: what should this do? Download and load the data?
                 download_from_hf(dataset)
             elif rebuild:
+                # TODO: Get this to work properly
                 dataset.jsonl_path.unlink(missing_ok=True)
 
-            with dataset.writer(self.out_path) as writer:
-                for entry in dataset.fetch_entries():
-                    writer(entry)
-
+            dataset.add_entries(dataset.fetch_entries())
+            # TODO: Get rid of jsonl stuff here
+            dataset.to_jsonl()
             print(dataset.jsonl_path)
 
     def fetch_all(self, *skip, rebuild=False, fetch_prev=False) -> str:
@@ -91,28 +92,6 @@ class AlignmentDataset:
             self.fetch(name, rebuild=rebuild, fetch_prev=fetch_prev)
 
         return self.merge_summaries(*names)
-
-    def merge_summaries(self, *names):
-        """Update all source materials with summaries if they have any.
-
-        Some datasets are actual alignment content, e.g. arXiv articles, while other datasets are mainly
-        summaries of other articles, e.g. the alignment newsletter. This command merges the two, adding all
-        summaries to all found entries. In theory it's possible for a single article to have multiple different
-        summaries, therefore the summaries are added as a dict of <source>: <summary>
-        """
-        summaries = defaultdict(lambda: dict())
-        for dataset in DATASET_REGISTRY:
-            if dataset.source_key and dataset.summary_key:
-                add_summaries(summaries, dataset)
-
-        if names:
-            datasets = [get_dataset(name) for name in names]
-        else:
-            datasets = DATASET_REGISTRY
-
-        for dataset in datasets:
-            if not dataset.source_key and dataset.summary_key:
-                dataset.merge_summaries(summaries)
 
     def count_tokens(self, merged_dataset_path: str) -> None:
         """
