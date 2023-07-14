@@ -1,10 +1,12 @@
 import logging
 from urllib.parse import urlparse
+from typing import Dict
 
 import grobid_tei_xml
 import regex as re
 from align_data.articles.html import element_extractor, fetch, fetch_element
-from align_data.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page
+from align_data.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf
+from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
 
@@ -125,7 +127,7 @@ def multistrategy(*funcs):
     return getter
 
 
-UNINPLEMENTED_PARSERS = {
+UNIMPLEMENTED_PARSERS = {
     # Unhandled items that will be caught later. Though it would be good for them also to be done properly
     'oxford.universitypressscholarship.com': error(''),
 
@@ -218,6 +220,7 @@ HTML_PARSERS = {
 PDF_PARSERS = {
     # Domain sepecific handlers
     'apcz.umk.pl': get_pdf_from_page('.galleys_links a.pdf', 'a.download'),
+    'arxiv.org': get_arxiv_pdf,
     'academic.oup.com': get_pdf_from_page('a.article-pdfLink'),
     'cset.georgetown.edu': get_pdf_from_page('a:-soup-contains("Download Full")'),
     'drive.google.com': extract_gdrive_contents,
@@ -249,7 +252,7 @@ PDF_PARSERS = {
 }
 
 
-def item_metadata(url):
+def item_metadata(url) -> Dict[str, str]:
     domain = urlparse(url).netloc.lstrip('www.')
     res = fetch(url, 'head')
     content_type = {item.strip() for item in res.headers.get('Content-Type').split(';')}
@@ -267,11 +270,12 @@ def item_metadata(url):
                 # A pdf was found - use it, though it might not be useable
                 return res
 
-        if parser := UNINPLEMENTED_PARSERS.get(domain):
+        if parser := UNIMPLEMENTED_PARSERS.get(domain):
             return {'error': parser(url)}
 
-        if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNINPLEMENTED_PARSERS.keys()):
+        if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()):
             return {'error': 'No domain handler defined'}
+        return {'error': 'could not parse url'}
     elif content_type & {'application/octet-stream', 'application/pdf'}:
         # this looks like it could be a pdf - try to download it as one
         return fetch_pdf(url)

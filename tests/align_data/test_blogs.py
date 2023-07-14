@@ -4,9 +4,12 @@ import pytest
 from bs4 import BeautifulSoup
 from requests import request
 
-from align_data.blogs import CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog
+from align_data.blogs import (
+    CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog,
+    OpenAIResearch, DeepMindTechnicalBlog
+)
+from align_data.blogs.blogs import EleutherAI
 
-import feedparser
 
 SAMPLE_HTML = """
 <div>
@@ -449,6 +452,7 @@ def test_wordpress_blog_setup():
     assert blog.name == "blog_name"
 
 
+
 @patch('feedparser.parse', return_value=WORDPRESS_FEED)
 def test_wordpress_blog_items_list(feedparser_parse):
     blog = WordpressBlog(name='blog', url="https://www.bla.yudkowsky.net")
@@ -492,3 +496,204 @@ def test_wordpress_blog_process_entry(feedparser_parse):
         'title': 'Prospiracy Theory',
         'url': 'https://www.yudkowsky.net/other/fiction/prospiracy-theory',
     }
+
+
+ELEUTHER_HTML = """
+    <article class="post-single">
+      <header class="post-header">
+        <h1 class="post-title">Minetester: A fully open RL environment built on Minetest</h1>
+        <div class="post-description">An overview of the minetester and preliminary work</div>
+        <div class="post-meta">July 8, 2023&nbsp;·&nbsp;Curtis Huebner, Robert Klassert, Stepan Shabalin, Edwin Fennell, Delta Hessler
+</div>
+      </header>
+      <div class="post-content">
+        bla bla bla
+      </div>
+    </article>
+"""
+
+def test_eleutherai_get_published_date():
+    dataset = EleutherAI(name='eleuther', url='http://bla.bla')
+
+    soup = BeautifulSoup(ELEUTHER_HTML, "html.parser")
+    assert dataset._get_published_date(soup) == "2023-07-08T00:00:00Z"
+
+
+def test_eleutherai_extract_authors():
+    dataset = EleutherAI(name='eleuther', url='http://bla.bla')
+
+    soup = BeautifulSoup(ELEUTHER_HTML, "html.parser")
+    assert dataset.extract_authors(soup) == ['Curtis Huebner', 'Robert Klassert', 'Stepan Shabalin', 'Edwin Fennell', 'Delta Hessler']
+
+
+def test_eleutherai_process_entry():
+    dataset = EleutherAI(name='eleuther', url='http://bla.bla')
+
+    article = BeautifulSoup('<a href="bla.bla"></a>', "html.parser")
+    with patch('requests.get', return_value=Mock(content=ELEUTHER_HTML)):
+        assert dataset.process_entry(article) == {
+            'authors': ['Curtis Huebner', 'Robert Klassert', 'Stepan Shabalin', 'Edwin Fennell', 'Delta Hessler'],
+            'date_published': '2023-07-08T00:00:00Z',
+            'id': None,
+            'source': 'eleuther',
+            'source_type': 'blog',
+            'summary': [],
+            'text': 'bla bla bla',
+            'title': 'Minetester: A fully open RL environment built on Minetest',
+            'url': 'http://bla.bla/bla.bla',
+        }
+
+
+OPENAI_HTML = """
+<div class="container">
+  <div class="cols-container">
+    <span class="f-meta-2">July 6, 2023</span>
+    <a class="ui-link" href="https://arxiv.org">Read paper</a>
+  </div>
+  <div>
+    <div>Authors</div>
+    <div>
+      <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+    </div>
+  </div>
+</div>
+"""
+def test_openai_research_get_published_date():
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    assert dataset._get_published_date(soup) == '2023-07-06T00:00:00Z'
+
+
+def test_openai_research_get_text():
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    with patch('requests.head', return_value=Mock(headers={'Content-Type': 'text/html'})):
+        with patch('align_data.articles.pdf.fetch_pdf', return_value={'text': 'bla bla bla'}):
+            assert dataset._get_text(soup) == 'bla bla bla'
+
+
+@pytest.mark.parametrize('html, expected', (
+    (
+        """<div>
+          <div>Authors</div>
+          <div>
+             <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+          </div>
+        </div>
+        """,
+        ["Mr. Blobby", "John Snow"]
+    ),
+    (
+        """<div>
+          <div>Acknowledgments</div>
+          <div>
+             <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+          </div>
+        </div>
+        """,
+        ["Mr. Blobby", "John Snow"]
+    ),
+    (
+        """<div>
+          <div>Bla Bla Bla</div>
+          <div>
+             <div class="f-body-1"><p>Mr. Blobby<br>John Snow (Westeros)</p>
+          </div>
+        </div>
+        """,
+        []
+    ),
+))
+def test_openai_research_extract_authors(html, expected):
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(html, "html.parser")
+    assert dataset.extract_authors(soup) == expected
+
+
+def test_openai_research_process_entry():
+    dataset = OpenAIResearch(name='openai', url='bla.bla')
+
+    soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    with patch('requests.head', return_value=Mock(headers={'Content-Type': 'text/html'})):
+        with patch('requests.get', return_value=Mock(content=OPENAI_HTML)):
+            with patch('align_data.articles.pdf.fetch_pdf', return_value={'text': 'bla bla bla'}):
+                assert dataset.process_entry(soup) == {
+                    'authors': ['Mr. Blobby', 'John Snow'],
+                    'date_published': '2023-07-06T00:00:00Z',
+                    'id': None,
+                    'source': 'openai',
+                    'source_type': 'blog',
+                    'summary': [],
+                    'text': 'bla bla bla',
+                    'title': None,
+                    'url': 'https://arxiv.org',
+                }
+
+
+def test_deepmind_technical_items_list():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+
+    def getter(url, *args, **params):
+        page = params.get('params')['73df3071_page']
+        if page < 3:
+            html = ''.join(
+                f'<div class="w-dyn-item"><div class="c_card_list__item__blog">{i}</div></div>'
+                for i in range(page * 10 - 10, page * 10)
+            )
+            return Mock(content=f'<div>{html}</div>')
+        return Mock(content='')
+
+    with patch('requests.get', getter):
+        assert [str(i) for i in dataset.items_list] == [
+            f'<div class="c_card_list__item__blog">{i}</div>' for i in range(0, 20)
+        ]
+
+
+DEEPMIND_HTML = """
+<div>
+  <div class="c_banner__blog__card">
+    <h2>title!</h2>
+    <div class="c_banner__blog__card__meta">July 11, 2023</div>
+  </div>
+  <div class="c_rich-text__cms">
+    bla bla bla
+    <div class="article-gtag-buttons">
+       this should be ignored
+    </div>
+   </div>
+   <div class="c_cms_content__meta__wrapper">
+     <div>Authors</div>
+     <div>Mr. Blobby, John Snow</div>
+  </div>
+</div>
+"""
+def test_deepmind_technical_get_published_date():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+    soup = BeautifulSoup(DEEPMIND_HTML, "html.parser")
+    assert dataset._get_published_date(soup) == '2023-07-11T00:00:00Z'
+
+
+def test_deepmind_technical_extract_authors():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+    soup = BeautifulSoup(DEEPMIND_HTML, "html.parser")
+    assert dataset.extract_authors(soup) == ['Mr. Blobby', 'John Snow']
+
+
+def test_deepmind_technical_proces_entry():
+    dataset = DeepMindTechnicalBlog(name='bla', url='http://bla.com')
+    soup = BeautifulSoup('<div><a href="http://bla.bl"></a></div>', "html.parser")
+    with patch('requests.get', return_value=Mock(content=DEEPMIND_HTML)):
+        assert dataset.process_entry(soup) == {
+            'authors': ['Mr. Blobby', 'John Snow'],
+            'date_published': '2023-07-11T00:00:00Z',
+            'id': None,
+            'source': 'bla',
+            'source_type': 'blog',
+            'summary': [],
+            'text': 'bla bla bla',
+            'title': 'title!',
+            'url': 'http://bla.bl',
+        }

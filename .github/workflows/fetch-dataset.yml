@@ -24,9 +24,11 @@ on:
           - carado.moe
           - cold_takes
           - deepmind_blog
+          - deepmind_technical_blog
           - distill
           - eaforum
           - ebooks
+          - eleuther.ai
           - gdocs
           - gdrive_ebooks
           - generative.ink
@@ -40,6 +42,7 @@ on:
           - ml_safety_newsletter
           - nonarxiv_papers
           - qualiacomputing
+          - openai.research
           - pdfs
           - reports
           - vkrakovna_blog
