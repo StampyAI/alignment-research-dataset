@@ -2,31 +2,13 @@ import pytz
 import hashlib
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import JSON, DateTime, ForeignKey, Table, String, Column, Integer, func, Text, event
+from sqlalchemy import JSON, DateTime, ForeignKey, String, func, Text, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 from sqlalchemy.dialects.mysql import LONGTEXT
 
 
 class Base(DeclarativeBase):
     pass
-
-
-author_article = Table(
-    'author_article',
-    Base.metadata,
-    Column('article_id', Integer, ForeignKey('articles.id'), primary_key=True),
-    Column('author_id', Integer, ForeignKey('authors.id'), primary_key=True),
-)
-
-
-class Author(Base):
-
-    __tablename__ = "authors"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(256), nullable=False)
-    articles: Mapped[List["Article"]] = relationship(secondary=author_article, back_populates="authors")
 
 
 class Summary(Base):
@@ -50,13 +32,13 @@ class Article(Base):
     url: Mapped[Optional[str]] = mapped_column(String(1028))
     source: Mapped[Optional[str]] = mapped_column(String(128))
     source_type: Mapped[Optional[str]] = mapped_column(String(128))
+    authors: Mapped[str] = mapped_column(String(1024))
     text: Mapped[Optional[str]] = mapped_column(LONGTEXT)
     date_published: Mapped[Optional[datetime]]
     meta: Mapped[Optional[JSON]] = mapped_column(JSON, name='metadata', default='{}')
     date_created: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     date_updated: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.current_timestamp())
 
-    authors: Mapped[List['Author']] = relationship(secondary=author_article, back_populates="articles")
     summaries: Mapped[List["Summary"]] = relationship(back_populates="article", cascade="all, delete-orphan")
 
     __id_fields = ['title', 'url']
@@ -103,7 +85,7 @@ class Article(Base):
             'source_type': self.source_type,
             'text': self.text,
             'date_published': date,
-            'authors': [a.name for a in self.authors],
+            'authors': [i.strip() for i in self.authors.split(',')] if self.authors.strip() else [],
             'summaries': [s.text for s in self.summaries],
             **self.meta,
         }

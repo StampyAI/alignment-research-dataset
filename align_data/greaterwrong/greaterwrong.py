@@ -1,17 +1,15 @@
-from datetime import datetime, timezone
-from dateutil.parser import parse
+from datetime import datetime
 import logging
 import time
 from dataclasses import dataclass
-from pathlib import Path
 
 import requests
 import jsonlines
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 from markdownify import markdownify
 
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.db.models import Article
 
 logger = logging.getLogger(__name__)
 
@@ -139,14 +137,18 @@ class GreaterWrong(AlignmentDataset):
         return res.json()['data']['posts']
 
     @property
-    def items_list(self):
-        next_date = datetime(self.start_year, 1, 1).isoformat() + 'Z'
-        if self.jsonl_path.exists() and self.jsonl_path.lstat().st_size:
-            with jsonlines.open(self.jsonl_path) as f:
-                for item in f:
-                    if item['date_published'] > next_date:
-                        next_date = item['date_published']
+    def last_date_published(self):
+        try:
+            prev_item = next(self.read_entries(sort_by=Article.date_published.desc()))
+            if prev_item and prev_item.date_published:
+                return prev_item.date_published.isoformat() + 'Z'
+        except StopIteration:
+            pass
+        return datetime(self.start_year, 1, 1).isoformat() + 'Z'
 
+    @property
+    def items_list(self):
+        next_date = self.last_date_published
         logger.info('Starting from %s', next_date)
         while next_date:
             posts = self.fetch_posts(self.make_query(next_date))

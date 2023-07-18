@@ -2,6 +2,7 @@ import logging
 import time
 import zipfile
 from dataclasses import dataclass, field, KW_ONLY
+from itertools import islice
 from pathlib import Path
 from typing import List
 from sqlalchemy import select
@@ -12,7 +13,7 @@ import jsonlines
 import pytz
 from dateutil.parser import parse, ParserError
 from tqdm import tqdm
-from align_data.db.models import Article, Author
+from align_data.db.models import Article
 from align_data.db.session import make_session
 
 
@@ -86,7 +87,7 @@ class AlignmentDataset:
         data = dict(data, **kwargs)
         # TODO: Don't keep adding the same authors - come up with some way to reuse them
         # TODO: Prettify this
-        data['authors'] = [Author(name=name) for name in data.get('authors', [])]
+        data['authors'] = ','.join(data.get('authors', []))
         if summary := ('summary' in data and data.pop('summary')):
             data['summaries'] = [summary]
         return Article(
@@ -106,21 +107,33 @@ class AlignmentDataset:
             for article in self.read_entries():
                 jsonl_writer.write(article.to_dict())
 
-    def read_entries(self):
+    def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
         with make_session() as session:
-            for item in session.scalars(select(Article).where(Article.source==self.name)):
+            query = select(Article).where(Article.source==self.name)
+            if sort_by is not None:
+                query = query.order_by(sort_by)
+            for item in session.scalars(query):
                 yield item
 
     def add_entries(self, entries):
+        def commit():
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+
         with make_session() as session:
-            for entry in entries:
-                session.add(entry)
-                try:
-                    session.commit()
-                except IntegrityError:
-                    logger.error(f'found duplicate of {entry}')
-                    session.rollback()
+            while batch := tuple(islice(entries, 20)):
+                session.add_all(entries)
+                # there might be duplicates in the batch, so if they cause
+                # an exception, try to commit them one by one
+                if not commit():
+                    for entry in batch:
+                        session.add(entry)
+                        if not commit():
+                            logger.error(f'found duplicate of {entry}')
 
     def setup(self):
         # make sure the path to the raw data exists
