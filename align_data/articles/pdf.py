@@ -140,6 +140,7 @@ def get_pdf_from_page(*link_selectors):
 
         # Some pages keep link to google drive previews of pdf files, which need to be
         # mangled to get the URL of the actual pdf file
+        # TODO: circular dependency
         if 'drive.google.com' in link and '/view' in link:
             return extract_gdrive_contents(link)
 
