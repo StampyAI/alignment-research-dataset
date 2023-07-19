@@ -35,21 +35,21 @@ def test_html_dataset_extract_authors(html_dataset):
     assert html_dataset.extract_authors('dummy variable') == ['John Smith', 'Your momma']
 
 
-def test_html_dataset_extract_title(html_dataset):
+def test_html_dataset_get_title(html_dataset):
     item = f"""
-    <div>
-      <h2>   This is the title
-    </h2>
+    <article>
+      <h1>   This is the title
+      </h1>
       <a href="{html_dataset.url}/path/to/article">click to read more</a>
-    </div>
+    </article>
     """
     soup = BeautifulSoup(item, "html.parser")
-    assert html_dataset.extract_title(soup) == 'This is the title'
+    assert html_dataset._get_title(soup) == 'This is the title'
 
 
-def test_html_dataset_extract_title_missing(html_dataset):
+def test_html_dataset_get_title_missing(html_dataset):
     soup = BeautifulSoup('', "html.parser")
-    assert html_dataset.extract_title(soup) is None
+    assert html_dataset._get_title(soup) is None
 
 
 def test_html_dataset_get_item_key(html_dataset):
@@ -91,10 +91,6 @@ def test_html_dataset_get_contents(html_dataset):
 def test_html_dataset_get_text(html_dataset):
     soup = BeautifulSoup(f'<article>{SAMPLE_CONTENTS}</article>', "html.parser")
     assert html_dataset._get_text(soup) == 'bla bla bla [a link](http://ble.com) bla bla'
-
-
-def test_html_dataset_get_published_date(html_dataset):
-    assert html_dataset._get_published_date(SAMPLE_HTML) == ''
 
 
 def test_html_dataset_find_date(html_dataset):

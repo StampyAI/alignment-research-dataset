@@ -92,6 +92,10 @@ def get_arxiv_link(doi):
     return vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
 
 
+def get_arxiv_pdf(link):
+    return fetch_pdf(link.replace('/abs/', '/pdf/'))
+
+
 def get_doi(doi):
     """Get the article with the given `doi`.
 
@@ -102,7 +106,7 @@ def get_doi(doi):
         link = get_arxiv_link(doi)
         pdf = (link and fetch_pdf(link))
         if pdf and 'text' in pdf:
-            pdf['downloaded_from'] = 'scihub'
+            pdf['downloaded_from'] = 'arxiv'
             return pdf
 
     if link := sci_hub_pdf(doi):
