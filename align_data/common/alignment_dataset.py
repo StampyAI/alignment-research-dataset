@@ -180,17 +180,18 @@ class AlignmentDataset:
         based on the contents of the output file.
         """
         self.setup()
+        items = items or self.items_list
 
         def not_processed(item):
             return self.get_item_key(item) not in self._outputted_items
-
-        filtered = filter(not_processed, items or self.items_list)
+        
+        items_to_process = filter(not_processed, items)
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice
         if not self.lazy_eval:
-            filtered = list(filtered)
+            items_to_process = list(items_to_process)
 
-        return tqdm(filtered, desc=f"Processing {self.name}")
+        return tqdm(items_to_process, desc=f"Processing {self.name}")
 
     def fetch_entries(self):
         """Get all entries to be written to the file."""

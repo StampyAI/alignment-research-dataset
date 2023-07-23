@@ -68,17 +68,6 @@ def fetch_pdf(link):
         logger.error('Could not read PDF file: %s', e)
         return {'error': str(e)}
 
-    filenames = [
-        i.strip().split('=')[1]
-        for i in res.headers.get('Content-Disposition', '').split(';')
-        if 'filename' in i
-    ]
-    if filenames and 'pdf' not in filenames[0].lower():
-        logger.error('Are you sure %s points to a pdf file? The response says the file should be called %s', link, filenames[0])
-        error = f'Probably bad file type: {filenames[0]} - {link}'
-
-    return {'error': error}
-
 
 def get_arxiv_link(doi):
     """Find the URL to the pdf of the given arXiv DOI."""

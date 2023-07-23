@@ -37,7 +37,6 @@ class Stampy(AlignmentDataset):
     def get_item_key(self, entry):
         return html.unescape(entry['Question'])
 
-    
     def _get_published_date(self, entry):
         date_published = entry['Doc Last Edited']
         return super()._get_published_date(date_published)

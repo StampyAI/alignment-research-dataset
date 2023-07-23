@@ -27,8 +27,11 @@ class SpreadsheetDataset(AlignmentDataset):
 
     @property
     def items_list(self):
+        # opens the items metadata spreadsheet, at the given sheet id (corresponding to html, pdf, ebook, xml) and returns a list of items
         logger.info(f'Fetching https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=CS&gid={self.sheet_id}')
-        df = pd.read_csv(f'https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}')
+        csv_url = f'https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}'
+        df = pd.read_csv(csv_url)
+
         return (item for item in df.itertuples() if not pd.isna(self.get_item_key(item)))
 
     def get_item_key(self, item):
@@ -73,7 +76,7 @@ class PDFArticles(SpreadsheetDataset):
         url = f'https://drive.google.com/uc?id={item.file_id}'
 
         filename = self.files_path / f'{item.title}.pdf'
-        download(str(filename), id=item.file_id)
+        download(url=url, output=str(filename), quiet=True)
         return read_pdf(filename)
 
 
