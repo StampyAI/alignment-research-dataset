@@ -1,6 +1,7 @@
 # %%
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 import pandas as pd
 
 from dataclasses import dataclass
@@ -17,8 +18,13 @@ class AlignmentNewsletter(AlignmentDataset):
     source_key = 'url'
     summary_key = 'text'
 
+    def __post_init__(self, data_path=Path(__file__).parent / '../../../data/'):
+        self.data_path = data_path
+        self.raw_data_path = self.data_path / 'raw'
+
     def setup(self) -> None:
         super().setup()
+
         self.newsletter_xlsx_path = self.raw_data_path / "alignment_newsletter.xlsx"
         self.df = pd.read_excel(self.newsletter_xlsx_path)
 

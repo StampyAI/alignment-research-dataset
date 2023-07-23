@@ -8,9 +8,8 @@ from align_data.common.html_dataset import HTMLDataset, RSSDataset
 
 
 @pytest.fixture
-def html_dataset(tmp_path):
+def html_dataset():
     dataset = HTMLDataset(name='bla', url='http://example.com', authors=['John Smith', 'Your momma'])
-    dataset.__post_init__(tmp_path)
 
     return dataset
 

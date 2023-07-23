@@ -16,4 +16,8 @@ jobs:
     uses: ./.github/workflows/fetch-dataset.yml
     with:
       datasource: ${{ matrix.datasource }}
+      coda_token: ${{ inputs.coda_token }}
+      db_user: ${{ inputs.db_user }}
+      db_password: ${{ inputs.db_password }}
+      db_host: ${{ inputs.db_host }}
     secrets: inherit

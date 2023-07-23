@@ -69,9 +69,6 @@ class GreaterWrong(AlignmentDataset):
     def setup(self):
         super().setup()
 
-        logger.info(f"Grabbing most recent links (grabs all links if /{self.name}/urls/ is empty)...")
-        self.skipped_urls = self.raw_data_path / self.name / 'skipped'
-
         logger.debug("Fetching ai tags...")
         self.ai_tags = get_allowed_tags(self.base_url, self.name)
 

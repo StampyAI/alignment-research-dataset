@@ -6,6 +6,18 @@ on:
       datasource:
         type: string
         required: true
+      coda_token:
+        type: string
+        required: true
+      db_user:
+        type: string
+        required: true
+      db_password:
+        type: string
+        required: true
+      db_host:
+        type: string
+        required: true
   workflow_dispatch: # allow manual triggering
     inputs:
       datasource:
@@ -64,40 +76,11 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Fetch dataset
+    - name: Generate dataset file
       env:
-        CODA_TOKEN: ${{ secrets.CODA_TOKEN }}
-      run: python main.py fetch ${{ inputs.datasource }} --fetch_prev=True
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ inputs.datasource }}
-        path: data/${{ inputs.datasource }}.jsonl
-        retention-days: 1
-
-  upload:
-    runs-on: ubuntu-latest
-    needs: build-dataset
-
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Setup Python environment
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
-
-      - name: Setup Huggingface client
-        run: pip install huggingface_hub gdown jsonlines datasets
-
-      - name: Download a single artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ inputs.datasource }}
-          path: data/
-
-      - name: Upload file
-        run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
+        CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
+        ARD_DB_NAME: alignment_research_dataset
+      run: python main.py fetch ${{ inputs.datasource }}

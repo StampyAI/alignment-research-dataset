@@ -53,9 +53,6 @@ class AlignmentDataset:
     """The key of the entry containing the summary contents. This is used both to get the summary, but also where
     it should be put in the target entry."""
 
-    glob = '*.md'
-    """How to identify files to be processed when going through a folder for files"""
-
     COOLDOWN = 0
     """An optional cool down between processing entries"""
 
@@ -80,8 +77,6 @@ class AlignmentDataset:
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
-        # TODO: get rid of self.jsonl_path
-        self.jsonl_path = self.data_path / f"{self.name}.jsonl"
 
     def make_data_entry(self, data, **kwargs):
         data = dict(data, **kwargs)
@@ -102,10 +97,12 @@ class AlignmentDataset:
 
         if not filename:
             filename = f"{self.name}.jsonl"
+        filename = Path(out_path) / filename
 
-        with jsonlines.open(Path(out_path) / filename, 'w') as jsonl_writer:
+        with jsonlines.open(filename, 'w') as jsonl_writer:
             for article in self.read_entries():
                 jsonl_writer.write(article.to_dict())
+        return filename.resolve()
 
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
@@ -136,15 +133,12 @@ class AlignmentDataset:
                             logger.error(f'found duplicate of {entry}')
 
     def setup(self):
-        # make sure the path to the raw data exists
-        self.files_path.mkdir(parents=True, exist_ok=True)
-
         self._outputted_items = self._load_outputted_items()
 
     @property
     def items_list(self):
         """Returns a generator of items to be processed."""
-        return self.files_path.glob(self.glob)
+        return []
 
     def get_item_key(self, item):
         """Get the identifier of the given `item` so it can be checked to see whether it's been output.
@@ -215,6 +209,14 @@ class GdocDataset(AlignmentDataset):
 
     gdrive_address: str
     """The full URL to the gdrive file"""
+
+    glob = '*.md'
+    """How to identify files to be processed when going through a folder for files"""
+
+    @property
+    def items_list(self):
+        """Returns a generator of items to be processed."""
+        return self.files_path.glob(self.glob)
 
     @property
     def zip_file(self):
