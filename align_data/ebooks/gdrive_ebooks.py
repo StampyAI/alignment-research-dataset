@@ -65,6 +65,5 @@ class GDrive(GdocDataset):
     def _get_published_date(metadata):
         date_published = metadata["publication_date"]
         if date_published:
-            dt = parse(date_published).astimezone(timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return ''
+            return parse(date_published).astimezone(timezone.utc)
+        return None

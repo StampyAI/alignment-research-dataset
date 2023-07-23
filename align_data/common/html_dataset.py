@@ -1,3 +1,4 @@
+import pytz
 import regex as re
 import logging
 from datetime import datetime
@@ -93,7 +94,7 @@ class HTMLDataset(AlignmentDataset):
     def _find_date(self, items):
         for i in items:
             if re.match('\w+ \d{1,2}, \d{4}', i.text):
-                return self._format_datetime(datetime.strptime(i.text, '%b %d, %Y'))
+                return datetime.strptime(i.text, '%b %d, %Y').replace(tzinfo=pytz.UTC)
 
     def _extract_markdown(self, element):
         return element and markdownify(str(element)).strip()
@@ -121,9 +122,7 @@ class RSSDataset(HTMLDataset):
 
     def _get_published_date(self, item):
         date_published = item.get('published') or item.get('pubDate')
-        if date_published:
-            return self._format_datetime(parse(date_published))
-        return ''
+        return super()._get_published_date(date_published)
 
     def _get_text(self, item):
         text = item.get('content') and item['content'][0].get('value')

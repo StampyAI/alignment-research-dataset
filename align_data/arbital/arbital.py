@@ -132,7 +132,7 @@ class Arbital(AlignmentDataset):
                 'authors': self.extract_authors(page),
                 'alias': alias,
                 'tags': list(filter(None, map(self.get_title, page['tagIds']))),
-                'summary': [summary] if summary else [],
+                'summary': summary,
             })
         except Exception as e:
             logger.error(f"Error getting page {alias}: {e}")
@@ -149,9 +149,8 @@ class Arbital(AlignmentDataset):
     def _get_published_date(page):
         date_published = page.get('editCreatedAt') or page.get('pageCreatedAt')
         if date_published:
-            dt = parse(date_published).astimezone(timezone.utc)
-            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        return ''
+            return parse(date_published).astimezone(timezone.utc)
+        return None
 
     def get_page(self, alias):
         headers = self.headers.copy()

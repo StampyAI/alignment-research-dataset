@@ -28,7 +28,7 @@ class GenerativeInk(HTMLDataset):
             elem for info in contents.select('div.post-info')
             for elem in info.children
         ]
-        return super()._get_published_date(self._find_date(possible_date_elements))
+        return self._find_date(possible_date_elements)
 
 
 class CaradoMoe(RSSDataset):

@@ -34,14 +34,13 @@ class MDEBooks(GdocDataset):
             "url": "",
             "filename": filename.name,
         })
-    
+
     @staticmethod
     def _get_published_date(filename):
         date_str = re.search(r"\d{4}-\d{2}-\d{2}", filename.name)
-        
+
         if not date_str:
-            return ''
-        
+            return None
+
         date_str = date_str.group(0)
-        dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)

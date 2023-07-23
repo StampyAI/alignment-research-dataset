@@ -14,6 +14,7 @@ class AudioTranscripts(GdocDataset):
     def setup(self):
         super().setup()
 
+        # FIXME: This isn't working - missing files, perhaps?
         self.files_path = self.raw_data_path / 'transcripts'
         if not self.files_path.exists():
             self.files_path.mkdir(parents=True, exist_ok=True)
@@ -50,16 +51,14 @@ class AudioTranscripts(GdocDataset):
         if res := re.search('^(.*?):', firstline):
             return [res.group(1)]
         return []
-    
+
     @staticmethod
     def _get_published_date(filename):
         date_str = re.search(r"\d{4}\d{2}\d{2}", str(filename))
         if not date_str:
-            return ''
+            return None
         date_str = date_str.group(0)
-        dt = datetime.strptime(date_str, "%Y%m%d").astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-
+        return datetime.strptime(date_str, "%Y%m%d").astimezone(timezone.utc)
 
     def process_entry(self, filename):
         logger.info(f"Processing {filename.name}")

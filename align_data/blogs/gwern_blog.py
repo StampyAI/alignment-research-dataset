@@ -1,8 +1,6 @@
 import requests
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from dateutil.parser import parse
 
 from align_data.common.html_dataset import HTMLDataset
 
@@ -86,9 +84,7 @@ class GwernBlog(HTMLDataset):
                 contents.select_one('.page-date-range .page-modified') or
                 contents.select_one('.page-date-range .page-created')
             ).text.strip()
-        if date_published:
-            return self._format_datetime(parse(date_published))
-        return ''
+        return super()._get_published_date(date_published)
 
     def _get_text(self, contents):
         return self._extract_markdown(contents.select_one('div#markdownBody'))

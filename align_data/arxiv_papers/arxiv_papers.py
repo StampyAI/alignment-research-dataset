@@ -59,7 +59,7 @@ class ArxivPapers(AlignmentDataset):
                 "converted_with": "markdownify",
                 "title": paper.title,
                 "authors": [str(x) for x in paper.authors],
-                "date_published": paper.published.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "date_published": paper.published,
                 "data_last_modified": str(paper.updated),
                 "abstract": paper.summary.replace("\n", " "),
                 "author_comment": paper.comment,
@@ -81,9 +81,9 @@ class ArxivPapers(AlignmentDataset):
             return vanity_wrapper and "don’t have to squint at a PDF" not in vanity_wrapper
         if parser == 'ar5iv':
             ar5iv_error = soup.find("span", class_="ltx_ERROR")
-            if ar5iv_error is None: 
+            if ar5iv_error is None:
                 return False
-            else: 
+            else:
                 ar5iv_error = ar5iv_error.text
             if "document may be truncated or damaged" in ar5iv_error:
                 return True
@@ -95,8 +95,8 @@ class ArxivPapers(AlignmentDataset):
         Check if markdown is a dud
         """
         return (
-            "Paper Not Renderable" in markdown or 
-            "This document may be truncated" in markdown or 
+            "Paper Not Renderable" in markdown or
+            "This document may be truncated" in markdown or
             "don’t have to squint at a PDF" not in markdown
         )
 
@@ -152,7 +152,7 @@ class ArxivPapers(AlignmentDataset):
         if bib:
             bib.decompose()
         return article_soup
-        
+
     def _strip_markdown(self, s_markdown):
         return s_markdown.split("\nReferences\n")[0].replace("\n\n", "\n")
 
