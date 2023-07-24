@@ -1,10 +1,10 @@
-from align_data.blogs.wp_blog import WordpressBlog
-from align_data.blogs.medium_blog import MediumBlog
-from align_data.blogs.gwern_blog import GwernBlog
-from align_data.blogs.blogs import (
+from align_data.sources.blogs.wp_blog import WordpressBlog
+from align_data.sources.blogs.medium_blog import MediumBlog
+from align_data.sources.blogs.gwern_blog import GwernBlog
+from align_data.sources.blogs.blogs import (
     ColdTakes, GenerativeInk, CaradoMoe, EleutherAI, OpenAIResearch, DeepMindTechnicalBlog
 )
-from align_data.blogs.substack_blog import SubstackBlog
+from align_data.sources.blogs.substack_blog import SubstackBlog
 
 
 BLOG_REGISTRY = [

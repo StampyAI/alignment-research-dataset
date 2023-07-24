@@ -1,4 +1,4 @@
-from align_data.articles.datasets import PDFArticles, HTMLArticles, EbookArticles, XMLArticles
+from align_data.sources.articles.datasets import PDFArticles, HTMLArticles, EbookArticles, XMLArticles
 
 ARTICLES_REGISTRY = [
     PDFArticles(

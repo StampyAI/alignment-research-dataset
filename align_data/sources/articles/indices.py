@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
 
-from align_data.articles.html import fetch, fetch_element
+from align_data.sources.articles.html import fetch, fetch_element
 from align_data.common.alignment_dataset import AlignmentDataset
 from dateutil.parser import ParserError, parse
 from markdownify import MarkdownConverter

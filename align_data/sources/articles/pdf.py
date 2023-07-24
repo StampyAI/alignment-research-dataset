@@ -9,7 +9,7 @@ import pandas as pd
 from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
 
-from align_data.articles.html import fetch, fetch_element
+from align_data.sources.articles.html import fetch, fetch_element
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,8 @@ import pandas as pd
 from gdown.download import download
 from markdownify import markdownify
 
-from align_data.articles.pdf import fetch_pdf, read_pdf, fetch
-from align_data.articles.parsers import HTML_PARSERS, extract_gdrive_contents
+from align_data.sources.articles.pdf import fetch_pdf, read_pdf, fetch
+from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents
 from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)

@@ -4,8 +4,8 @@ from typing import Dict
 
 import grobid_tei_xml
 import regex as re
-from align_data.articles.html import element_extractor, fetch, fetch_element
-from align_data.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf
+from align_data.sources.articles.html import element_extractor, fetch, fetch_element
+from align_data.sources.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf
 from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
