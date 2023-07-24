@@ -20,7 +20,6 @@ seaborn
 matplotlib
 codaio
 python-dotenv
-pypdf
 PyPDF2
 PyCryptodome
 google-auth
