@@ -2,10 +2,12 @@ import io
 import logging
 
 from tqdm import tqdm
+import gspread
 
 from align_data.sources.articles.google_cloud import iterate_rows, get_spreadsheet, get_sheet, upload_file, OK, with_retry
 from align_data.sources.articles.parsers import item_metadata, fetch
 from align_data.sources.articles.indices import fetch_all
+from align_data.sources.articles.html import with_retry
 from align_data.settings import PDFS_FOLDER_ID
 
 
@@ -36,7 +38,7 @@ def save_pdf(filename, link):
     )
 
 
-@with_retry(times=3)
+@with_retry(times=3, exceptions=gspread.exceptions.APIError)
 def process_row(row, sheets):
     """Check the given `row` and fetch its metadata + optional extra stuff."""
     logger.info('Checking "%s"', row['title'])
