@@ -22,7 +22,6 @@ host = os.environ.get('ARD_DB_HOST', '127.0.0.1')
 port = os.environ.get('ARD_DB_PORT', '3306')
 db_name = os.environ.get('ARD_DB_NAME', 'alignment_research_dataset')
 DB_CONNECTION_URI = f'mysql+mysqldb://{user}:{password}@{host}:{port}/{db_name}'
-DB_CONNECTION_URI = f'mysql+mysqldb://user:we all live in a yellow submarine@127.0.0.1:3306/alignment_research_dataset'
 
 ### EMBEDDINGS ###
 USE_OPENAI_EMBEDDINGS = True  # If false, SentenceTransformer embeddings will be used.
