@@ -5,7 +5,7 @@ from unittest.mock import patch, Mock
 
 import pytest
 
-from align_data.greaterwrong.greaterwrong import (
+from align_data.sources.greaterwrong.greaterwrong import (
     fetch_LW_tags, fetch_ea_forum_topics, GreaterWrong
 )
 

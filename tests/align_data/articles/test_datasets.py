@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
-from align_data.articles.datasets import EbookArticles, HTMLArticles, PDFArticles, SpreadsheetDataset, XMLArticles
+from align_data.sources.articles.datasets import EbookArticles, HTMLArticles, PDFArticles, SpreadsheetDataset, XMLArticles
 
 
 @pytest.fixture
