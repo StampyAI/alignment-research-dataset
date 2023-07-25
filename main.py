@@ -9,7 +9,8 @@ import requests
 
 from align_data import ALL_DATASETS, DATASET_REGISTRY, get_dataset
 from align_data.analysis.count_tokens import count_token
-from align_data.articles.articles import update_new_items, check_new_articles
+from align_data.sources.articles.articles import update_new_items, check_new_articles
+from align_data.pinecone.update_pinecone import ARDUpdater
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_SOURCE_SPREADSHEET
 )
@@ -121,6 +122,12 @@ class AlignmentDataset:
         """
         return check_new_articles(source_spreadsheet, source_sheet)
 
+    def update_pinecone(self):
+        """
+        This function updates the Pinecone vector DB.
+        """
+        updater = ARDUpdater()
+        updater.update()
 
 if __name__ == "__main__":
     fire.Fire(AlignmentDataset)

@@ -3,9 +3,9 @@ import logging
 
 from tqdm import tqdm
 
-from align_data.articles.google_cloud import iterate_rows, get_spreadsheet, get_sheet, upload_file, OK, with_retry
-from align_data.articles.parsers import item_metadata, fetch
-from align_data.articles.indices import fetch_all
+from align_data.sources.articles.google_cloud import iterate_rows, get_spreadsheet, get_sheet, upload_file, OK, with_retry
+from align_data.sources.articles.parsers import item_metadata, fetch
+from align_data.sources.articles.indices import fetch_all
 from align_data.settings import PDFS_FOLDER_ID
 
 

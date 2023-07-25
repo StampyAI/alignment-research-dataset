@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import pytest
 import pandas as pd
 
-from align_data.alignment_newsletter import AlignmentNewsletter
+from align_data.sources.alignment_newsletter import AlignmentNewsletter
 
 
 @pytest.fixture(scope="module")

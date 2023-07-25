@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from bs4 import BeautifulSoup
 
-from align_data.articles.parsers import (
+from align_data.sources.articles.parsers import (
     google_doc, medium_blog, parse_grobid, get_content_type, extract_gdrive_contents
 )
 

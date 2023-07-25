@@ -1,7 +1,7 @@
 from unittest.mock import patch
 from dateutil.parser import parse
 
-from align_data.stampy import Stampy
+from align_data.sources.stampy import Stampy
 
 
 def test_validate_coda_token():

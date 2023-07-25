@@ -3,7 +3,7 @@ from unittest.mock import patch, Mock
 import pytest
 from bs4 import BeautifulSoup
 
-from align_data.distill import Distill
+from align_data.sources.distill import Distill
 
 
 def test_extract_authors():

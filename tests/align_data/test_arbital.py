@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 from dateutil.parser import parse
 
-from align_data.arbital.arbital import Arbital, extract_text, flatten, parse_arbital_link
+from align_data.sources.arbital.arbital import Arbital, extract_text, flatten, parse_arbital_link
 
 
 @pytest.mark.parametrize('contents, expected', (

@@ -4,11 +4,11 @@ import pytest
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
-from align_data.blogs import (
+from align_data.sources.blogs import (
     CaradoMoe, ColdTakes, GenerativeInk, GwernBlog, MediumBlog, SubstackBlog, WordpressBlog,
     OpenAIResearch, DeepMindTechnicalBlog
 )
-from align_data.blogs.blogs import EleutherAI
+from align_data.sources.blogs.blogs import EleutherAI
 
 
 SAMPLE_HTML = """
