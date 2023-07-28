@@ -1,15 +1,14 @@
 from dataclasses import dataclass
 import os
+from datetime import timezone
+
 import pypandoc
 import epub_meta
-from align_data.common.alignment_dataset import GdocDataset
-from path import Path
-
-from datetime import datetime, timezone
+from path import Path #TODO: replace with pathlib
 from dateutil.parser import parse
 
-import logging
-logger = logging.getLogger(__name__)
+from align_data.common.alignment_dataset import GdocDataset
+from logger_config import logger
 
 @dataclass
 class GDrive(GdocDataset):

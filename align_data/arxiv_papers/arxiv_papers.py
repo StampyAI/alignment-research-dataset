@@ -1,18 +1,14 @@
-import arxiv
-import requests
-import logging
-import time
-import jsonlines
+from dataclasses import dataclass
 
 import pandas as pd
-
-from dataclasses import dataclass
+import arxiv
+import requests
 from markdownify import markdownify
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from align_data.common.alignment_dataset import AlignmentDataset
 
-logger = logging.getLogger(__name__)
+from align_data.common.alignment_dataset import AlignmentDataset
+from logger_config import logger
 
 
 @dataclass

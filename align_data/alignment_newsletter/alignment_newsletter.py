@@ -1,12 +1,11 @@
 # %%
-import logging
 from datetime import datetime, timezone
+from dataclasses import dataclass
+
 import pandas as pd
 
-from dataclasses import dataclass
 from align_data.common.alignment_dataset import AlignmentDataset
-
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 @dataclass

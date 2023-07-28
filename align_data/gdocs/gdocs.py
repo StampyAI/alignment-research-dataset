@@ -1,14 +1,15 @@
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import GdocDataset
-import logging
-import pypandoc
-from path import Path
 import os
-import docx
 from datetime import datetime, timezone
-from dateutil.parser import parse
 
-logger = logging.getLogger(__name__)
+import docx
+from dateutil.parser import parse
+from path import Path #TODO: replace with pathlib
+import pypandoc
+
+from logger_config import logger
+from align_data.common.alignment_dataset import GdocDataset
+
 
 @dataclass
 class Gdocs(GdocDataset):

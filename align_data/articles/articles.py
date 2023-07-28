@@ -1,5 +1,4 @@
 import io
-import logging
 
 from tqdm import tqdm
 
@@ -7,9 +6,7 @@ from align_data.articles.google_cloud import iterate_rows, get_spreadsheet, get_
 from align_data.articles.parsers import item_metadata, fetch
 from align_data.articles.indices import fetch_all
 from align_data.settings import PDFS_FOLDER_ID
-
-
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 # Careful changing these - the sheets assume this ordering
@@ -110,6 +107,9 @@ def check_new_articles(source_spreadsheet, source_sheet):
     """Goes through the special indices looking for unseen articles."""
     source_sheet = get_sheet(source_spreadsheet, source_sheet)
     current = {row.get('title'): row for row in iterate_rows(source_sheet)}
+    logger.info('Found %s articles in the sheet', len(current))
+
+    # get all the urls from the sheet, including 'url' and 'source_url' fields
     seen_urls = {url for item in current.values() for url in [item.get('url'), item.get('source_url')] if url}
 
     indices_items = fetch_all()

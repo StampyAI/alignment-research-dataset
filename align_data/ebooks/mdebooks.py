@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 import re
-from align_data.common.alignment_dataset import GdocDataset
-import logging
 from datetime import datetime, timezone
 
-logger = logging.getLogger(__name__)
+from align_data.common.alignment_dataset import GdocDataset
+from logger_config import logger
+
 
 @dataclass
 class MDEBooks(GdocDataset):

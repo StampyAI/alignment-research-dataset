@@ -1,11 +1,13 @@
 import re
 from collections import defaultdict
 
-from align_data.articles.html import fetch, fetch_element
-from align_data.common.alignment_dataset import AlignmentDataset
 from dateutil.parser import ParserError, parse
 from markdownify import MarkdownConverter
 from tqdm import tqdm
+
+from align_data.articles.html import fetch, fetch_element
+from align_data.common.alignment_dataset import AlignmentDataset
+from logger_config import logger
 
 
 def get_text(tag, selector: str) -> str:
@@ -23,12 +25,15 @@ def indice_fetcher(url, main_selector, item_selector, formatter):
 
 
 def reading_what_we_can_items():
+    # We fetch the books.js page of readingwhatwecan. It has 4 sections: first_entry, ml, ais, and scifi, which contain a dozen items (books, stories, papers) each.
     res = fetch('https://readingwhatwecan.com/books.js')
     items = {
         item
         for section in re.findall(r'\[(.*?)\]', res.text, re.DOTALL)
         for item in re.findall(r'Name: "(.*?)",.*?Link: "(.*?)",.*?Author: "(.*?)"', section, re.DOTALL)
     }
+    logger.info('Found %s items in readingwhatwecan books', len(items))
+    logger.info('First item: %s', items[0])
     return [{
         'title': item[0],
         'url': item[1],
@@ -189,6 +194,7 @@ def fetch_all():
 
     articles = defaultdict(dict)
     for func in tqdm(fetchers):
+        logger.info(f"Processing function: {func.__name__}")
         for item in func():
             articles[item['title']].update(item)
     return articles

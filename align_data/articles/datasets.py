@@ -1,20 +1,16 @@
-import time
-import logging
 from dataclasses import dataclass
-from dateutil.parser import parse
 from urllib.parse import urlparse
 
-import requests
+from dateutil.parser import parse
 import pypandoc
 import pandas as pd
 from gdown.download import download
 from markdownify import markdownify
 
-from align_data.articles.pdf import fetch_pdf, read_pdf, fetch
+from align_data.articles.pdf import read_pdf
 from align_data.articles.parsers import HTML_PARSERS, extract_gdrive_contents
 from align_data.common.alignment_dataset import AlignmentDataset
-
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 @dataclass

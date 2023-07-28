@@ -1,16 +1,15 @@
-import logging
 from urllib.parse import urlparse
 from typing import Dict
+import re
 
 import grobid_tei_xml
-import regex as re
-from align_data.articles.html import element_extractor, fetch, fetch_element
-from align_data.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf
 from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
 
-logger = logging.getLogger(__name__)
+from align_data.articles.html import element_extractor, fetch, fetch_element
+from align_data.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf
+from logger_config import logger
 
 
 def google_doc(url: str) -> str:

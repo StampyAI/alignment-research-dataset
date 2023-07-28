@@ -1,19 +1,18 @@
-import regex as re
-import logging
 from datetime import datetime
-from dateutil.parser import parse
 from dataclasses import dataclass, field, KW_ONLY
 from urllib.parse import urljoin
 from typing import List
+import re
 
+from dateutil.parser import parse
 import requests
 import feedparser
 from bs4 import BeautifulSoup
 from markdownify import markdownify
 
 from align_data.common.alignment_dataset import AlignmentDataset
+from logger_config import logger
 
-logger = logging.getLogger(__name__)
 
 @dataclass
 class HTMLDataset(AlignmentDataset):
@@ -92,7 +91,7 @@ class HTMLDataset(AlignmentDataset):
 
     def _find_date(self, items):
         for i in items:
-            if re.match('\w+ \d{1,2}, \d{4}', i.text):
+            if re.match(r'\w+ \d{1,2}, \d{4}', i.text):
                 return self._format_datetime(datetime.strptime(i.text, '%b %d, %Y'))
 
     def _extract_markdown(self, element):

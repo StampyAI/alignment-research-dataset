@@ -1,17 +1,15 @@
 import io
-import logging
 from dataclasses import dataclass
-from dateutil.parser import parse
 from urllib.parse import urlparse, urljoin
 
+from dateutil.parser import parse
 import requests
 import pandas as pd
-from PyPDF2 import PdfReader
-from PyPDF2.errors import PdfReadError
+from PyPDF2 import PdfReader # TODO: replace with pypdf
+from PyPDF2.errors import PdfReadError # TODO: replace with pypdf
 
 from align_data.articles.html import fetch, fetch_element
-
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 def sci_hub_pdf(identifier):

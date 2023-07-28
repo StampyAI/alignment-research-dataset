@@ -1,15 +1,15 @@
 #%%
 from dataclasses import dataclass
+
 import jsonlines
 from tqdm import tqdm
-import logging
-from path import Path
-
+from path import Path #todo: replace with pathlib
 import pylab as plt
 # import seaborn as sns
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from logger_config import logger
+
 
 @dataclass
 class PostProcesser:

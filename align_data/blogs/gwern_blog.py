@@ -1,12 +1,10 @@
-import requests
-import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+
+import requests
 from dateutil.parser import parse
 
 from align_data.common.html_dataset import HTMLDataset
-
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 @dataclass

@@ -1,4 +1,3 @@
-import logging
 import time
 from collections import UserDict
 
@@ -7,7 +6,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 SCOPES = [
@@ -15,10 +14,9 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive'
 ]
 
-
 OK = 'ok'
-OUTPUT_SPREADSHEET_ID = '1bg-6vL-I82CBRkxvWQs1-Ao0nTvHyfn4yns5MdlbCmY'
-sheet_name = 'Sheet1'
+OUTPUT_SPREADSHEET_ID = '1bg-6vL-I82CBRkxvWQs1-Ao0nTvHyfn4yns5MdlbCmY' #TODO: remove this?
+sheet_name = 'Sheet1' #TODO: remove this?
 
 
 def get_credentials(credentials_file='credentials.json'):

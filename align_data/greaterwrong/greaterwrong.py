@@ -1,19 +1,16 @@
 from datetime import datetime, timezone
-from dateutil.parser import parse
-import logging
 import time
 from dataclasses import dataclass
-from pathlib import Path
 
 import requests
 import jsonlines
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from markdownify import markdownify
+from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset
-
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 def fetch_LW_tags(url):

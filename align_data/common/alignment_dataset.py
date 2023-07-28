@@ -1,5 +1,4 @@
 import hashlib
-import logging
 import time
 import zipfile
 from collections import UserDict
@@ -15,6 +14,9 @@ import pytz
 from dateutil.parser import parse, ParserError
 from tqdm import tqdm
 
+from logger_config import logger
+
+
 INIT_DICT = {
     "source": None,
     "id": None,
@@ -25,8 +27,6 @@ INIT_DICT = {
     "summary": lambda: [],
     "authors": lambda: [],
 }
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

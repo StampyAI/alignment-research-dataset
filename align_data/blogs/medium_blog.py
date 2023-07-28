@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-import logging
-from datetime import datetime, timezone
-from align_data.common.html_dataset import HTMLDataset
 
-logger = logging.getLogger(__name__)
+from align_data.common.html_dataset import HTMLDataset
+from logger_config import logger
+
 
 @dataclass
 class MediumBlog(HTMLDataset):

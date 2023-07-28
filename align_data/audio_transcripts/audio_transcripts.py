@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import GdocDataset
-import logging
 import re
 from datetime import datetime, timezone
 
-logger = logging.getLogger(__name__)
+from align_data.common.alignment_dataset import GdocDataset
+from logger_config import logger
 
 @dataclass
 class AudioTranscripts(GdocDataset):
@@ -35,19 +34,19 @@ class AudioTranscripts(GdocDataset):
             person = firstline.split(' on ')[0]
             return [person, 'Jeremie Harris']
         # e.g. 'Markus Anderljung and Ben Garfinkel Fireside chat on AI governance - EA Forum'
-        if re.search('[^)] - EA Forum$', firstline):
-            return re.findall("(?:^|(?:and ))([A-Z]\w+ (?:\w+')?[A-Z]\w+)", firstline)
+        if re.search(r'[^)] - EA Forum$', firstline):
+            return re.findall(r"(?:^|(?:and ))([A-Z]\w+ (?:\w+')?[A-Z]\w+)", firstline)
         # e.g. 'The AI revolution and international politics (Allan Dafoe) - EA Forum'
-        if res := re.search('\((.*?)\) - EA Forum$', firstline):
+        if res := re.search(r'\((.*?)\) - EA Forum$', firstline):
             return [res.group(1)]
         # e.g. 'Iason Gabriel on Foundational Philosophical Questions in AI Alignment - Future of Life Institute'
-        if re.search('^([A-Z]\w+ )+[oO]n', firstline):
-            return [re.search('^(.*?) [oO]n', firstline).group(1)]
+        if re.search(r'^([A-Z]\w+ )+[oO]n', firstline):
+            return [re.search(r'^(.*?) [oO]n', firstline).group(1)]
         # e.g. 'AGI Safety and Alignment with Robert Miles on the Machine Ethics Podcast'
-        if res := re.search(' with (.*?) [oO]n', firstline):
+        if res := re.search(r' with (.*?) [oO]n', firstline):
             return [res.group((1))]
         # e.g. 'Rohin Shah: What\xe2\x80\x99s been happening in AI alignment?'
-        if res := re.search('^(.*?):', firstline):
+        if res := re.search(r'^(.*?):', firstline):
             return [res.group(1)]
         return []
     

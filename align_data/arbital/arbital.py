@@ -1,13 +1,12 @@
 import re
-import logging
-import requests
+from dataclasses import dataclass
 from datetime import datetime, timezone
+
+import requests
 from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset
-from dataclasses import dataclass
-
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 def parse_arbital_link(contents):
@@ -85,8 +84,9 @@ def markdownify_text(current, view):
 
 
 def extract_text(text):
-    parts = [i for i in re.split('([\[\]()])', text) if i]
+    parts = [i for i in re.split(r'([\[\]()])', text) if i]
     return markdownify_text([], zip(parts, parts[1:] + [None]))
+
 
 @dataclass
 class Arbital(AlignmentDataset):
@@ -137,13 +137,20 @@ class Arbital(AlignmentDataset):
         except Exception as e:
             logger.error(f"Error getting page {alias}: {e}")
         return None
+    
+    def send_post_request(self, url, data, referer):
+        headers = self.headers.copy()
+        headers['referer'] = referer
+        data = f'{{"pageAlias":"{data}"}}'
+        return requests.post(url, headers=headers, data=data)
 
     def get_arbital_page_aliases(self, subspace):
-        headers = self.headers.copy()
-        headers['referer'] = f'https://arbital.com/explore/{subspace}/'
-        data = f'{{"pageAlias":"{subspace}"}}'
-        response = requests.post('https://arbital.com/json/explore/', headers=headers, data=data).json()
-        return list(response['pages'].keys())
+        response = self.send_post_request(url='https://arbital.com/json/explore/', data=subspace, referer=f'https://arbital.com/explore/{subspace}/')
+        return list(response.json()['pages'].keys())
+    
+    def get_page(self, alias):
+        response = self.send_post_request(url='https://arbital.com/json/primaryPage/', data=alias, referer='https://arbital.com/')
+        return response.json()['pages'][alias]
 
     @staticmethod
     def _get_published_date(page):
@@ -152,13 +159,6 @@ class Arbital(AlignmentDataset):
             dt = parse(date_published).astimezone(timezone.utc)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         return ''
-
-    def get_page(self, alias):
-        headers = self.headers.copy()
-        headers['referer'] = 'https://arbital.com/'
-        data = f'{{"pageAlias":"{alias}"}}'
-        response = requests.post('https://arbital.com/json/primaryPage/', headers=headers, data=data)
-        return response.json()['pages'][alias]
 
     def get_title(self, itemId):
         if title := self.titles_map.get(itemId):

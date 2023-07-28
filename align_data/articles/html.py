@@ -1,11 +1,10 @@
-import logging
 from typing import Union
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from markdownify import MarkdownConverter
 
-logger = logging.getLogger(__name__)
+from logger_config import logger
 
 
 DEFAULT_HEADERS = {

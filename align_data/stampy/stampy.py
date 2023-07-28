@@ -1,17 +1,13 @@
 import sys
 import re
-import logging
 from dataclasses import dataclass
+
 from codaio import Coda, Document
-from datetime import timezone
-from dateutil.parser import parse
+import html
 
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
-
-logger = logging.getLogger(__name__)
-
-import html
+from logger_config import logger
 
 
 @dataclass

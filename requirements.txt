@@ -27,3 +27,8 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 gspread
+python-dateutil
+bs4
+regex
+pytz
+epub_meta

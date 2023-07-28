@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from markdownify import markdownify
+
 from align_data.common.html_dataset import RSSDataset
 
 
