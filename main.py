@@ -1,4 +1,3 @@
-import logging
 import os
 from collections import defaultdict
 from dataclasses import dataclass
@@ -13,10 +12,7 @@ from align_data.articles.articles import update_new_items, check_new_articles
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_SOURCE_SPREADSHEET
 )
-
-
-logger = logging.getLogger(__name__)
-
+from logger_config import logger
 
 def add_summaries(summaries, dataset):
     for line in dataset.read_entries():
