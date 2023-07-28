@@ -60,9 +60,10 @@ def test_pdf_articles_get_text():
     dataset = PDFArticles(name='bla', spreadsheet_id='123', sheet_id='456')
     item = Mock(file_id='23423', title='bla bla bla')
 
-    def check_downloads(filename, id):
-        assert filename == str(dataset.files_path / 'bla bla bla.pdf')
-        assert id == '23423'
+    def check_downloads(url, output, quiet):
+        assert url == f'https://drive.google.com/uc?id=23423'
+        assert output == str(dataset.files_path / 'bla bla bla.pdf')
+        assert quiet == True
 
     def read_pdf(filename):
         assert filename == dataset.files_path / 'bla bla bla.pdf'
