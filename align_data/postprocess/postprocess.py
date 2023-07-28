@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 import jsonlines
 from tqdm import tqdm
-from path import Path #todo: replace with pathlib
+from path import Path #TODO: replace with pathlib
 import pylab as plt
-# import seaborn as sns
+# import seaborn as sns #TODO: install seaborn or fix this file
 import pandas as pd
 
 from logger_config import logger
