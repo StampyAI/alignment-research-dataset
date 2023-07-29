@@ -61,6 +61,8 @@ class AlignmentDataset:
 
     lazy_eval = False
     """Whether to lazy fetch items. This is nice in that it will start processing, but messes up the progress bar."""
+    batch_size = 20
+    """The number of items to collect before flushing to the database."""
 
     # Internal housekeeping variables
     _entry_idx = 0
@@ -125,8 +127,9 @@ class AlignmentDataset:
                 session.rollback()
 
         with make_session() as session:
-            while batch := tuple(islice(entries, 20)):
-                session.add_all(entries)
+            items = iter(entries)
+            while batch := tuple(islice(items, self.batch_size)):
+                session.add_all(batch)
                 # there might be duplicates in the batch, so if they cause
                 # an exception, try to commit them one by one
                 if not commit():
@@ -159,7 +162,7 @@ class AlignmentDataset:
             if hasattr(Article, self.done_key):
                 return set(session.scalars(select(getattr(Article, self.done_key)).where(Article.source==self.name)).all())
             # TODO: Properly handle this - it should create a proper SQL JSON select
-            return {getattr(item, self.done_key) for item in session.scalars(select(Article.meta).where(Article.source==self.name)).all()}
+            return {item.get(self.done_key) for item in session.scalars(select(Article.meta).where(Article.source==self.name)).all()}
 
     def unprocessed_items(self, items=None):
         """Return a list of all items to be processed.
