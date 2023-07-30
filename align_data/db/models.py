@@ -48,7 +48,7 @@ class Article(Base):
     source_type: Mapped[Optional[str]] = mapped_column(String(128))
     authors: Mapped[str] = mapped_column(String(1024))
     text: Mapped[Optional[str]] = mapped_column(LONGTEXT)
-    confidence: Mapped[Optional[float]]  # Describes the confidence in how good this article is, as a value <0, 1>
+    confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Describes the confidence in how good this article is, as a value <0, 1>
     date_published: Mapped[Optional[datetime]]
     meta: Mapped[Optional[JSON]] = mapped_column(JSON, name='metadata', default='{}')
     date_created: Mapped[datetime] = mapped_column(DateTime, default=func.now())
