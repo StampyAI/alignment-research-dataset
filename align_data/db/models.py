@@ -1,8 +1,9 @@
+import json
 import pytz
 import hashlib
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import JSON, DateTime, ForeignKey, String, func, Text, event
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Boolean, func, Text, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
 
@@ -23,7 +24,20 @@ class Summary(Base):
     article: Mapped["Article"] = relationship(back_populates="summaries")
 
 
+class Pinecone(Base):
+
+    __tablename__ = "pinecones"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    article_id: Mapped[str] = mapped_column(ForeignKey("articles.id"))
+    update_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    delete_required: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    article: Mapped["Article"] = relationship("Article", back_populates="pinecone")
+
+
 class Article(Base):
+    
     __tablename__ = "articles"
 
     _id: Mapped[int] = mapped_column('id', primary_key=True)
@@ -41,6 +55,7 @@ class Article(Base):
     date_updated: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.current_timestamp())
 
     summaries: Mapped[List["Summary"]] = relationship(back_populates="article", cascade="all, delete-orphan")
+    pinecone: Mapped["Pinecone"] = relationship("Pinecone", uselist=False, back_populates="article")
 
     __id_fields = ['title', 'url']
 
@@ -78,6 +93,7 @@ class Article(Base):
     def to_dict(self):
         if date := self.date_published:
             date = date.replace(tzinfo=pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        meta = json.loads(self.meta) if isinstance(self.meta, str) else self.meta
         return {
             'id': self.id,
             'title': self.title,
@@ -88,7 +104,7 @@ class Article(Base):
             'date_published': date,
             'authors': [i.strip() for i in self.authors.split(',')] if self.authors.strip() else [],
             'summaries': [s.text for s in self.summaries],
-            **self.meta,
+            **meta,
         }
 
 
