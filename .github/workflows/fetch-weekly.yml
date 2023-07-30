@@ -16,7 +16,6 @@ jobs:
           - alignment_newsletter
           - arbital
           - arxiv
-          - audio_transcripts
           - carado.moe
           - cold_takes
           - deepmind_blog
@@ -32,7 +31,7 @@ jobs:
           - html_articles
           - importai
           - jsteinhardt_blog
-          - markdown.ebooks
+          - markdown
           - miri
           - ml_safety_newsletter
           - nonarxiv_papers
