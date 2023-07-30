@@ -3,7 +3,7 @@ import pytz
 import hashlib
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Boolean, func, Text, event
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Boolean, Text, Float, func, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
 
@@ -26,7 +26,7 @@ class Summary(Base):
 
 class Pinecone(Base):
 
-    __tablename__ = "pinecones"
+    __tablename__ = "pinecone"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     article_id: Mapped[str] = mapped_column(ForeignKey("articles.id"))
