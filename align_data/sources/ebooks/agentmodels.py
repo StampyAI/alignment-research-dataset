@@ -14,9 +14,10 @@ class AgentModels(AlignmentDataset):
     """
 
     repo: str = 'https://github.com/agentmodels/agentmodels.org.git'
-    done_key = "title"
+    done_key = "filename"
 
     def setup(self):
+        super().setup()
         self.base_dir = self.raw_data_path / 'agentmodels.org'
         if not self.base_dir.exists() or not list(self.base_dir.glob('*')):
             logger.info("Cloning repo")
@@ -36,5 +37,6 @@ class AgentModels(AlignmentDataset):
             'date_published': self._get_published_date(filename),
             'title': 'Modeling Agents with Probabilistic Programs',
             'url': f'https://agentmodels.org/chapters/{filename.stem}.html',
+            'filename': filename.name,
             'text': filename.read_text(encoding='utf-8'),
         })

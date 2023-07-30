@@ -27,10 +27,8 @@ def data_entries():
 
 
 @pytest.fixture
-def dataset(tmp_path):
-    dataset = AlignmentDataset(name='blaa')
-    dataset.__post_init__(Path(tmp_path))
-    return dataset
+def dataset():
+    return AlignmentDataset(name='blaa')
 
 
 def test_data_entry_default_fields():
@@ -192,34 +190,8 @@ def test_data_entry_verify_fields_fails(data, error):
         entry.verify_fields()
 
 
-def test_alignment_dataset_default_values(dataset, tmp_path):
-    assert dataset.name == 'blaa'
-
-    # Make sure all data paths are correct
-    assert dataset.data_path.resolve() == tmp_path.resolve()
-    assert dataset.raw_data_path.resolve() == (tmp_path / 'raw').resolve()
-    assert dataset.files_path.resolve() == (tmp_path / 'raw' / dataset.name).resolve()
-
-    # Make sure the output files are correct
-    assert dataset.jsonl_path.resolve() == (tmp_path / f'{dataset.name}.jsonl').resolve()
-
-
-def test_alignment_dataset_file_list(dataset, tmp_path):
-    dataset.glob = '*.bla'
-    dataset.files_path = tmp_path
-
-    for i in range(5):
-        (Path(tmp_path) / f'test{i}.bla').touch()
-
-    for i in range(5, 10):
-        (Path(tmp_path) / f'test{i}.txt').touch()
-
-    files = [f.resolve() for f in dataset.items_list]
-    assert files == list(Path(tmp_path).glob('*bla'))
-
-
 @pytest.fixture
-def numbers_dataset(tmp_path):
+def numbers_dataset():
     """Make a dataset that raises its items to the power of 2."""
     @dataclass
     class NumbersDataset(AlignmentDataset):
@@ -245,9 +217,7 @@ def numbers_dataset(tmp_path):
                 'authors': [],
             })
 
-    dataset = NumbersDataset(name='numbers', nums=list(range(10)))
-    dataset.__post_init__(data_path=tmp_path)
-    return dataset
+    return NumbersDataset(name='numbers', nums=list(range(10)))
 
 
 def test_unprocessed_items_fresh(numbers_dataset):

@@ -69,9 +69,8 @@ def test_markdownify_text_summary(text, expected):
 
 
 @pytest.fixture
-def dataset(tmp_path):
+def dataset():
    dataset = Arbital(name='arbital')
-   dataset.__post_init__(tmp_path)
    dataset.titles_map = {}
 
    def post(url, *args, **kwargs):

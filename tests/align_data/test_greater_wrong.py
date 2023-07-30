@@ -40,9 +40,7 @@ def test_fetch_ea_forum_topics():
 
 @pytest.fixture
 def dataset(tmp_path):
-    dataset = GreaterWrong(name='bla', base_url='http://example.com', start_year=2013, min_karma=0, af=False)
-    dataset.__post_init__(tmp_path)
-    return dataset
+    return GreaterWrong(name='bla', base_url='http://example.com', start_year=2013, min_karma=0, af=False)
 
 
 @pytest.mark.parametrize('tags', (

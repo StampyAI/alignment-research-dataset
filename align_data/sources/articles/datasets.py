@@ -1,17 +1,15 @@
-import time
 import logging
 from dataclasses import dataclass
-from dateutil.parser import parse
 from urllib.parse import urlparse
 
-import requests
 import pypandoc
 import pandas as pd
 from gdown.download import download
 from markdownify import markdownify
 
-from align_data.sources.articles.pdf import fetch_pdf, read_pdf, fetch
+from align_data.sources.articles.pdf import read_pdf
 from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents
+from align_data.sources.articles.google_cloud import fetch_markdown
 from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
@@ -24,6 +22,13 @@ class SpreadsheetDataset(AlignmentDataset):
     sheet_id: str
     done_key = "title"
     source_filetype = None
+    batch_size = 1
+
+    @staticmethod
+    def is_val(val):
+        if pd.isna(val):
+            return None
+        return val
 
     @property
     def items_list(self):
@@ -40,6 +45,8 @@ class SpreadsheetDataset(AlignmentDataset):
 
     @staticmethod
     def extract_authors(item):
+        if not SpreadsheetDataset.is_val(item.authors):
+            return []
         return [author.strip() for author in item.authors.split(',') if author.strip()]
 
     def process_entry(self, item):
@@ -50,14 +57,14 @@ class SpreadsheetDataset(AlignmentDataset):
 
         return self.make_data_entry({
             'text': markdownify(text).strip(),
-            'url': item.url,
-            'title': item.title,
+            'url': self.is_val(item.url),
+            'title': self.is_val(item.title),
             'source': self.name,
-            'source_type': item.source_type,
+            'source_type': self.is_val(item.source_type),
             'source_filetype': self.source_filetype,
             'date_published': self._get_published_date(item.date_published),
             'authors': self.extract_authors(item),
-            'summary': None if pd.isna(item.summary) else item.summary,
+            'summary': self.is_val(item.summary),
         })
 
 
@@ -65,6 +72,7 @@ class PDFArticles(SpreadsheetDataset):
 
     source_filetype = 'pdf'
     COOLDOWN = 1
+    batch_size = 1
 
     def _get_text(self, item):
         url = f'https://drive.google.com/uc?id={item.file_id}'
@@ -89,6 +97,7 @@ class EbookArticles(SpreadsheetDataset):
 
     source_filetype = 'epub'
     COOLDOWN = 10 # Add a large cooldown, as google complains a lot
+    batch_size = 1
 
     def _get_text(self, item):
         file_id = item.source_url.split('/')[-2]
@@ -102,4 +111,14 @@ class XMLArticles(SpreadsheetDataset):
 
     def _get_text(self, item):
         vals = extract_gdrive_contents(item.source_url)
+        return vals['text']
+
+
+class MarkdownArticles(SpreadsheetDataset):
+
+    source_filetype = 'md'
+
+    def _get_text(self, item):
+        file_id = item.source_url.split('/')[-2]
+        vals = fetch_markdown(file_id)
         return vals['text']

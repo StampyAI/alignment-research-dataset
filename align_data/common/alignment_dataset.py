@@ -53,14 +53,13 @@ class AlignmentDataset:
     """The key of the entry containing the summary contents. This is used both to get the summary, but also where
     it should be put in the target entry."""
 
-    glob = '*.md'
-    """How to identify files to be processed when going through a folder for files"""
-
     COOLDOWN = 0
     """An optional cool down between processing entries"""
 
     lazy_eval = False
     """Whether to lazy fetch items. This is nice in that it will start processing, but messes up the progress bar."""
+    batch_size = 20
+    """The number of items to collect before flushing to the database."""
 
     # Internal housekeeping variables
     _entry_idx = 0
@@ -80,8 +79,6 @@ class AlignmentDataset:
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
-        # TODO: get rid of self.jsonl_path
-        self.jsonl_path = self.data_path / f"{self.name}.jsonl"
 
     def make_data_entry(self, data, **kwargs):
         data = dict(data, **kwargs)
@@ -102,10 +99,12 @@ class AlignmentDataset:
 
         if not filename:
             filename = f"{self.name}.jsonl"
+        filename = Path(out_path) / filename
 
-        with jsonlines.open(Path(out_path) / filename, 'w') as jsonl_writer:
+        with jsonlines.open(filename, 'w') as jsonl_writer:
             for article in self.read_entries():
                 jsonl_writer.write(article.to_dict())
+        return filename.resolve()
 
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
@@ -125,8 +124,9 @@ class AlignmentDataset:
                 session.rollback()
 
         with make_session() as session:
-            while batch := tuple(islice(entries, 20)):
-                session.add_all(entries)
+            items = iter(entries)
+            while batch := tuple(islice(items, self.batch_size)):
+                session.add_all(batch)
                 # there might be duplicates in the batch, so if they cause
                 # an exception, try to commit them one by one
                 if not commit():
@@ -136,15 +136,12 @@ class AlignmentDataset:
                             logger.error(f'found duplicate of {entry}')
 
     def setup(self):
-        # make sure the path to the raw data exists
-        self.files_path.mkdir(parents=True, exist_ok=True)
-
         self._outputted_items = self._load_outputted_items()
 
     @property
     def items_list(self):
         """Returns a generator of items to be processed."""
-        return self.files_path.glob(self.glob)
+        return []
 
     def get_item_key(self, item):
         """Get the identifier of the given `item` so it can be checked to see whether it's been output.
@@ -159,7 +156,7 @@ class AlignmentDataset:
             if hasattr(Article, self.done_key):
                 return set(session.scalars(select(getattr(Article, self.done_key)).where(Article.source==self.name)).all())
             # TODO: Properly handle this - it should create a proper SQL JSON select
-            return {getattr(item, self.done_key) for item in session.scalars(select(Article.meta).where(Article.source==self.name)).all()}
+            return {item.get(self.done_key) for item in session.scalars(select(Article.meta).where(Article.source==self.name)).all()}
 
     def unprocessed_items(self, items=None):
         """Return a list of all items to be processed.
@@ -215,6 +212,14 @@ class GdocDataset(AlignmentDataset):
 
     gdrive_address: str
     """The full URL to the gdrive file"""
+
+    glob = '*.md'
+    """How to identify files to be processed when going through a folder for files"""
+
+    @property
+    def items_list(self):
+        """Returns a generator of items to be processed."""
+        return self.files_path.glob(self.glob)
 
     @property
     def zip_file(self):
