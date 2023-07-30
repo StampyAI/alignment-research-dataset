@@ -1,7 +1,9 @@
 import logging
 import time
 from collections import UserDict
+from pathlib import Path
 
+import gdown
 import gspread
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -116,3 +118,17 @@ def with_retry(times=3):
             raise ValueError(f'Gave up after {times} tries')
         return retrier
     return wrapper
+
+
+def fetch_markdown(file_id):
+    data_path = Path('data/raw/')
+    data_path.mkdir(parents=True, exist_ok=True)
+    file_name = data_path / file_id
+    try:
+        file_name = gdown.download(id=file_id, output=str(file_name), quiet=False)
+        return {
+            'text': Path(file_name).read_text(),
+            'data_source': 'markdown',
+        }
+    except Exception as e:
+        return {'error': str(e)}

@@ -32,7 +32,6 @@ on:
           - alignmentforum
           - alignment_newsletter
           - arbital
-          - audio_transcripts
           - carado.moe
           - cold_takes
           - deepmind_blog
@@ -49,7 +48,7 @@ on:
           - importai
           - jsteinhardt_blog
           - lesswrong
-          - markdown.ebooks
+          - markdown
           - miri
           - ml_safety_newsletter
           - nonarxiv_papers

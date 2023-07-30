@@ -6,7 +6,6 @@ import align_data.sources.arxiv_papers as arxiv_papers
 import align_data.sources.reports as reports
 import align_data.sources.greaterwrong as greaterwrong
 import align_data.sources.stampy as stampy
-import align_data.sources.audio_transcripts as audio_transcripts
 import align_data.sources.alignment_newsletter as alignment_newsletter
 import align_data.sources.distill as distill
 import align_data.sources.gdocs as gdocs
@@ -20,7 +19,6 @@ DATASET_REGISTRY = (
     + reports.REPORT_REGISTRY
     + greaterwrong.GREATERWRONG_REGISTRY
     + stampy.STAMPY_REGISTRY
-    + audio_transcripts.AUDIO_TRANSCRIPTS_REGISTRY
     + distill.DISTILL_REGISTRY
     + alignment_newsletter.ALIGNMENT_NEWSLETTER_REGISTRY
     + gdocs.GDOCS_REGISTRY

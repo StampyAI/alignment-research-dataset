@@ -1,4 +1,6 @@
-from align_data.sources.articles.datasets import PDFArticles, HTMLArticles, EbookArticles, XMLArticles
+from align_data.sources.articles.datasets import (
+    PDFArticles, HTMLArticles, EbookArticles, XMLArticles, MarkdownArticles
+)
 
 ARTICLES_REGISTRY = [
     PDFArticles(
@@ -20,5 +22,10 @@ ARTICLES_REGISTRY = [
         name='nonarxiv_papers',
         spreadsheet_id='1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4',
         sheet_id='823056509'
+    ),
+    MarkdownArticles(
+        name='markdown',
+        spreadsheet_id='1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4',
+        sheet_id='1003473759'
     ),
 ]

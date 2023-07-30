@@ -6,9 +6,9 @@ import grobid_tei_xml
 import regex as re
 from align_data.sources.articles.html import element_extractor, fetch, fetch_element
 from align_data.sources.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf
+from align_data.sources.articles.google_cloud import fetch_markdown
 from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
-from markdownify import MarkdownConverter
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +68,11 @@ def extract_gdrive_contents(link):
     file_id = link.split('/')[-2]
     url = f'https://drive.google.com/uc?id={file_id}'
     res = fetch(url, 'head')
+    if res.status_code == 403:
+        logger.error('Could not fetch the file at %s - 403 returned', link)
+        return {'error': 'Could not read file from google drive - forbidden'}
     if res.status_code >= 400:
-        logger.error('Could not fetch the pdf file at %s - are you sure that link is correct?', link)
+        logger.error('Could not fetch the file at %s - are you sure that link is correct?', link)
         return {'error': 'Could not read file from google drive'}
 
     result = {
@@ -82,6 +85,8 @@ def extract_gdrive_contents(link):
         result['error'] = 'no content type'
     elif content_type & {'application/octet-stream', 'application/pdf'}:
         result.update(fetch_pdf(url))
+    elif content_type & {'text/markdown'}:
+        result.update(fetch_markdown(file_id))
     elif content_type & {'application/epub+zip', 'application/epub'}:
         result['data_source'] = 'ebook'
     elif content_type & {'text/html'}:
