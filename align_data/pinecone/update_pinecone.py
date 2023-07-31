@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class ARDUpdater:
+class PineconeUpdater:
     def __init__(
         self, 
         min_chunk_size: int = ParagraphSentenceUnitTextSplitter.DEFAULT_MIN_CHUNK_SIZE,
