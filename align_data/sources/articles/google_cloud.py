@@ -120,12 +120,16 @@ def with_retry(times=3):
     return wrapper
 
 
-def fetch_markdown(file_id):
+def fetch_file(file_id):
     data_path = Path('data/raw/')
     data_path.mkdir(parents=True, exist_ok=True)
     file_name = data_path / file_id
+    return gdown.download(id=file_id, output=str(file_name), quiet=False)
+
+
+def fetch_markdown(file_id):
     try:
-        file_name = gdown.download(id=file_id, output=str(file_name), quiet=False)
+        file_name = fetch_file(file_id)
         return {
             'text': Path(file_name).read_text(),
             'data_source': 'markdown',

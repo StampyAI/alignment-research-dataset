@@ -140,7 +140,7 @@ class AlignmentDataset:
 
     @property
     def items_list(self):
-        """Returns a generator of items to be processed."""
+        """Returns a collection of items to be processed."""
         return []
 
     def get_item_key(self, item):
