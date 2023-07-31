@@ -32,6 +32,12 @@ class SpreadsheetDataset(AlignmentDataset):
             return None
         return val
 
+    @staticmethod
+    def is_val(val):
+        if pd.isna(val):
+            return None
+        return val
+
     @property
     def items_list(self):
         logger.info(f'Fetching https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=CS&gid={self.sheet_id}')

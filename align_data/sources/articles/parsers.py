@@ -5,7 +5,7 @@ from typing import Dict
 import grobid_tei_xml
 import regex as re
 from align_data.sources.articles.html import element_extractor, fetch, fetch_element
-from align_data.sources.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf
+from align_data.sources.articles.pdf import doi_getter, fetch_pdf, get_pdf_from_page, get_arxiv_pdf, parse_vanity
 from align_data.sources.articles.google_cloud import fetch_markdown
 from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
@@ -154,6 +154,8 @@ UNIMPLEMENTED_PARSERS = {
 HTML_PARSERS = {
     'academic.oup.com': element_extractor('#ContentTab'),
     'ai.googleblog.com': element_extractor('div.post-body.entry-content'),
+    'arxiv-vanity.com': parse_vanity,
+    'ar5iv.labs.arxiv.org': parse_vanity,
     'bair.berkeley.edu': element_extractor('article'),
     'mediangroup.org': element_extractor('div.entry-content'),
     'www.alexirpan.com': element_extractor('article'),
