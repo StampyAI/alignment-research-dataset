@@ -154,9 +154,12 @@ class AlignmentDataset:
         """Load the output file (if it exists) in order to know which items have already been output."""
         with make_session() as session:
             if hasattr(Article, self.done_key):
-                return set(session.scalars(select(getattr(Article, self.done_key)).where(Article.source==self.name)).all())
+                # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
+                # duplicates. The bad thing is that this could potentially return a massive amount of data if there
+                # are lots of items.
+                return set(session.scalars(select(getattr(Article, self.done_key))).all())
             # TODO: Properly handle this - it should create a proper SQL JSON select
-            return {item.get(self.done_key) for item in session.scalars(select(Article.meta).where(Article.source==self.name)).all()}
+            return {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
 
     def unprocessed_items(self, items=None):
         """Return a list of all items to be processed.

@@ -14,6 +14,11 @@ on:
           - aipulse
           - aisafety.camp
           - aisafety.info
+          - ai_alignment_playlist
+          - ai_explained
+          - ai_safety_talks
+          - ai_safety_reading_group
+          - ai_tech_tu_delft
           - alignmentforum
           - alignment_newsletter
           - arbital
@@ -42,6 +47,7 @@ on:
           - openai.research
           - pdfs
           - reports
+          - rob_miles_ai_safety
           - vkrakovna_blog
           - yudkowsky_blog
 
@@ -64,6 +70,7 @@ jobs:
     - name: Generate dataset file
       env:
         CODA_TOKEN: ${{ secrets.CODA_TOKEN }}
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
         ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
         ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
