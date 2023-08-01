@@ -11,7 +11,6 @@ jobs:
         datasource:
           - agentmodels
           - aiimpacts
-          - aipulse
           - aisafety.camp
           - ai_alignment_playlist
           - ai_explained
@@ -30,7 +29,6 @@ jobs:
           - ebooks
           - eleuther.ai
           - gdocs
-          - gdrive_ebooks
           - generative.ink
           - gwern_blog
           - html_articles

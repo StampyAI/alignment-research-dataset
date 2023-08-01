@@ -20,8 +20,8 @@ The following list of sources may change and items may be renamed:
 - [deepmind_blog](https://deepmindsafetyresearch.medium.com/)
 - [distill](https://distill.pub/)
 - [eaforum](https://forum.effectivealtruism.org/) - selected posts
+- ebooks - books include [Superintelligence](https://www.goodreads.com/book/show/20527133-superintelligence), [Human Compatible](https://www.goodreads.com/book/show/44767248-human-compatible), [Life 3.0](https://www.goodreads.com/book/show/34272565-life-3-0), [The Precipice](https://www.goodreads.com/book/show/50485582-the-precipice), and others
 - gdocs
-- gdrive_ebooks - books include [Superintelligence](https://www.goodreads.com/book/show/20527133-superintelligence), [Human Compatible](https://www.goodreads.com/book/show/44767248-human-compatible), [Life 3.0](https://www.goodreads.com/book/show/34272565-life-3-0), [The Precipice](https://www.goodreads.com/book/show/50485582-the-precipice), and others
 - [generative.ink](https://generative.ink/posts/)
 - [gwern_blog](https://gwern.net/)
 - [import.ai](https://importai.substack.com)

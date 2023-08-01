@@ -11,7 +11,6 @@ on:
           - all
           - agentmodels
           - aiimpacts
-          - aipulse
           - aisafety.camp
           - aisafety.info
           - ai_alignment_playlist
@@ -32,7 +31,6 @@ on:
           - ebooks
           - eleuther.ai
           - gdocs
-          - gdrive_ebooks
           - generative.ink
           - gwern_blog
           - html_articles
