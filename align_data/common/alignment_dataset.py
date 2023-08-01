@@ -180,14 +180,14 @@ class AlignmentDataset:
     def fetch_entries(self):
         """Get all entries to be written to the file."""
         for item in self.unprocessed_items():
-             entry = self.process_entry(item)
-             if not entry:
-                 continue
+            entry = self.process_entry(item)
+            if not entry:
+                continue
 
-             yield entry
+            yield entry
 
-             if self.COOLDOWN:
-                 time.sleep(self.COOLDOWN)
+            if self.COOLDOWN:
+                time.sleep(self.COOLDOWN)
 
     def process_entry(self, entry):
         """Process a single entry."""
