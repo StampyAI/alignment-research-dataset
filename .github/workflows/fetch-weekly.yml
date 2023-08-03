@@ -41,7 +41,6 @@ jobs:
           - qualiacomputing
           - openai.research
           - pdfs
-          - reports
           - rob_miles_ai_safety
           - vkrakovna_blog
           - yudkowsky_blog
