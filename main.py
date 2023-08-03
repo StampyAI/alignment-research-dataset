@@ -62,10 +62,9 @@ class AlignmentDataset:
 
         :param List[str] names: The names of the datasets to generate
         """
-        allowed = [name for name in ALL_DATASETS if name not in ['ebooks']]
         if names == ('all',):
-            names = allowed
-        missing = {name for name in names if name not in allowed}
+            names = ALL_DATASETS
+        missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
             dataset = get_dataset(name)
