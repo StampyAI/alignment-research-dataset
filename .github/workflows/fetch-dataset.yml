@@ -39,6 +39,7 @@ on:
           - alignmentforum
           - alignment_newsletter
           - arbital
+          - arxiv
           - carado.moe
           - cold_takes
           - deepmind_blog
@@ -88,7 +89,7 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Generate dataset file
+    - name: Process dataset
       env:
         CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
         YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}

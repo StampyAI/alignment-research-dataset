@@ -19,7 +19,6 @@ on:
           - ai_safety_reading_group
           - ai_tech_tu_delft
           - alignmentforum
-          - alignment_newsletter
           - arbital
           - arxiv
           - carado.moe
@@ -28,7 +27,6 @@ on:
           - deepmind_technical_blog
           - distill
           - eaforum
-          - ebooks
           - eleuther.ai
           - gdocs
           - generative.ink
