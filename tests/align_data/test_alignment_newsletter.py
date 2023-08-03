@@ -19,14 +19,14 @@ def test_xlsx_file_loaded(dataset):
 def test_get_item_key(dataset):
     items = list(dataset.items_list)
 
-    assert dataset.get_item_key(items[0]) == 'Adversarial Examples Are Not Bugs, They Are Features'
+    assert dataset.get_item_key(items[0]) == 'http://gradientscience.org/adv/'
 
 
 def test_process_entry_no_summary(dataset):
     items = pd.DataFrame([
-        {'Title': 'An item without a summary field'},
-        {'Title': 'An item with a None summary field', 'Summary': None},
-        {'Title': 'An item with an invalid summary field', 'Summary': pd.NA},
+        {'Url': 'http://bla.bla/3', 'Title': 'An item without a summary field'},
+        {'Url': 'http://bla.bla/2', 'Title': 'An item with a None summary field', 'Summary': None},
+        {'Url': 'http://bla.bla/1', 'Title': 'An item with an invalid summary field', 'Summary': pd.NA},
     ])
     for item in items.itertuples():
         assert dataset.process_entry(item) is None
@@ -68,8 +68,7 @@ def test_process_entry(dataset):
         'source': 'text',
         'source_type': 'google-sheets',
         'summarizer': 'Rohin',
-        'summaries': [],
-        'text': (
+        'summaries': [(
             '_Distill published a discussion of this paper. This highlights '
             'section will cover the full discussion; all of these summaries and '
             'opinions are meant to be read together._\n'
@@ -114,8 +113,9 @@ def test_process_entry(dataset):
             'chosen to be y + 1. For both datasets, if you train a new model on '
             'the dataset, you get good performance **on the original test set**, '
             'showing that the "non-robust features" do generalize.'
-        ),
+        )],
         'title': 'Adversarial Examples Are Not Bugs, They Are Features',
         'url': 'http://gradientscience.org/adv/',
         'venue': 'arXiv',
+        'text': None,
 }

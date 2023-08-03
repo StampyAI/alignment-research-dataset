@@ -80,7 +80,7 @@ jobs:
 
     - name: Install Pandoc
       run: |
-        if [ "${{ inputs.datasource }}" = gdocs" ]; then
+        if [ "${{ inputs.datasource }}" = "gdocs" ]; then
           sudo apt-get update
           sudo apt-get -y install pandoc
         fi
