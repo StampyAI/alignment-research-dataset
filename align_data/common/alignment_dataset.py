@@ -8,7 +8,6 @@ from typing import List
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-import gdown
 import jsonlines
 import pytz
 from dateutil.parser import parse, ParserError
@@ -207,54 +206,3 @@ class AlignmentDataset:
         except ParserError:
             pass
         return None
-
-
-@dataclass
-class GdocDataset(AlignmentDataset):
-    """A base Dataset handler for files that are saved on Gdrive,"""
-
-    gdrive_address: str
-    """The full URL to the gdrive file"""
-
-    glob = '*.md'
-    """How to identify files to be processed when going through a folder for files"""
-
-    @property
-    def items_list(self):
-        """Returns a generator of items to be processed."""
-        return self.files_path.glob(self.glob)
-
-    @property
-    def zip_file(self):
-        """The name of the downloaded data, if a zip file."""
-        return self.raw_data_path / f"{self.name}.zip"
-
-    def zip_from_gdrive(self, url=None, filename=None, path=None):
-        """Fetch the data a zip file from Gdrive.
-
-        :param str url: the url to the file. Will use `self.gdrive_address` if empty
-        :param str filename: the name of the zip file. Will use `self.zip_file` if empty
-        :param str path: the path where the zip file should be extracted to. Will use `self.files_path` if empty
-        """
-        filename = filename or self.zip_file
-
-        with open(filename, 'wb') as output:
-            gdown.download(url=url or self.gdrive_address,
-                           output=output,
-                           quiet=False)
-
-        logger.info("Unzipping")
-        with zipfile.ZipFile(filename, 'r') as zip_ref:
-            zip_ref.extractall(path or self.files_path)
-
-    def folder_from_gdrive(self, url=None, output=None):
-        """Download a folder from gdrive.
-
-        :param str url: the url to the file. Will use `self.gdrive_address` if empty
-        :param str output: the path where the folder should be downloaded to. Will use `self.files_path` if empty
-        """
-        gdown.download_folder(
-            url=url or self.gdrive_address,
-            output=str(output or self.files_path),
-            quiet=False
-        )
