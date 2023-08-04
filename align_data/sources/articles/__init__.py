@@ -1,6 +1,7 @@
 from align_data.sources.articles.datasets import (
     EbookArticles, DocArticles, HTMLArticles, MarkdownArticles, PDFArticles, SpecialDocs, XMLArticles
 )
+from align_data.sources.articles.indices import IndicesDataset
 
 ARTICLES_REGISTRY = [
     PDFArticles(
@@ -38,4 +39,5 @@ ARTICLES_REGISTRY = [
         spreadsheet_id='1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI',
         sheet_id='980957638',
     ),
+    IndicesDataset('indices'),
 ]

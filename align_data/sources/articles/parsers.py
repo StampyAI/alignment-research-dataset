@@ -3,7 +3,7 @@ from urllib.parse import urlparse, urljoin
 from typing import Dict
 
 from markdownify import MarkdownConverter
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, InvalidSchema, MissingSchema
 
 from align_data.sources.articles.html import element_extractor, fetch, fetch_element
 from align_data.sources.articles.pdf import doi_getter, fetch_pdf, get_arxiv_pdf, parse_vanity
@@ -95,6 +95,8 @@ UNIMPLEMENTED_PARSERS = {
     "judiciary.senate.gov": error(""),
     "taylorfrancis.com": error("Ebooks are not yet handled"),
     "YouTube.com": error("Youtube videos are not yet handled"),
+    "youtube.com": error("Youtube videos are not yet handled"),
+    "YouTube.be": error("Youtube videos are not yet handled"),
     "researchgate.net": error(
         "Researchgate makes it hard to auto download pdf - please provide a DOI or a different url to the contents"
     ),
@@ -252,7 +254,7 @@ def item_metadata(url) -> Dict[str, str]:
     domain = urlparse(url).netloc.lstrip('www.')
     try:
         res = fetch(url, 'head')
-    except ConnectionError as e:
+    except (MissingSchema, InvalidSchema, ConnectionError) as e:
         return {'error': str(e)}
 
     content_type = {item.strip() for item in res.headers.get('Content-Type', '').split(';')}

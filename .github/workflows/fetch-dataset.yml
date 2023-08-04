@@ -53,6 +53,7 @@ on:
           - gwern_blog
           - html_articles
           - importai
+          - indices
           - jsteinhardt_blog
           - lesswrong
           - markdown

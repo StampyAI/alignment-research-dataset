@@ -1,11 +1,16 @@
+import logging
 import re
 from collections import defaultdict
 
-from align_data.sources.articles.html import fetch, fetch_element
-from align_data.common.alignment_dataset import AlignmentDataset
 from dateutil.parser import ParserError, parse
 from markdownify import MarkdownConverter
 from tqdm import tqdm
+
+from align_data.sources.articles.html import fetch, fetch_element
+from align_data.sources.articles.parsers import item_metadata
+from align_data.common.alignment_dataset import AlignmentDataset
+
+logger = logging.getLogger(__name__)
 
 
 def get_text(tag, selector: str) -> str:
@@ -247,3 +252,40 @@ def fetch_all():
         for item in func():
             articles[item["title"]].update(item)
     return articles
+
+
+class IndicesDataset(AlignmentDataset):
+
+    done_key = 'url'
+
+    @property
+    def items_list(self):
+        return fetch_all().values()
+
+    def get_item_key(self, item):
+        return item.get('url')
+
+    @staticmethod
+    def extract_authors(item):
+        if authors := (item.get('authors') or '').strip():
+            return [author.strip() for author in authors.split(',') if author.strip()]
+        return []
+
+    def process_entry(self, item):
+        metadata = {}
+        if url := item.get('source_url') or item.get('url'):
+            metadata = item_metadata(url)
+
+        text = metadata.get('text')
+        if not text:
+            logger.error('Could not get text for %s (%s) - %s - skipping for now', item.get('title'), url, metadata.get('error'))
+            return None
+
+        return self.make_data_entry({
+            'source': self.name,
+            'url': self.get_item_key(item),
+            'title': item.get('title'),
+            'date_published': self._get_published_date(item.get('date_published')),
+            'authors': self.extract_authors(item),
+            'text': text,
+        })
