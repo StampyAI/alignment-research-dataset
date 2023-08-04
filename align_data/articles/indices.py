@@ -21,6 +21,9 @@ def indice_fetcher(url, main_selector, item_selector, formatter):
         if contents := fetch_element(url, main_selector):
             return list(filter(None, map(formatter, contents.select(item_selector))))
         return []
+    fetcher.__name__ = formatter.__name__.replace("format_", "") + '_fetcher' 
+    # we change the name of the outputted function from fetcher to 
+    # mlsafety_course_fetcher, or anthropic_fetcher, etc.
     return fetcher
 
 
@@ -33,7 +36,6 @@ def reading_what_we_can_items():
         for item in re.findall(r'Name: "(.*?)",.*?Link: "(.*?)",.*?Author: "(.*?)"', section, re.DOTALL)
     }
     logger.info('Found %s items in readingwhatwecan books', len(items))
-    logger.info('First item: %s', items[0])
     return [{
         'title': item[0],
         'url': item[1],
@@ -196,5 +198,7 @@ def fetch_all():
     for func in tqdm(fetchers):
         logger.info(f"Processing function: {func.__name__}")
         for item in func():
+            logger.info(f"Processing item: {item}")
             articles[item['title']].update(item)
+    logger.info(f"Found {len(articles)} articles")
     return articles

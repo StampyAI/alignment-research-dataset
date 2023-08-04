@@ -33,10 +33,10 @@ def save_pdf(filename, link):
     )
 
 
-@with_retry(times=3)
+@with_retry(times=10) #sometimes the api takes 2-3 minutes before it starts working again
 def process_row(row, sheets):
     """Check the given `row` and fetch its metadata + optional extra stuff."""
-    logger.info('Checking "%s"', row['title'])
+    logger.info('Checking "%s" at %s', row['title'], row['url'])
 
     missing = [field for field in REQUIRED_FIELDS if not row.get(field)]
     if missing:
@@ -85,7 +85,7 @@ def process_spreadsheets(source_sheet, output_sheets):
         for record in sheet.get_all_records()
         for url in [record.get('url'), record.get('source_url')]
         if url
-    }
+    } # Note: This requires our output_sheet to already have the headers for the different sheets
     for row in tqdm(iterate_rows(source_sheet)):
         if not row.get('source_url'):
             row['source_url'] = row['url']

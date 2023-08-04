@@ -7,7 +7,10 @@ logger = logging.getLogger('ard_logger')
 logger.setLevel(logging.INFO)
 
 # Create a file handler.
-handler = logging.FileHandler('ard.log')
+# handler = logging.FileHandler('ard.log')
+
+# Create a stream handler.
+handler = logging.StreamHandler()
 
 # Create a logging format.
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
