@@ -79,7 +79,7 @@ class PineconeUpdater:
                 encode_kwargs={'show_progress_bar': False}
             )
         
-    def update(self, custom_sources: List[str] = ['all']):
+    def update(self, custom_sources: List[str]):
         """
         Update the given sources. If no sources are provided, updates all sources.
 
