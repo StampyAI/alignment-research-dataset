@@ -13,6 +13,11 @@ jobs:
           - aiimpacts
           - aipulse
           - aisafety.camp
+          - ai_alignment_playlist
+          - ai_explained
+          - ai_safety_talks
+          - ai_safety_reading_group
+          - ai_tech_tu_delft
           - alignment_newsletter
           - arbital
           - arxiv
@@ -39,6 +44,7 @@ jobs:
           - openai.research
           - pdfs
           - reports
+          - rob_miles_ai_safety
           - vkrakovna_blog
           - yudkowsky_blog
 
@@ -46,6 +52,7 @@ jobs:
     with:
       datasource: ${{ matrix.datasource }}
       coda_token: ${{ inputs.coda_token }}
+      youtube_api_key: ${{ inputs.youtube_api_key }}
       db_user: ${{ inputs.db_user }}
       db_password: ${{ inputs.db_password }}
       db_host: ${{ inputs.db_host }}
