@@ -2,11 +2,9 @@ import logging
 import time
 import zipfile
 from dataclasses import dataclass, field, KW_ONLY
-from itertools import islice
 from pathlib import Path
 from typing import List
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 
 import gdown
 import jsonlines
@@ -14,7 +12,7 @@ import pytz
 from dateutil.parser import parse, ParserError
 from tqdm import tqdm
 from align_data.db.models import Article
-from align_data.db.session import make_session
+from align_data.db.session import MySQLDB
 
 
 INIT_DICT = {
@@ -70,6 +68,9 @@ class AlignmentDataset:
     id_fields: List[str] = field(default_factory=lambda: ['url', 'title'])
     """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
+    mysql_db = MySQLDB()
+    """The database connection to use for storing the data"""
+    
     def __str__(self) -> str:
         return self.name
 
@@ -79,7 +80,7 @@ class AlignmentDataset:
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
-
+        
     def make_data_entry(self, data, **kwargs):
         data = dict(data, **kwargs)
         # TODO: Don't keep adding the same authors - come up with some way to reuse them
@@ -108,7 +109,7 @@ class AlignmentDataset:
 
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
-        with make_session() as session:
+        with self.mysql_db.session_scope() as session:
             query = select(Article).where(Article.source==self.name)
             if sort_by is not None:
                 query = query.order_by(sort_by)
@@ -116,25 +117,11 @@ class AlignmentDataset:
                 yield item
 
     def add_entries(self, entries):
-        def commit():
-            try:
-                session.commit()
-                return True
-            except IntegrityError:
-                session.rollback()
-
-        with make_session() as session:
-            items = iter(entries)
-            while batch := tuple(islice(items, self.batch_size)):
-                session.add_all(batch)
-                # there might be duplicates in the batch, so if they cause
-                # an exception, try to commit them one by one
-                if not commit():
-                    for entry in batch:
-                        session.add(entry)
-                        if not commit():
-                            logger.error(f'found duplicate of {entry}')
-
+        with self.mysql_db.session_scope() as session:
+            for entry in entries:
+                session.add(entry)
+            session.commit()
+    
     def setup(self):
         self._outputted_items = self._load_outputted_items()
 
@@ -152,7 +139,7 @@ class AlignmentDataset:
 
     def _load_outputted_items(self):
         """Load the output file (if it exists) in order to know which items have already been output."""
-        with make_session() as session:
+        with self.mysql_db.session_scope() as session:
             if hasattr(Article, self.done_key):
                 return set(session.scalars(select(getattr(Article, self.done_key)).where(Article.source==self.name)).all())
             # TODO: Properly handle this - it should create a proper SQL JSON select
