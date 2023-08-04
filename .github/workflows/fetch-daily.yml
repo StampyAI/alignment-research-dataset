@@ -9,9 +9,10 @@ jobs:
     strategy:
       matrix:
         datasource:
-          - lesswrong
           - alignmentforum
           - aisafety.info
+          - lesswrong
+          - special_docs
 
     uses: ./.github/workflows/fetch-dataset.yml
     with:

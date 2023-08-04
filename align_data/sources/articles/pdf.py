@@ -1,11 +1,8 @@
 import io
 import logging
-from dataclasses import dataclass
-from dateutil.parser import parse
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 
 import requests
-import pandas as pd
 from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
 from markdownify import MarkdownConverter
@@ -66,7 +63,7 @@ def fetch_pdf(link):
             'text': '\n'.join(page.extract_text() for page in pdf_reader.pages),
             'data_source': 'pdf',
         }
-    except PdfReadError as e:
+    except (TypeError, PdfReadError) as e:
         logger.error('Could not read PDF file: %s', e)
         return {'error': str(e)}
 
@@ -121,38 +118,6 @@ def get_doi(doi):
 def doi_getter(url):
     """Extract the DOI from the given `url` and fetch the contents of its article."""
     return get_doi(urlparse(url).path.lstrip('/'))
-
-
-def get_pdf_from_page(*link_selectors):
-    """Get a function that receives an `url` to a page containing a pdf link and returns the pdf's contents as text.
-
-    Starting from `url`, fetch the contents at the URL, extract the link using a CSS selector, then:
-     * if there are more selectors left, fetch the contents at the extracted link and continue
-     * otherwise return the pdf contents at the last URL
-
-    :param List[str] link_selectors: CSS selector used to find the final download link
-    :returns: the contents of the pdf file as a string
-    """
-    def getter(url):
-        link = url
-        for selector in link_selectors:
-            elem = fetch_element(link, selector)
-            if not elem:
-                return {'error': f'Could not find pdf download link for {link} using \'{selector}\''}
-
-            link = elem.get('href')
-            if not link.startswith('http') or not link.startswith('//'):
-                link = urljoin(url, link)
-
-        # Some pages keep link to google drive previews of pdf files, which need to be
-        # mangled to get the URL of the actual pdf file
-        if 'drive.google.com' in link and '/view' in link:
-            return extract_gdrive_contents(link)
-
-        if pdf := fetch_pdf(link):
-            return pdf
-        return {'error': f'Could not fetch pdf from {link}'}
-    return getter
 
 
 def parse_vanity(url):

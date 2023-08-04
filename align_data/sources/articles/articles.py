@@ -92,11 +92,13 @@ def process_spreadsheets(source_sheet, output_sheets):
         if url
     }
     for row in tqdm(iterate_rows(source_sheet)):
+        title = row.get('title')
         if not row.get('source_url'):
             row['source_url'] = row['url']
         if row.get('source_url') in seen:
-            title = row.get('title')
             logger.info(f'skipping "{title}", as it has already been seen')
+        elif row.get('status'):
+            logger.info(f'skipping "{title}", as it has a status set - remove it for this row to be processed')
         else:
             process_row(row, output_sheets)
 

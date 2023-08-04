@@ -46,7 +46,7 @@ class ArxivPapers(SpreadsheetDataset):
             return None
 
         metadata = self._get_arxiv_metadata(self.get_id(item))
-        if self.is_val(item.authors) and item.authors.strip():
+        if self.maybe(item.authors) and item.authors.strip():
             authors = item.authors.split(',')
         elif metadata and metadata.authors:
             authors = metadata.authors
@@ -58,9 +58,9 @@ class ArxivPapers(SpreadsheetDataset):
             "url": self.get_item_key(item),
             "source": self.name,
             "source_type": paper['data_source'],
-            "title": self.is_val(item.title) or paper.get('title'),
+            "title": self.maybe(item.title) or paper.get('title'),
             "authors": authors,
-            "date_published": self._get_published_date(self.is_val(item.date_published) or paper.get('date_published')),
+            "date_published": self._get_published_date(self.maybe(item.date_published) or paper.get('date_published')),
             "data_last_modified": str(metadata.updated),
             "abstract": metadata.summary.replace("\n", " "),
             "author_comment": metadata.comment,

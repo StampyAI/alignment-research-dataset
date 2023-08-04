@@ -48,6 +48,7 @@ on:
           - pdfs
           - reports
           - rob_miles_ai_safety
+          - special_docs
           - vkrakovna_blog
           - yudkowsky_blog
 
