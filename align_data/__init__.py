@@ -8,7 +8,7 @@ import align_data.sources.greaterwrong as greaterwrong
 import align_data.sources.stampy as stampy
 import align_data.sources.alignment_newsletter as alignment_newsletter
 import align_data.sources.distill as distill
-import align_data.sources.gdocs as gdocs
+import align_data.sources.youtube as youtube
 
 DATASET_REGISTRY = (
     arbital.ARBITAL_REGISTRY
@@ -21,7 +21,7 @@ DATASET_REGISTRY = (
     + stampy.STAMPY_REGISTRY
     + distill.DISTILL_REGISTRY
     + alignment_newsletter.ALIGNMENT_NEWSLETTER_REGISTRY
-    + gdocs.GDOCS_REGISTRY
+    + youtube.YOUTUBE_REGISTRY
 )
 
 ALL_DATASETS = sorted([dataset.name for dataset in DATASET_REGISTRY])

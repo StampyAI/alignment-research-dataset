@@ -15,6 +15,9 @@ METADATA_SOURCE_SPREADSHEET = os.environ.get('METADATA_SOURCE_SPREADSHEET', '1pg
 METADATA_SOURCE_SHEET = os.environ.get('METADATA_SOURCE_SHEET', 'special_docs.csv')
 METADATA_OUTPUT_SPREADSHEET = os.environ.get('METADATA_OUTPUT_SPREADSHEET', '1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4')
 
+### YouTube ###
+YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY')
+
 ### MYSQL ###
 user = os.environ.get('ARD_DB_USER', 'user')
 password = os.environ.get('ARD_DB_PASSWORD', 'we all live in a yellow submarine')

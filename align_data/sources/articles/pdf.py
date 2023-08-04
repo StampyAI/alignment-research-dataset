@@ -8,8 +8,9 @@ import requests
 import pandas as pd
 from PyPDF2 import PdfReader
 from PyPDF2.errors import PdfReadError
+from markdownify import MarkdownConverter
 
-from align_data.sources.articles.html import fetch, fetch_element
+from align_data.sources.articles.html import fetch, fetch_element, with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ def read_pdf(filename):
     return None
 
 
+@with_retry(times=3)
 def fetch_pdf(link):
     """Return the contents of the pdf file at `link` as a markdown string.
 
@@ -151,3 +153,41 @@ def get_pdf_from_page(*link_selectors):
             return pdf
         return {'error': f'Could not fetch pdf from {link}'}
     return getter
+
+
+def parse_vanity(url):
+    contents = fetch_element(url, 'article')
+    if not contents:
+        return None
+
+    if title := contents.select_one('h1.ltx_title'):
+        title = title.text
+
+    def get_first_child(item):
+        child = next(item.children)
+        if not child:
+            return []
+
+        if not isinstance(child, str):
+            child = child.text
+        return child.split(',')
+
+    authors = [
+        a.strip() for item in contents.select('div.ltx_authors .ltx_personname') for a in get_first_child(item)
+    ]
+
+    if date_published := contents.select_one('div.ltx_dates'):
+       date_published = date_published.text.strip('()')
+
+    text = '\n\n'.join([
+        MarkdownConverter().convert_soup(elem).strip()
+        for elem in contents.select('section.ltx_section')
+    ])
+
+    return {
+        'title': title,
+        'authors': authors,
+        'text': text,
+        'date_published': date_published,
+        'data_source': 'html',
+    }

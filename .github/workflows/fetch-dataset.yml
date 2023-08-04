@@ -9,6 +9,9 @@ on:
       coda_token:
         type: string
         required: true
+      youtube_api_key:
+        type: string
+        required: true
       db_user:
         type: string
         required: true
@@ -29,6 +32,11 @@ on:
           - aipulse
           - aisafety.camp
           - aisafety.info
+          - ai_alignment_playlist
+          - ai_explained
+          - ai_safety_talks
+          - ai_safety_reading_group
+          - ai_tech_tu_delft
           - alignmentforum
           - alignment_newsletter
           - arbital
@@ -56,6 +64,7 @@ on:
           - openai.research
           - pdfs
           - reports
+          - rob_miles_ai_safety
           - vkrakovna_blog
           - yudkowsky_blog
 
@@ -78,6 +87,7 @@ jobs:
     - name: Generate dataset file
       env:
         CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}
         ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
         ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
         ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}

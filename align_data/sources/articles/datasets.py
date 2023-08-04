@@ -1,15 +1,17 @@
+import os
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlparse
 
-import pypandoc
+from pypandoc import convert_file
 import pandas as pd
 from gdown.download import download
 from markdownify import markdownify
 
 from align_data.sources.articles.pdf import read_pdf
 from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents
-from align_data.sources.articles.google_cloud import fetch_markdown
+from align_data.sources.articles.google_cloud import fetch_markdown, fetch_file
 from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,12 @@ class SpreadsheetDataset(AlignmentDataset):
     done_key = "title"
     source_filetype = None
     batch_size = 1
+
+    @staticmethod
+    def maybe(val):
+        if pd.isna(val):
+            return None
+        return val
 
     @staticmethod
     def is_val(val):
@@ -45,7 +53,7 @@ class SpreadsheetDataset(AlignmentDataset):
 
     @staticmethod
     def extract_authors(item):
-        if not SpreadsheetDataset.is_val(item.authors):
+        if not SpreadsheetDataset.maybe(item.authors):
             return []
         return [author.strip() for author in item.authors.split(',') if author.strip()]
 
@@ -57,14 +65,14 @@ class SpreadsheetDataset(AlignmentDataset):
 
         return self.make_data_entry({
             'text': markdownify(text).strip(),
-            'url': self.is_val(item.url),
-            'title': self.is_val(item.title),
+            'url': self.maybe(item.url),
+            'title': self.maybe(item.title),
             'source': self.name,
-            'source_type': self.is_val(item.source_type),
+            'source_type': self.maybe(item.source_type),
             'source_filetype': self.source_filetype,
             'date_published': self._get_published_date(item.date_published),
             'authors': self.extract_authors(item),
-            'summary': self.is_val(item.summary),
+            'summary': self.maybe(item.summary),
         })
 
 
@@ -102,7 +110,7 @@ class EbookArticles(SpreadsheetDataset):
     def _get_text(self, item):
         file_id = item.source_url.split('/')[-2]
         filename = download(output=str(self.files_path / f'{item.title}.epub'), id=file_id)
-        return pypandoc.convert_file(filename, "plain",'epub', extra_args=['--wrap=none'])
+        return convert_file(filename, "plain",'epub', extra_args=['--wrap=none'])
 
 
 class XMLArticles(SpreadsheetDataset):
@@ -122,3 +130,18 @@ class MarkdownArticles(SpreadsheetDataset):
         file_id = item.source_url.split('/')[-2]
         vals = fetch_markdown(file_id)
         return vals['text']
+
+
+class DocArticles(SpreadsheetDataset):
+
+    source_filetype = 'docx'
+
+    def _get_text(self, item):
+        pandoc_path = Path('data/raw/pandoc/pandoc/')
+        if pandoc_path.exists():
+            logger.info("Make sure pandoc is configured correctly.")
+            os.environ.setdefault("PYPANDOC_PANDOC", str(pandoc_path))
+
+        file_id = item.source_url.split('/')[-2]
+        file_name = fetch_file(file_id)
+        return convert_file(file_name, "md", format='docx', extra_args=['--wrap=none'])
