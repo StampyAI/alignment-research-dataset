@@ -10,32 +10,40 @@ The following list of sources may change and items may be renamed:
 - [aiimpacts](https://aiimpacts.org/)
 - [aisafety.camp](https://aisafety.camp/)
 - [aisafety.info](https://aisafety.info/)
+- [ai_alignment_playlist]()
+- [ai_explained](https://www.youtube.com/@ai-explained-)
+- [ai_safety_talks](https://www.youtube.com/@aisafetytalks)
+- [ai_safety_reading_group](https://www.youtube.com/@aisafetyreadinggroup/videos)
+- [ai_tech_tu_delft](https://www.youtube.com/@AiTechTUDelft/)
 - [alignmentforum](https://www.alignmentforum.org)
 - [alignment_newsletter](https://rohinshah.com/alignment-newsletter/)
 - [arbital](https://arbital.com/)
 - arxiv - alignment research papers from [arxiv](https://arxiv.org/)
-- audio_transcripts - transcripts from interviews with various researchers and other audio recordings
 - [carado.moe](https://carado.moe/)
 - [cold_takes](https://www.cold-takes.com/)
 - [deepmind_blog](https://deepmindsafetyresearch.medium.com/)
+- [deepmind_technical_blog](https://www.deepmind.com/blog-categories/technical-blogs)
 - [distill](https://distill.pub/)
 - [eaforum](https://forum.effectivealtruism.org/) - selected posts
-- ebooks - books include [Superintelligence](https://www.goodreads.com/book/show/20527133-superintelligence), [Human Compatible](https://www.goodreads.com/book/show/44767248-human-compatible), [Life 3.0](https://www.goodreads.com/book/show/34272565-life-3-0), [The Precipice](https://www.goodreads.com/book/show/50485582-the-precipice), and others
-- gdocs
+- [eleuther.ai](https://blog.eleuther.ai/)
 - [generative.ink](https://generative.ink/posts/)
 - [gwern_blog](https://gwern.net/)
+- gdocs - various doc files stored on Google drive
+- html_articles - various articles on websites
 - [import.ai](https://importai.substack.com)
 - [jsteinhardt_blog](https://jsteinhardt.wordpress.com/)
 - [lesswrong](https://www.lesswrong.com/) - selected posts
-- markdown.ebooks
+- markdown
 - [miri](https://intelligence.org/) - MIRI
 - [ml_safety_newsletter](https://newsletter.mlsafety.org)
-- nonarxiv_papers - other alignment research papers
-- [qualiacomputing](https://qualiacomputing.com/)
-- reports
+- [openai.research](https://openai.com/research)
+- pdfs - various pdfs from different places
+- [rob_miles_ai_safety](https://www.youtube.com/@RobertMilesAI)
 - [vkrakovna_blog](https://vkrakovna.wordpress.com)
 - [waitbutwhy](https://waitbutwhy.com/)
 - [yudkowsky_blog](https://www.yudkowsky.net/)
+- xmls - various articles stored as XML files
+
 
 ## Keys
 

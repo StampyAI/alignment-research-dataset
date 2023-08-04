@@ -19,7 +19,7 @@ ARTICLES_REGISTRY = [
         sheet_id='1800487220'
     ),
     XMLArticles(
-        name='nonarxiv_papers',
+        name='xmls',
         spreadsheet_id='1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4',
         sheet_id='823056509'
     ),

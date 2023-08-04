@@ -37,13 +37,12 @@ jobs:
           - markdown
           - miri
           - ml_safety_newsletter
-          - nonarxiv_papers
-          - qualiacomputing
           - openai.research
           - pdfs
           - rob_miles_ai_safety
           - vkrakovna_blog
           - yudkowsky_blog
+          - xmls
 
     uses: ./.github/workflows/fetch-dataset.yml
     with:
