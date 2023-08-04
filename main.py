@@ -96,12 +96,23 @@ class AlignmentDataset:
         """
         return check_new_articles(source_spreadsheet, source_sheet)
 
-    def update_pinecone(self):
+    def pinecone_update(self, *names) -> None:
         """
         This function updates the Pinecone vector DB.
         """
-        updater = PineconeUpdater()
-        updater.update()
+        if names == ('all',):
+            names = ALL_DATASETS
+        missing = {name for name in names if name not in ALL_DATASETS}
+        assert not missing, f"{missing} are not valid dataset names"
+        PineconeUpdater().update(names)
+    
+    def pinecone_update_all(self, *skip) -> None:
+        """
+        This function updates the Pinecone vector DB.
+        """
+        names = [name for name in ALL_DATASETS if name not in skip]
+        PineconeUpdater().update(names)
+
 
 if __name__ == "__main__":
     fire.Fire(AlignmentDataset)
