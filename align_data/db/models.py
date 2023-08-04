@@ -1,4 +1,5 @@
 import json
+import logging
 import pytz
 import hashlib
 from datetime import datetime
@@ -6,6 +7,10 @@ from typing import List, Optional
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Boolean, Text, Float, func, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 class Base(DeclarativeBase):
