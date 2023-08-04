@@ -33,46 +33,8 @@ class MySQLDB:
         finally:
             session.close()
             
-    def stream_pinecone_updates(self, custom_sources: List[str] = ['all']):
+    def stream_pinecone_updates(self, custom_sources: List[str]):
         """Yield Pinecone entries that require an update."""
         query = self.Session.query(Article).filter(Article.pinecone_update_required.is_(True))
-        
-        if custom_sources != ['all']:
-            query = query.filter(Article.has(Article.source.in_(custom_sources)))
-            
+        query = query.filter(Article.source.in_(custom_sources))
         yield from query.yield_per(1000)
-        
-    def get_entry_by_hash_id(self, id):
-        """
-        Get an entry from the articles table by hash_id.
-        
-        Args:
-            hash_id (str): The hash_id of the entry to get.
-            
-        Returns:
-            Article: The entry with the given hash_id, or None if no such entry exists.
-        """
-        with self.session_scope() as session:
-            entry = session.query(Article).filter(Article.id == id).one_or_none()
-            return entry
-
-    def update_entry(self, entry):
-        '''
-        Update an existing entry in the articles table with the data from the given Article object.
-        
-        Args:
-            entry (Article): The Article object with the new data.
-        '''
-        with self.session_scope() as session:
-            session.query(Article).filter(Article.id == entry.id).update({
-                'title': entry.title,
-                'url': entry.url,
-                'source': entry.source,
-                'source_type': entry.source_type,
-                'authors': entry.authors,
-                'text': entry.text,
-                'confidence': entry.confidence,
-                'date_published': entry.date_published,
-                'metadata': entry.metadata,
-                'date_updated': entry.date_updated,
-            })
