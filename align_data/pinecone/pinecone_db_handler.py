@@ -1,5 +1,6 @@
 # dataset/pinecone_db_handler.py
 
+from typing import Dict
 import pinecone
 
 from align_data.settings import PINECONE_INDEX_NAME, PINECONE_VALUES_DIMS, PINECONE_METRIC, PINECONE_METADATA_ENTRIES, PINECONE_API_KEY, PINECONE_ENVIRONMENT
@@ -36,21 +37,21 @@ class PineconeDB:
         if log_index_stats:
             index_stats_response = self.index.describe_index_stats()
             logger.info(f"{self.index_name}:\n{index_stats_response}")
-    
-    def upsert_entry(self, entry, chunks, embeddings, upsert_size=100):
+            
+    def upsert_entry(self, entry: Dict, upsert_size=100):
         self.index.upsert(
             vectors=list(
                 zip(
-                    [f"{entry['id']}_{str(i).zfill(6)}" for i in range(len(chunks))], 
-                    embeddings.tolist(), 
+                    [f"{entry['id']}_{str(i).zfill(6)}" for i in range(len(entry['text_chunks']))], 
+                    entry['embeddings'].tolist(), 
                     [
                         {
                             'entry_id': entry['id'],
                             'source': entry['source'],
                             'title': entry['title'],
                             'authors': entry['authors'],
-                            'text': chunk,
-                        } for chunk in chunks
+                            'text': text_chunk,
+                        } for text_chunk in entry['text_chunks']
                     ]
                 )
             ),
