@@ -137,11 +137,29 @@ UNIMPLEMENTED_PARSERS = {
 
     # To be implemented
     'goodreads.com': error('Ebooks are not yet handled'),
-    'judiciary.senate.gov': error(''),
     'taylorfrancis.com': error('Ebooks are not yet handled'),
     'YouTube.com': error('Youtube videos are not yet handled'),
     'researchgate.net': error('Researchgate makes it hard to auto download pdf - please provide a DOI or a different url to the contents'),
+
+    'deliverypdf.ssrn.com': error('SSRN is not yet handled'),
+    'doi.wiley.com': error('Wiley is not yet handled'),
+    'onlinelibrary.wiley.com': error('Wiley is not yet handled'),
+    'globalprioritiesproject.org': error('Global priorities project is not yet handled'),
+    'ieeexplore.ieee.org': error('IEEE is not yet handled'),
+    'alexirpan.com': error(''),
+    'dl.begellhouse.com': error(''),
+    'incompleteideas.net': error(''),
+    'pdcnet.org': error(''),
+    'sciencemag.org': error(''),
+    'iopscience.iop.org': error(''),
+    'journals.aom.org': error(''),
+
+
+
+
+    'judiciary.senate.gov': error(''),
     'repository.cam.ac.uk': error(''),
+    'papers.ssrn.com': error(''),
 }
 
 
@@ -252,9 +270,13 @@ PDF_PARSERS = {
 
 
 def item_metadata(url) -> Dict[str, str]:
-    domain = urlparse(url).netloc.lstrip('www.')
+    netloc = urlparse(url).netloc
+    domain = netloc[4:] if netloc.startswith('www.') else netloc # we strip the www. from the start of the string if it is there
+    
     res = fetch(url, 'head')
-    content_type = {item.strip() for item in res.headers.get('Content-Type').split(';')}
+    if not res.headers.get('Content-Type'):
+        return {'error': 'No content type found'}
+    content_type = {item.strip() for item in res.headers['Content-Type'].split(';')}
 
     if content_type & {'text/html', 'text/xml'}:
         # If the url points to a html webpage, then it either contains the text as html, or
@@ -273,7 +295,7 @@ def item_metadata(url) -> Dict[str, str]:
             return {'error': parser(url)}
 
         if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()):
-            return {'error': 'No domain handler defined'}
+            return {'error': f'No domain handler defined for {domain}'} #TODO: is a custom error message ok?
         return {'error': 'could not parse url'}
     elif content_type & {'application/octet-stream', 'application/pdf'}:
         # this looks like it could be a pdf - try to download it as one
