@@ -84,6 +84,9 @@ class HTMLArticles(SpreadsheetDataset):
     def _get_text(item):
         netloc = urlparse(item.source_url).netloc
         domain = netloc[4:] if netloc.startswith('www.') else netloc # we strip the www. from the start of the string if it is there
+        #TODO: check that if the netloc starts with www2. or www6. 
+        # or other (there are urls like this in the dataset), then 
+        # it is handled correctly (is the domain then www6.<rest_of_domain>?
         if parser := HTML_PARSERS.get(domain):
             return parser(item.source_url)
 

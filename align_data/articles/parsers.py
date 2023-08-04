@@ -129,6 +129,19 @@ def multistrategy(*funcs):
 UNIMPLEMENTED_PARSERS = {
     # Unhandled items that will be caught later. Though it would be good for them also to be done properly
     'oxford.universitypressscholarship.com': error(''),
+    'deliverypdf.ssrn.com': error('SSRN is not yet handled'),
+    'doi.wiley.com': error('Wiley is not yet handled'),
+    'onlinelibrary.wiley.com': error('Wiley is not yet handled'),
+    'globalprioritiesproject.org': error('Global priorities project is not yet handled'),
+    'ieeexplore.ieee.org': error('IEEE is not yet handled'),
+    'alexirpan.com': error('alexirpan is not yet handled'),
+    'dl.begellhouse.com': error('Begell house is not yet handled'),
+    'incompleteideas.net': error('incompleteideas.net is not yet handled'),
+    'pdcnet.org': error('pdcnet.org is not yet handled'),
+    'sciencemag.org': error('sciencemag.org is not yet handled'),
+    'iopscience.iop.org': error('iopscience.iop.org is not yet handled'),
+    'journals.aom.org': error('journals.aom.org is not yet handled'),
+    'cambridge.org': error('cambridge.org is not yet handled'),
 
     # Paywalled journal
     'linkinghub.elsevier.com': error('Elsevier is a known parasite - no point in looking to them for content'),
@@ -140,22 +153,6 @@ UNIMPLEMENTED_PARSERS = {
     'taylorfrancis.com': error('Ebooks are not yet handled'),
     'YouTube.com': error('Youtube videos are not yet handled'),
     'researchgate.net': error('Researchgate makes it hard to auto download pdf - please provide a DOI or a different url to the contents'),
-
-    'deliverypdf.ssrn.com': error('SSRN is not yet handled'),
-    'doi.wiley.com': error('Wiley is not yet handled'),
-    'onlinelibrary.wiley.com': error('Wiley is not yet handled'),
-    'globalprioritiesproject.org': error('Global priorities project is not yet handled'),
-    'ieeexplore.ieee.org': error('IEEE is not yet handled'),
-    'alexirpan.com': error(''),
-    'dl.begellhouse.com': error(''),
-    'incompleteideas.net': error(''),
-    'pdcnet.org': error(''),
-    'sciencemag.org': error(''),
-    'iopscience.iop.org': error(''),
-    'journals.aom.org': error(''),
-
-
-
 
     'judiciary.senate.gov': error(''),
     'repository.cam.ac.uk': error(''),
@@ -272,6 +269,9 @@ PDF_PARSERS = {
 def item_metadata(url) -> Dict[str, str]:
     netloc = urlparse(url).netloc
     domain = netloc[4:] if netloc.startswith('www.') else netloc # we strip the www. from the start of the string if it is there
+    #TODO: check that if the netloc starts with www2. or www6. 
+    # or other (there are urls like this in the dataset), then 
+    # it is handled correctly (is the domain then www6.<rest_of_domain>?
     
     res = fetch(url, 'head')
     if not res.headers.get('Content-Type'):
