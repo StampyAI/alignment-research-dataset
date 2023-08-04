@@ -15,6 +15,29 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class PineconeEntry(BaseModel):
+    id: str
+    source: str
+    title: str
+    url: str
+    date_published: datetime
+    authors: List[str]
+    text_chunks: List[str]
+    embeddings: np.ndarray
+    
+    class Config:
+        arbitrary_types_allowed = True
+
+    def __repr__(self):
+        return f"PineconeEntry(id={self.id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={self.text_chunks[:5]!r})"
+
+    @validator('id', 'source', 'title', 'url', 'date_published', 'authors', 'text_chunks', pre=True, always=True)
+    def empty_strings_not_allowed(cls, value):
+        if value == "":
+            raise ValueError("Attribute should not be empty.")
+        return value
+    
+
 class PineconeUpdater:
     def __init__(
         self, 
