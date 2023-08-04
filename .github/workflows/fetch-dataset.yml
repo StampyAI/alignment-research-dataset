@@ -61,6 +61,7 @@ on:
           - openai.research
           - pdfs
           - rob_miles_ai_safety
+          - special_docs
           - vkrakovna_blog
           - yudkowsky_blog
           - xmls

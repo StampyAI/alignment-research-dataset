@@ -1,10 +1,5 @@
 from align_data.sources.articles.datasets import (
-    EbookArticles,
-    DocArticles,
-    HTMLArticles,
-    MarkdownArticles,
-    PDFArticles,
-    XMLArticles,
+    EbookArticles, DocArticles, HTMLArticles, MarkdownArticles, PDFArticles, SpecialDocs, XMLArticles
 )
 
 ARTICLES_REGISTRY = [
@@ -37,5 +32,10 @@ ARTICLES_REGISTRY = [
         name="gdocs",
         spreadsheet_id="1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4",
         sheet_id="1293295703",
+    ),
+    SpecialDocs(
+        'special_docs',
+        spreadsheet_id='1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI',
+        sheet_id='980957638',
     ),
 ]

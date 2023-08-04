@@ -10,7 +10,7 @@ from gdown.download import download
 from markdownify import markdownify
 
 from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents
+from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents, item_metadata
 from align_data.sources.articles.google_cloud import fetch_markdown, fetch_file
 from align_data.common.alignment_dataset import AlignmentDataset
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class SpreadsheetDataset(AlignmentDataset):
     spreadsheet_id: str
     sheet_id: str
-    done_key = "title"
+    done_key = "url"
     source_filetype = None
     batch_size = 1
 
@@ -31,31 +31,19 @@ class SpreadsheetDataset(AlignmentDataset):
             return None
         return val
 
-    @staticmethod
-    def is_val(val):
-        if pd.isna(val):
-            return None
-        return val
-
     @property
     def items_list(self):
-        fetch_url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}"
-        log_url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=CS&gid={self.sheet_id}"
-
-        logger.info(f"Fetching {log_url}")
-
-        sheet_data = pd.read_csv(fetch_url)
-
-        return (
-            item for item in sheet_data.itertuples() if not pd.isna(self.get_item_key(item))
-        )
+        url = f'https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}'
+        logger.info(f'Fetching {url}')
+        df = pd.read_csv(url)
+        return (item for item in df.itertuples() if self.maybe(self.get_item_key(item)))
 
     def get_item_key(self, item):
         return getattr(item, self.done_key)
 
     @staticmethod
     def _get_text(item):
-        raise NotImplemented
+        raise NotImplementedError
 
     @staticmethod
     def extract_authors(item):
@@ -82,6 +70,29 @@ class SpreadsheetDataset(AlignmentDataset):
                 "summary": self.maybe(item.summary),
             }
         )
+
+
+class SpecialDocs(SpreadsheetDataset):
+
+    def process_entry(self, item):
+        metadata = {}
+        if url := self.maybe(item.source_url) or self.maybe(item.url):
+            metadata = item_metadata(url)
+
+        text = metadata.get('text')
+        if not text:
+            logger.error('Could not get text for %s - skipping for now', item.title)
+            return None
+
+        return self.make_data_entry({
+            'source': metadata.get('data_source') or self.name,
+            'url': self.maybe(item.url),
+            'title': self.maybe(item.title) or metadata.get('title'),
+            'source_type': self.maybe(item.source_type),
+            'date_published': self._get_published_date(item.date_published) or metadata.get('date_published'),
+            'authors': self.extract_authors(item) or metadata.get('authors', []),
+            'text': text,
+        })
 
 
 class PDFArticles(SpreadsheetDataset):
