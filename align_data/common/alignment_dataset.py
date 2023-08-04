@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
 from typing import List
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 import gdown
 import jsonlines
@@ -117,10 +118,21 @@ class AlignmentDataset:
                 yield item
 
     def add_entries(self, entries):
+        def commit():
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+        
         with self.mysql_db.session_scope() as session:
             for entry in entries:
                 session.add(entry)
-            session.commit()
+            if not commit():
+                for entry in entries:
+                    session.add(entry)
+                    if not commit():
+                        logger.error(f'found duplicate of {entry}')
     
     def setup(self):
         self._outputted_items = self._load_outputted_items()
