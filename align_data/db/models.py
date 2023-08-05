@@ -52,7 +52,7 @@ class Article(Base):
     
     summaries: Mapped[List[Summary]] = relationship("Summary", back_populates="article", cascade="all, delete-orphan")
 
-    __id_fields = ['title', 'url']
+    __id_fields = ['url']
 
     def __init__(self, *args, id_fields, **kwargs):
         self.__id_fields = id_fields
