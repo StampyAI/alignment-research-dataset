@@ -58,33 +58,6 @@ class PineconeDB:
             batch_size=upsert_size
         )
     
-    def upsert_entries(self, entries_batch, chunks_batch, chunks_ids_batch, embeddings, upsert_size=100):
-        self.index.upsert(
-            vectors=list(
-                zip(
-                    chunks_ids_batch,
-                    embeddings.tolist(),
-                    [
-                        {
-                            'entry_id': entry['id'],
-                            'source': entry['source'],
-                            'title': entry['title'],
-                            'authors': entry['authors'],
-                            'text': chunk,
-                        }
-                        for entry in entries_batch
-                        for chunk in chunks_batch
-                    ]
-                )
-            ),
-            batch_size=upsert_size
-        )
-
-    def delete_entry(self, id):
-        self.index.delete(
-            filter={"entry_id": {"$eq": id}}
-        )
-    
     def delete_entries(self, ids):
         self.index.delete(
             filter={"entry_id": {"$in": ids}}
