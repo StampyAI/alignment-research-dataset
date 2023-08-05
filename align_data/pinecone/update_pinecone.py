@@ -87,20 +87,17 @@ class PineconeUpdater:
         """
         with self.mysql_db.session_scope() as session:
             entries_stream = self.mysql_db.stream_pinecone_updates(custom_sources)
-            pinecone_entries_stream = self.process_entries(entries_stream)
-            for pinecone_entry in pinecone_entries_stream:
+            for article, pinecone_entry in self.process_entries(entries_stream):
                 self.pinecone_db.upsert_entry(pinecone_entry.dict())
-                        
-                pinecone_entry_db = session.query(Article).filter(Article.id == pinecone_entry.id).one()
-                pinecone_entry_db.pinecone_update_required = False
-                session.add(pinecone_entry_db)
+                article.pinecone_update_required = False
+                session.add(article)
             session.commit()
         
-    def process_entries(self, article_stream: Generator[Article, None, None]) -> Generator[PineconeEntry, None, None]:
+    def process_entries(self, article_stream: Generator[Article, None, None]) -> Generator[Tuple[Article, PineconeEntry], None, None]:
         for article in article_stream:
             try:
                 text_chunks = self.get_text_chunks(article)
-                yield PineconeEntry(
+                yield article, PineconeEntry(
                     id=article.id,
                     source=article.source,
                     title=article.title,
@@ -111,9 +108,8 @@ class PineconeUpdater:
                     embeddings=self.extract_embeddings(text_chunks, [article.source] * len(text_chunks))
                 )
             except (ValueError, ValidationError) as e:
-                print(e)
-                pass
-    
+                logger.exception(e)
+        
     def get_text_chunks(self, article: Article) -> List[str]:
         signature = f"Title: {article.title}, Author(s): {self.get_authors_str(article.authors)}"
         text_chunks = self.text_splitter.split_text(article.text)
