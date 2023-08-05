@@ -10,7 +10,6 @@ from sqlalchemy.dialects.mysql import LONGTEXT
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 class Base(DeclarativeBase):
