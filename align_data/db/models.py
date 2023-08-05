@@ -82,8 +82,8 @@ class Article(Base):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
         if missing:
             logger.warning(f'Entry is missing the following fields: {missing}')
-            return False
-        return True
+            return 'missing'
+        return 'not_missing'
 
     @classmethod
     def before_write(cls, mapper, connection, target):
@@ -100,7 +100,7 @@ class Article(Base):
             return
 
         # Verify required fields
-        if target.verify_fields():
+        if target.verify_fields() == 'not_missing':
             target.incomplete = False
             target.pinecone_update_required = True
         else:
