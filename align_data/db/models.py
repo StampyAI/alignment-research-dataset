@@ -53,11 +53,17 @@ class Article(Base):
     
     summaries: Mapped[List[Summary]] = relationship("Summary", back_populates="article", cascade="all, delete-orphan")
 
-    __id_fields = ['url']
+    __id_fields = ['url', 'title']
 
-    def __init__(self, *args, id_fields, **kwargs):
-        self.__id_fields = id_fields
+    def __init__(self, *args, id_fields=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.__id_fields = id_fields or self.__id_fields
+        if all(getattr(self, field, None) for field in self.__id_fields):
+            self.verify_fields()
+            id_string = self.generate_id_string()
+            self.id = hashlib.md5(id_string).hexdigest()
+        else:
+            raise ValueError(f"Entry is missing the following field(s): {','.join([missing for missing in self.__id_fields if not getattr(self, missing)])}")
 
     def __repr__(self) -> str:
         return f"Article(id={self.id!r}, name={self.title!r}, fullname={self.url!r}, source={self.source!r}, source_type={self.source_type!r}, authors={self.authors!r}, date_published={self.date_published!r}, pinecone_update_required={self.pinecone_update_required!r}, pinecone_delete_required={self.pinecone_delete_required!r}, incomplete={self.incomplete!r})"
