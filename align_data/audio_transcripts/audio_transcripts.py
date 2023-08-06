@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 import re
 from datetime import datetime, timezone
+import logging
 
 from align_data.common.alignment_dataset import GdocDataset
-from logger_config import logger
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class AudioTranscripts(GdocDataset):

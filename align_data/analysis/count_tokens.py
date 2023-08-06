@@ -1,10 +1,10 @@
 from typing import Tuple
+import logging
 
 from transformers import AutoTokenizer
 import jsonlines
 
-from logger_config import logger
-
+logger = logging.getLogger(__name__)
 
 def count_token(merged_dataset_path : str = "data/merged_dataset/alignment_texts.jsonl") -> Tuple[int , int , int]:
     tokenizer = AutoTokenizer.from_pretrained("gpt2")

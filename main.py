@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from typing import List
+import logging
 
 import fire
 
@@ -11,7 +12,9 @@ from align_data.pinecone.update_pinecone import ARDUpdater
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_SOURCE_SPREADSHEET
 )
-from logger_config import logger
+
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class AlignmentDataset:

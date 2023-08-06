@@ -1,14 +1,15 @@
 import sys
 import re
 from dataclasses import dataclass
+import logging
 
 from codaio import Coda, Document
 import html
 
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
-from logger_config import logger
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Stampy(AlignmentDataset):

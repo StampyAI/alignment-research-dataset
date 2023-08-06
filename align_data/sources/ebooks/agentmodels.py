@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from datetime import timezone
+import logging
 
 from git import Repo
 
-from logger_config import logger
 from align_data.common.alignment_dataset import AlignmentDataset
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentModels(AlignmentDataset):

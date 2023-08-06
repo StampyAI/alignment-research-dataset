@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+import logging
+
 import feedparser
 from tqdm import tqdm
 
 from align_data.common.html_dataset import RSSDataset
-from logger_config import logger
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class WordpressBlog(RSSDataset):

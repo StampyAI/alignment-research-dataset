@@ -1,4 +1,5 @@
 import io
+import logging
 
 from tqdm import tqdm
 import gspread
@@ -8,8 +9,8 @@ from align_data.sources.articles.parsers import item_metadata, fetch
 from align_data.sources.articles.indices import fetch_all
 from align_data.sources.articles.html import with_retry
 from align_data.settings import PDFS_FOLDER_ID
-from logger_config import logger
 
+logger = logging.getLogger(__name__)
 
 # Careful changing these - the sheets assume this ordering
 REQUIRED_FIELDS = ['url', 'source_url', 'title', 'source_type', 'date_published']

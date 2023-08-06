@@ -1,3 +1,5 @@
+import logging
+
 import requests
 from bs4 import BeautifulSoup
 from dateutil.parser import ParserError
@@ -5,7 +7,8 @@ from tqdm import tqdm
 
 from align_data.sources.articles.parsers import item_metadata
 from align_data.common.html_dataset import HTMLDataset, RSSDataset
-from logger_config import logger
+
+logger = logging.getLogger(__name__)
 
 class ColdTakes(HTMLDataset):
     item_selector = 'div.post-feed article'

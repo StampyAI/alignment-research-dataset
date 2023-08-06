@@ -1,5 +1,6 @@
 #%%
 from dataclasses import dataclass
+import logging
 
 import jsonlines
 from tqdm import tqdm
@@ -8,8 +9,7 @@ import pylab as plt
 # import seaborn as sns #TODO: install seaborn or fix this file
 import pandas as pd
 
-from logger_config import logger
-
+logger = logging.getLogger(__name__)
 
 @dataclass
 class PostProcesser:

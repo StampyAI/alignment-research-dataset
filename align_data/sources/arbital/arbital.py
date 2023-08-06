@@ -1,13 +1,14 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import logging
 
 import requests
 from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset
-from logger_config import logger
 
+logger = logging.getLogger(__name__)
 
 def parse_arbital_link(contents):
     text = contents[1].split(' ')

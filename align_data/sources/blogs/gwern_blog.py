@@ -1,9 +1,11 @@
 from dataclasses import dataclass
+import logging
+
 import requests
 
 from align_data.common.html_dataset import HTMLDataset
-from logger_config import logger
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class GwernBlog(HTMLDataset):

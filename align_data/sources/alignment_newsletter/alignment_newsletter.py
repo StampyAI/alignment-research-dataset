@@ -2,11 +2,12 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from dataclasses import dataclass
+import logging
 import pandas as pd
 
 from align_data.common.alignment_dataset import AlignmentDataset
-from logger_config import logger
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class AlignmentNewsletter(AlignmentDataset):

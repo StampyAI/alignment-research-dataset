@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import logging
 
 import grobid_tei_xml
 from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import GdocDataset
-from logger_config import logger
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Reports(GdocDataset):
