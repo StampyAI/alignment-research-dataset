@@ -1,11 +1,13 @@
 # dataset/pinecone_db_handler.py
 
+import logging
 from typing import Dict
+
 import pinecone
 
-from align_data.settings import PINECONE_INDEX_NAME, PINECONE_VALUES_DIMS, PINECONE_METRIC, PINECONE_METADATA_ENTRIES, PINECONE_API_KEY, PINECONE_ENVIRONMENT
+from align_data.settings import PINECONE_INDEX_NAME, PINECONE_VALUES_DIMS, PINECONE_METRIC, PINECONE_METADATA_KEYS, PINECONE_API_KEY, PINECONE_ENVIRONMENT
 
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,14 +17,14 @@ class PineconeDB:
         index_name: str = PINECONE_INDEX_NAME,
         values_dims: int = PINECONE_VALUES_DIMS,
         metric: str = PINECONE_METRIC,
-        metadata_entries: list = PINECONE_METADATA_ENTRIES,
+        metadata_keys: list = PINECONE_METADATA_KEYS,
         create_index: bool = False,
         log_index_stats: bool = True,
     ):
         self.index_name = index_name
         self.values_dims = values_dims
         self.metric = metric
-        self.metadata_entries = metadata_entries
+        self.metadata_keys = metadata_keys
         
         pinecone.init(
             api_key = PINECONE_API_KEY,
@@ -71,7 +73,7 @@ class PineconeDB:
             name=self.index_name,
             dimension=self.values_dims,
             metric=self.metric,
-            metadata_config = {"indexed": self.metadata_entries},
+            metadata_config = {"indexed": self.metadata_keys},
         )
 
     def delete_index(self):
