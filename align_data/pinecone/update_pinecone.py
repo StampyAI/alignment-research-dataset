@@ -84,7 +84,7 @@ class PineconeUpdater:
         :param custom_sources: List of sources to update.
         """
         with make_session() as session:
-            entries_stream = stream_pinecone_updates(custom_sources)
+            entries_stream = stream_pinecone_updates(session, custom_sources)
             for article, pinecone_entry in self.process_entries(entries_stream):
                 self.pinecone_db.upsert_entry(pinecone_entry.dict())
                 article.pinecone_update_required = False

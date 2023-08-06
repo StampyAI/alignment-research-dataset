@@ -20,9 +20,10 @@ def make_session(auto_commit=False):
             session.commit()
 
 
-def stream_pinecone_updates(custom_sources: List[str]):
+def stream_pinecone_updates(session, custom_sources: List[str]):
     """Yield Pinecone entries that require an update."""
-    with make_session() as session:
-        query = session.query(Article).filter(Article.pinecone_update_required.is_(True))
-        query = query.filter(Article.source.in_(custom_sources))
-        yield from query.yield_per(1000)
+    yield from session.query(Article).filter(
+        Article.pinecone_update_required.is_(True)
+    ).filter(
+        Article.source.in_(custom_sources)  
+    ).yield_per(1000)
