@@ -115,43 +115,24 @@ class AlignmentDataset:
                 yield item
     
     def add_entries(self, entries):
-        def commit(session):
+        def commit():
             try:
                 session.commit()
                 return True
             except IntegrityError:
                 session.rollback()
-                return False
 
-        def upsert(session, entry, existing_articles_map):
-            existing_entry = existing_articles_map.get(entry.id)
-
-            if existing_entry:
-                entry._id = existing_entry._id
-                update_required = existing_entry.is_metadata_keys_equal(entry)
-                if update_required:
-                    entry.pinecone_update_required = True
-                session.merge(entry)
-            else:
-                entry.pinecone_update_required = True
-                session.add(entry)
-            session.flush()
-        
         with make_session() as session:
             items = iter(entries)
             while batch := tuple(islice(items, self.batch_size)):
-                existing_articles = session.query(Article).filter(Article.id.in_([e.id for e in batch])).all()
-                existing_articles_map = {article.id: article for article in existing_articles}
-
-                for entry in batch:
-                    upsert(session, entry, existing_articles_map)
-
-                # Commit the session after processing each batch
-                if not commit(session):
+                session.add_all(batch)
+                # there might be duplicates in the batch, so if they cause
+                # an exception, try to commit them one by one
+                if not commit():
                     for entry in batch:
-                        upsert(session, entry, existing_articles_map)
-                        if not commit(session):
-                            logger.error(f'Error processing entry {entry.id}')
+                        session.add(entry)
+                        if not commit():
+                            logger.error(f'found duplicate of {entry}')
     
     def setup(self):
         self._outputted_items = self._load_outputted_items()

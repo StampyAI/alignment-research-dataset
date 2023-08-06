@@ -48,29 +48,21 @@ class Article(Base):
     date_updated: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.current_timestamp())
     
     pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
-    pinecone_delete_required: Mapped[bool] = mapped_column(Boolean, default=False)
-    incomplete: Mapped[bool] = mapped_column(Boolean, default=False)
     
     summaries: Mapped[List[Summary]] = relationship("Summary", back_populates="article", cascade="all, delete-orphan")
 
     __id_fields = ['url', 'title']
 
-    def __init__(self, *args, id_fields=None, **kwargs):
+    def __init__(self, *args, id_fields, **kwargs):
+        self.__id_fields = id_fields
         super().__init__(*args, **kwargs)
-        self.__id_fields = id_fields or self.__id_fields
-        if all(getattr(self, field, None) for field in self.__id_fields):
-            self.verify_fields()
-            id_string = self.generate_id_string()
-            self.id = hashlib.md5(id_string).hexdigest()
-        else:
-            raise ValueError(f"Entry is missing the following field(s): {','.join([missing for missing in self.__id_fields if not getattr(self, missing)])}")
 
     def __repr__(self) -> str:
-        return f"Article(id={self.id!r}, name={self.title!r}, fullname={self.url!r}, source={self.source!r}, source_type={self.source_type!r}, authors={self.authors!r}, date_published={self.date_published!r}, pinecone_update_required={self.pinecone_update_required!r}, pinecone_delete_required={self.pinecone_delete_required!r}, incomplete={self.incomplete!r})"
+        return f"Article(id={self.id!r}, name={self.title!r}, fullname={self.url!r}, source={self.source!r}, source_type={self.source_type!r}, authors={self.authors!r}, date_published={self.date_published!r}, pinecone_update_required={self.pinecone_update_required!r})"
     
     def __eq__(self, other):
         if not isinstance(other, Article):
-            return NotImplemented
+            raise NotImplemented
         return (
             self.id == other.id and
             self.title == other.title and
@@ -84,9 +76,9 @@ class Article(Base):
 
     def is_metadata_keys_equal(self, other):
         if not isinstance(other, Article):
-            return NotImplemented
+            raise NotImplemented
         return not any(
-            key != 'entry_id' and getattr(self, key, None) != getattr(other, key, None) 
+            getattr(self, key, None) != getattr(other, key, None)  # entry_id is implicitly ignored
             for key in PINECONE_METADATA_KEYS
         )
 
@@ -114,6 +106,8 @@ class Article(Base):
         else:
             id_string = target.generate_id_string()
             target.id = hashlib.md5(id_string).hexdigest()
+        
+        target.pinecone_update_required = True
 
     def to_dict(self):
         if date := self.date_published:

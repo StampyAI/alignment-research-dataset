@@ -38,7 +38,7 @@ class PineconeEntry(BaseModel):
 
     @validator('id', 'source', 'title', 'url', 'date_published', 'authors', 'text_chunks', pre=True, always=True)
     def empty_strings_not_allowed(cls, value):
-        if value == "":
+        if not value.strip():
             raise ValueError("Attribute should not be empty.")
         return value
     
@@ -88,7 +88,7 @@ class PineconeUpdater:
             for article, pinecone_entry in self.process_entries(entries_stream):
                 self.pinecone_db.upsert_entry(pinecone_entry.dict())
                 article.pinecone_update_required = False
-                session.merge(article)
+                session.add(article)
             session.commit()
         
     def process_entries(self, article_stream: Generator[Article, None, None]) -> Generator[Tuple[Article, PineconeEntry], None, None]:
