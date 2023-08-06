@@ -1,17 +1,16 @@
-import os
-from typing import Callable, Dict, List, Tuple, Union, Generator
-from pydantic import BaseModel, ValidationError, validator
-import numpy as np
-import openai
-import logging
-from dataclasses import dataclass
 from datetime import datetime
+import logging
+import numpy as np
+import os
+from typing import Callable, List, Tuple, Generator
+
+import openai
+from pydantic import BaseModel, ValidationError, validator
 
 from align_data.db.models import Article
-from align_data.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
-from align_data.db.session import MySQLDB
+from align_data.db.session import make_session, stream_pinecone_updates
 from align_data.pinecone.pinecone_db_handler import PineconeDB
-
+from align_data.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
 from align_data.settings import USE_OPENAI_EMBEDDINGS, OPENAI_EMBEDDINGS_MODEL, \
     OPENAI_EMBEDDINGS_DIMS, OPENAI_EMBEDDINGS_RATE_LIMIT, \
     SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL, SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS, \
