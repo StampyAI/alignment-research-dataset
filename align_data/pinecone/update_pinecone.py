@@ -88,7 +88,7 @@ class PineconeUpdater:
             for article, pinecone_entry in self.process_entries(entries_stream):
                 self.pinecone_db.upsert_entry(pinecone_entry.dict())
                 article.pinecone_update_required = False
-                session.add(article)
+                session.merge(article)
             session.commit()
         
     def process_entries(self, article_stream: Generator[Article, None, None]) -> Generator[Tuple[Article, PineconeEntry], None, None]:
