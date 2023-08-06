@@ -1,8 +1,10 @@
 import json
 from unittest.mock import Mock, patch
-import pytest
 
-from align_data.arbital.arbital import parse_arbital_link, flatten, markdownify_text, extract_text, Arbital
+import pytest
+from dateutil.parser import parse
+
+from align_data.sources.arbital.arbital import Arbital, extract_text, flatten, parse_arbital_link
 
 
 @pytest.mark.parametrize('contents, expected', (
@@ -67,9 +69,8 @@ def test_markdownify_text_summary(text, expected):
 
 
 @pytest.fixture
-def dataset(tmp_path):
+def dataset():
    dataset = Arbital(name='arbital')
-   dataset.__post_init__(tmp_path)
    dataset.titles_map = {}
 
    def post(url, *args, **kwargs):
@@ -159,15 +160,15 @@ def test_extract_authors_ignore_missing(dataset):
 
 
 @pytest.mark.parametrize('page, expected', (
-   ({'editCreatedAt': '2021-02-01T01:23:45Z'}, '2021-02-01T01:23:45Z'),
-   ({'pageCreatedAt': '2021-02-01T01:23:45Z'}, '2021-02-01T01:23:45Z'),
+   ({'editCreatedAt': '2021-02-01T01:23:45Z'}, parse('2021-02-01T01:23:45Z')),
+   ({'pageCreatedAt': '2021-02-01T01:23:45Z'}, parse('2021-02-01T01:23:45Z')),
    ({
       'editCreatedAt': '2021-02-01T01:23:45Z',
       'pageCreatedAt': '2024-02-01T01:23:45Z',
-   }, '2021-02-01T01:23:45Z'),
+   }, parse('2021-02-01T01:23:45Z')),
 
-   ({}, ''),
-   ({'bla': 'asdasd'}, ''),
+   ({}, None),
+   ({'bla': 'asdasd'}, None),
 ))
 def test_get_published_date(dataset, page, expected):
    assert dataset._get_published_date(page) == expected
@@ -182,14 +183,14 @@ def test_process_entry(dataset):
       'tagIds': [],
    }
    with patch.object(dataset, 'get_page', return_value=page):
-      assert dataset.process_entry('bla') == {
+      assert dataset.process_entry('bla').to_dict() == {
          'alias': 'bla',
          'authors': [],
          'date_published': '2001-02-03T12:34:45Z',
          'id': None,
          'source': 'arbital',
          'source_type': 'text',
-         'summary': [],
+         'summaries': [],
          'tags': [],
          'text': 'bla bla bla',
          'title': 'test article',

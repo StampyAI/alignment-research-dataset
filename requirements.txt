@@ -32,3 +32,12 @@ bs4
 regex
 pytz
 epub_meta
+youtube-transcript-api
+
+alembic
+mysqlclient
+
+openai
+langchain
+nltk
+pinecone-client

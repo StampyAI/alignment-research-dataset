@@ -1,10 +1,10 @@
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
-from bs4 import BeautifulSoup
-
-from align_data.articles.datasets import SpreadsheetDataset, PDFArticles, HTMLArticles, EbookArticles, XMLArticles
+from align_data.sources.articles.datasets import (
+    EbookArticles, DocArticles, HTMLArticles, MarkdownArticles, PDFArticles, SpreadsheetDataset, XMLArticles
+)
 
 
 @pytest.fixture
@@ -37,12 +37,7 @@ def test_spreadsheet_dataset_items_list(articles):
 
 def test_spreadsheet_dataset_get_item_key():
     dataset = SpreadsheetDataset(name='bla', spreadsheet_id='123', sheet_id='456')
-    assert dataset.get_item_key(Mock(bla='ble', title='the key')) == 'the key'
-
-
-def test_spreadsheet_dataset_get_published_date():
-    dataset = SpreadsheetDataset(name='bla', spreadsheet_id='123', sheet_id='456')
-    assert dataset._get_published_date(Mock(date_published='2023/01/03 12:23:34')) == '2023-01-03T12:23:34Z'
+    assert dataset.get_item_key(Mock(bla='ble', url='the key')) == 'the key'
 
 
 @pytest.mark.parametrize('authors, expected', (
@@ -69,8 +64,8 @@ def test_pdf_articles_get_text():
         assert filename == dataset.files_path / 'bla bla bla.pdf'
         return 'pdf contents'
 
-    with patch('align_data.articles.datasets.download', check_downloads):
-        with patch('align_data.articles.datasets.read_pdf', read_pdf):
+    with patch('align_data.sources.articles.datasets.download', check_downloads):
+        with patch('align_data.sources.articles.datasets.read_pdf', read_pdf):
             assert dataset._get_text(item) == 'pdf contents'
 
 
@@ -79,16 +74,16 @@ def test_pdf_articles_process_item(articles):
     with patch('pandas.read_csv', return_value=articles):
         item = list(dataset.items_list)[0]
 
-    with patch('align_data.articles.datasets.download'):
-        with patch('align_data.articles.datasets.read_pdf', return_value='pdf contents <a href="asd.com">bla</a>'):
-            assert dataset.process_entry(item) == {
+    with patch('align_data.sources.articles.datasets.download'):
+        with patch('align_data.sources.articles.datasets.read_pdf', return_value='pdf contents <a href="asd.com">bla</a>'):
+            assert dataset.process_entry(item).to_dict() == {
                 'authors': ['John Snow', 'mr Blobby'],
                 'date_published': '2023-01-01T12:32:11Z',
                 'id': None,
                 'source': 'bla',
                 'source_filetype': 'pdf',
                 'source_type': 'something',
-                'summary': ['the summary of article 0'],
+                'summaries': ['the summary of article 0'],
                 'text': 'pdf contents [bla](asd.com)',
                 'title': 'article no 0',
                 'url': 'http://example.com/item/0',
@@ -100,12 +95,12 @@ def test_html_articles_get_text():
         assert url == 'http://example.org/bla.bla'
         return 'html contents'
 
-    with patch('align_data.articles.datasets.HTML_PARSERS', {'example.org': parser}):
+    with patch('align_data.sources.articles.datasets.HTML_PARSERS', {'example.org': parser}):
         assert HTMLArticles._get_text(Mock(source_url='http://example.org/bla.bla')) == 'html contents'
 
 
 def test_html_articles_get_text_no_parser():
-    with patch('align_data.articles.datasets.HTML_PARSERS', {}):
+    with patch('align_data.sources.articles.datasets.HTML_PARSERS', {}):
         assert HTMLArticles._get_text(Mock(source_url='http://example.org/bla.bla')) is None
 
 
@@ -115,15 +110,15 @@ def test_html_articles_process_entry(articles):
         item = list(dataset.items_list)[0]
 
     parsers = {'example.com': lambda _: '   html contents with <a href="bla.com">proper elements</a> ble ble   '}
-    with patch('align_data.articles.datasets.HTML_PARSERS', parsers):
-        assert dataset.process_entry(item) == {
+    with patch('align_data.sources.articles.datasets.HTML_PARSERS', parsers):
+        assert dataset.process_entry(item).to_dict() == {
             'authors': ['John Snow', 'mr Blobby'],
             'date_published': '2023-01-01T12:32:11Z',
             'id': None,
             'source': 'bla',
             'source_filetype': 'html',
             'source_type': 'something',
-            'summary': ['the summary of article 0'],
+            'summaries': ['the summary of article 0'],
             'text': 'html contents with [proper elements](bla.com) ble ble',
             'title': 'article no 0',
             'url': 'http://example.com/item/0',
@@ -145,8 +140,8 @@ def test_ebook_articles_get_text():
     def read_ebook(filename, *args, **kwargs):
         return 'ebook contents'
 
-    with patch('align_data.articles.datasets.download', check_downloads):
-        with patch('pypandoc.convert_file', read_ebook):
+    with patch('align_data.sources.articles.datasets.download', check_downloads):
+        with patch('align_data.sources.articles.datasets.convert_file', read_ebook):
             assert dataset._get_text(item) == 'ebook contents'
 
 
@@ -156,16 +151,16 @@ def test_ebook_articles_process_entry(articles):
         item = list(dataset.items_list)[0]
 
     contents = '   html contents with <a href="bla.com">proper elements</a> ble ble   '
-    with patch('align_data.articles.datasets.download'):
-        with patch('pypandoc.convert_file', return_value=contents):
-            assert dataset.process_entry(item) == {
+    with patch('align_data.sources.articles.datasets.download'):
+        with patch('align_data.sources.articles.datasets.convert_file', return_value=contents):
+            assert dataset.process_entry(item).to_dict() == {
                 'authors': ['John Snow', 'mr Blobby'],
                 'date_published': '2023-01-01T12:32:11Z',
                 'id': None,
                 'source': 'bla',
                 'source_filetype': 'epub',
                 'source_type': 'something',
-                'summary': ['the summary of article 0'],
+                'summaries': ['the summary of article 0'],
                 'text': 'html contents with [proper elements](bla.com) ble ble',
                 'title': 'article no 0',
                 'url': 'http://example.com/item/0',
@@ -174,7 +169,7 @@ def test_ebook_articles_process_entry(articles):
 
 def test_xml_articles_get_text():
     dataset = XMLArticles(name='bla', spreadsheet_id='123', sheet_id='456')
-    with patch('align_data.articles.datasets.extract_gdrive_contents', return_value={'text': 'bla bla'}):
+    with patch('align_data.sources.articles.datasets.extract_gdrive_contents', return_value={'text': 'bla bla'}):
         assert dataset._get_text(Mock(source_url='bla.com')) == 'bla bla'
 
 
@@ -183,16 +178,70 @@ def test_xml_articles_process_entry(articles):
     with patch('pandas.read_csv', return_value=articles):
         item = list(dataset.items_list)[0]
 
-    with patch('align_data.articles.datasets.extract_gdrive_contents', return_value={'text': 'bla bla'}):
-        assert dataset.process_entry(item) == {
+    with patch('align_data.sources.articles.datasets.extract_gdrive_contents', return_value={'text': 'bla bla'}):
+        assert dataset.process_entry(item).to_dict() == {
             'authors': ['John Snow', 'mr Blobby'],
             'date_published': '2023-01-01T12:32:11Z',
             'id': None,
             'source': 'bla',
             'source_filetype': 'xml',
             'source_type': 'something',
-            'summary': ['the summary of article 0'],
+            'summaries': ['the summary of article 0'],
             'text': 'bla bla',
             'title': 'article no 0',
             'url': 'http://example.com/item/0',
         }
+
+
+def test_markdown_articles_get_text():
+    dataset = MarkdownArticles(name='bla', spreadsheet_id='123', sheet_id='456')
+    with patch('align_data.sources.articles.datasets.fetch_markdown', return_value={'text': 'bla bla'}):
+        assert dataset._get_text(Mock(source_url='bla.com/bla/123/bla')) == 'bla bla'
+
+
+def test_markdown_articles_process_entry(articles):
+    dataset = MarkdownArticles(name='bla', spreadsheet_id='123', sheet_id='456')
+    with patch('pandas.read_csv', return_value=articles):
+        item = list(dataset.items_list)[0]
+
+    with patch('align_data.sources.articles.datasets.fetch_markdown', return_value={'text': 'bla bla'}):
+        assert dataset.process_entry(item).to_dict() == {
+            'authors': ['John Snow', 'mr Blobby'],
+            'date_published': '2023-01-01T12:32:11Z',
+            'id': None,
+            'source': 'bla',
+            'source_filetype': 'md',
+            'source_type': 'something',
+            'summaries': ['the summary of article 0'],
+            'text': 'bla bla',
+            'title': 'article no 0',
+            'url': 'http://example.com/item/0',
+        }
+
+
+def test_doc_articles_get_text():
+    dataset = DocArticles(name='bla', spreadsheet_id='123', sheet_id='456')
+    with patch('align_data.sources.articles.datasets.fetch_file'):
+        with patch('align_data.sources.articles.datasets.convert_file', return_value='bla bla'):
+            assert dataset._get_text(Mock(source_url='bla.com/bla/123/bla')) == 'bla bla'
+
+
+def test_doc_articles_process_entry(articles):
+    dataset = DocArticles(name='bla', spreadsheet_id='123', sheet_id='456')
+    with patch('pandas.read_csv', return_value=articles):
+        item = list(dataset.items_list)[0]
+
+    with patch('align_data.sources.articles.datasets.fetch_file'):
+        with patch('align_data.sources.articles.datasets.convert_file', return_value='bla bla'):
+            assert dataset.process_entry(item).to_dict() == {
+                'authors': ['John Snow', 'mr Blobby'],
+                'date_published': '2023-01-01T12:32:11Z',
+                'id': None,
+                'source': 'bla',
+                'source_filetype': 'docx',
+                'source_type': 'something',
+                'summaries': ['the summary of article 0'],
+                'text': 'bla bla',
+                'title': 'article no 0',
+                'url': 'http://example.com/item/0',
+            }

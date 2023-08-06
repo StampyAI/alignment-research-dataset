@@ -14,11 +14,15 @@ on:
           - aipulse
           - aisafety.camp
           - aisafety.info
+          - ai_alignment_playlist
+          - ai_explained
+          - ai_safety_talks
+          - ai_safety_reading_group
+          - ai_tech_tu_delft
           - alignmentforum
           - alignment_newsletter
           - arbital
           - arxiv
-          - audio_transcripts
           - carado.moe
           - cold_takes
           - deepmind_blog
@@ -33,9 +37,10 @@ on:
           - gwern_blog
           - html_articles
           - importai
+          - indices
           - jsteinhardt_blog
           - lesswrong
-          - markdown.ebooks
+          - markdown
           - miri
           - ml_safety_newsletter
           - nonarxiv_papers
@@ -43,12 +48,47 @@ on:
           - openai.research
           - pdfs
           - reports
+          - rob_miles_ai_safety
+          - special_docs
           - vkrakovna_blog
           - yudkowsky_blog
 
 jobs:
+  generate-dataset:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Generate dataset file
+      env:
+        CODA_TOKEN: ${{ secrets.CODA_TOKEN }}
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
+        ARD_DB_NAME: alignment_research_dataset
+      run: python main.py generate_jsonl_files ${{ inputs.datasource }}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ inputs.datasource }}
+        path: data/${{ inputs.datasource }}.jsonl
+        retention-days: 1
+
   upload:
     runs-on: ubuntu-latest
+    needs: generate-dataset
 
     steps:
     - name: Checkout repository

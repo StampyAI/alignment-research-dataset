@@ -2,14 +2,14 @@ from unittest.mock import patch, Mock
 
 import pytest
 from bs4 import BeautifulSoup
+from dateutil.parser import parse
 
 from align_data.common.html_dataset import HTMLDataset, RSSDataset
 
 
 @pytest.fixture
-def html_dataset(tmp_path):
+def html_dataset():
     dataset = HTMLDataset(name='bla', url='http://example.com', authors=['John Smith', 'Your momma'])
-    dataset.__post_init__(tmp_path)
 
     return dataset
 
@@ -104,7 +104,7 @@ def test_html_dataset_find_date(html_dataset):
     </div>
     """
     soup = BeautifulSoup(text, "html.parser")
-    assert html_dataset._find_date(soup.select('span')) == '2023-10-07T00:00:00Z'
+    assert html_dataset._find_date(soup.select('span')) == parse('2023-10-07T00:00:00Z')
 
 
 @pytest.mark.parametrize('text', (
@@ -125,13 +125,13 @@ def test_html_dataset_process_entry(html_dataset):
     article = BeautifulSoup(item, "html.parser")
 
     with patch('requests.get', return_value=Mock(content=SAMPLE_HTML)):
-        assert html_dataset.process_entry(article) == {
+        assert html_dataset.process_entry(article).to_dict() == {
             'authors': ['John Smith', 'Your momma'],
-            'date_published': '',
+            'date_published': None,
             'id': None,
             'source': 'bla',
             'source_type': 'blog',
-            'summary': [],
+            'summaries': [],
             'text': 'bla bla bla [a link](http://ble.com) bla bla',
             'title': 'This is the title',
             'url': 'http://example.com/path/to/article',
@@ -165,14 +165,14 @@ def test_rss_dataset_get_title():
 
 
 @pytest.mark.parametrize('item, date', (
-    ({'published': '2012/01/02 12:32'}, '2012-01-02T12:32:00Z'),
-    ({'pubDate': '2012/01/02 12:32'}, '2012-01-02T12:32:00Z'),
+    ({'published': '2012/01/02 12:32'}, parse('2012-01-02T12:32:00Z')),
+    ({'pubDate': '2012/01/02 12:32'}, parse('2012-01-02T12:32:00Z')),
     ({
         'pubDate': '2032/01/02 12:32',
         'published': '2012/01/02 12:32',
-    }, '2012-01-02T12:32:00Z'),
+    }, parse('2012-01-02T12:32:00Z')),
 
-    ({'bla': 'bla'}, ''),
+    ({'bla': 'bla'}, None),
 ))
 def test_rss_dataset_get_published_date(item, date):
     dataset = RSSDataset(name='bla', url='http://example.org', authors=['default author'])

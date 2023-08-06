@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 import pytest
 import pandas as pd
 
-from align_data.alignment_newsletter import AlignmentNewsletter
+from align_data.sources.alignment_newsletter import AlignmentNewsletter
 
 
 @pytest.fixture(scope="module")
@@ -32,14 +33,14 @@ def test_process_entry_no_summary(dataset):
 
 
 def test_format_datatime(dataset):
-    assert dataset._get_published_date(2022) == '2022-01-01T00:00:00Z'
+    assert dataset._get_published_date(2022) == datetime(2022, 1, 1, tzinfo=timezone.utc)
 
 
 def test_process_entry(dataset):
     # Do a basic sanity test of the output. If this starts failing and is too much
     # of a bother to keep up to date, then it can be deleted
     items = list(dataset.items_list)
-    assert dataset.process_entry(items[0]) == {
+    assert dataset.process_entry(items[0]).to_dict() == {
         'authors': ['Andrew Ilyas*',
                     'Shibani Santurkar*',
                     'Dimitris Tsipras*',
@@ -67,7 +68,7 @@ def test_process_entry(dataset):
         'source': 'text',
         'source_type': 'google-sheets',
         'summarizer': 'Rohin',
-        'summary': [],
+        'summaries': [],
         'text': (
             '_Distill published a discussion of this paper. This highlights '
             'section will cover the full discussion; all of these summaries and '

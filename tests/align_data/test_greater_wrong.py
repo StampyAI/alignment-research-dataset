@@ -5,7 +5,7 @@ from unittest.mock import patch, Mock
 
 import pytest
 
-from align_data.greaterwrong.greaterwrong import (
+from align_data.sources.greaterwrong.greaterwrong import (
     fetch_LW_tags, fetch_ea_forum_topics, GreaterWrong
 )
 
@@ -40,9 +40,7 @@ def test_fetch_ea_forum_topics():
 
 @pytest.fixture
 def dataset(tmp_path):
-    dataset = GreaterWrong(name='bla', base_url='http://example.com', start_year=2013, min_karma=0, af=False)
-    dataset.__post_init__(tmp_path)
-    return dataset
+    return GreaterWrong(name='bla', base_url='http://example.com', start_year=2013, min_karma=0, af=False)
 
 
 @pytest.mark.parametrize('tags', (
@@ -72,11 +70,11 @@ def test_greaterwrong_get_item_key(dataset):
 
 
 def test_greaterwrong_get_published_date(dataset):
-    assert dataset._get_published_date({'postedAt': '2021/02/01'}) == '2021-02-01T00:00:00Z'
+    assert dataset._get_published_date({'postedAt': '2021/02/01'}) == parse('2021-02-01T00:00:00Z')
 
 
 def test_greaterwrong_get_published_date_missing(dataset):
-    assert dataset._get_published_date({}) == ''
+    assert dataset._get_published_date({}) == None
 
 
 def test_items_list_no_previous(dataset):
@@ -112,8 +110,6 @@ def test_items_list_no_previous(dataset):
 
 def test_items_list_with_previous_items(dataset):
     dataset.ai_tags = {'tag1', 'tag2'}
-    with open(dataset.jsonl_path, 'w') as f:
-        f.write('{"date_published": "2014-12-12T01:23:45Z"}\n')
 
     def make_item(date):
         return {
@@ -135,12 +131,14 @@ def test_items_list_with_previous_items(dataset):
             ]
         return {'results': results}
 
+    mock_items = (i for i in [Mock(date_published=datetime.fromisoformat('2014-12-12T01:23:45'))])
     with patch.object(dataset, 'fetch_posts', fetcher):
         with patch.object(dataset, 'make_query', lambda next_date: next_date):
-            # All items that are older than the newest item in the jsonl file are ignored
-            assert list(dataset.items_list) == [
-                make_item(datetime(2014, 12, 12, 1, 23, 45).replace(tzinfo=pytz.UTC) + timedelta(days=i*30))
-                for i in range(1, 4)
+            with patch.object(dataset, 'read_entries', return_value=mock_items):
+                # All items that are older than the newest item in the jsonl file are ignored
+                assert list(dataset.items_list) == [
+                    make_item(datetime(2014, 12, 12, 1, 23, 45).replace(tzinfo=pytz.UTC) + timedelta(days=i*30))
+                    for i in range(1, 4)
             ]
 
 
@@ -159,7 +157,7 @@ def test_process_entry(dataset):
         'wordCount': 123,
         'commentCount': 423,
     }
-    assert dataset.process_entry(entry) == {
+    assert dataset.process_entry(entry).to_dict() == {
         'authors': ['Me', 'John Snow', 'Mr Blobby'],
         'comment_count': 423,
         'date_published': '2012-02-01T12:23:34Z',
@@ -168,7 +166,7 @@ def test_process_entry(dataset):
         'modified_at': '2001-02-10',
         'source': 'bla',
         'source_type': 'GreaterWrong',
-        'summary': [],
+        'summaries': [],
         'tags': ['tag1', 'tag2'],
         'text': 'bla bla [a link](bla.com)',
         'title': 'The title',

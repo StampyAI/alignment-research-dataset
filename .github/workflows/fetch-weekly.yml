@@ -1,5 +1,6 @@
 name: Weekly dataset updates
 on:
+  workflow_dispatch: # allow manual triggering
   schedule:
     - cron: "0 0 * * 0"  # Every Sunday at midnight
 
@@ -12,10 +13,14 @@ jobs:
           - aiimpacts
           - aipulse
           - aisafety.camp
+          - ai_alignment_playlist
+          - ai_explained
+          - ai_safety_talks
+          - ai_safety_reading_group
+          - ai_tech_tu_delft
           - alignment_newsletter
           - arbital
           - arxiv
-          - audio_transcripts
           - carado.moe
           - cold_takes
           - deepmind_blog
@@ -30,8 +35,9 @@ jobs:
           - gwern_blog
           - html_articles
           - importai
+          - indices
           - jsteinhardt_blog
-          - markdown.ebooks
+          - markdown
           - miri
           - ml_safety_newsletter
           - nonarxiv_papers
@@ -39,10 +45,16 @@ jobs:
           - openai.research
           - pdfs
           - reports
+          - rob_miles_ai_safety
           - vkrakovna_blog
           - yudkowsky_blog
 
     uses: ./.github/workflows/fetch-dataset.yml
     with:
       datasource: ${{ matrix.datasource }}
+      coda_token: ${{ inputs.coda_token }}
+      youtube_api_key: ${{ inputs.youtube_api_key }}
+      db_user: ${{ inputs.db_user }}
+      db_password: ${{ inputs.db_password }}
+      db_host: ${{ inputs.db_host }}
     secrets: inherit

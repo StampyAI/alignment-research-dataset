@@ -1,15 +1,14 @@
-import align_data.arbital as arbital
-import align_data.articles as articles
-import align_data.blogs as blogs
-import align_data.ebooks as ebooks
-import align_data.arxiv_papers as arxiv_papers
-import align_data.reports as reports
-import align_data.greaterwrong as greaterwrong
-import align_data.stampy as stampy
-import align_data.audio_transcripts as audio_transcripts
-import align_data.alignment_newsletter as alignment_newsletter
-import align_data.distill as distill
-import align_data.gdocs as gdocs
+import align_data.sources.arbital as arbital
+import align_data.sources.articles as articles
+import align_data.sources.blogs as blogs
+import align_data.sources.ebooks as ebooks
+import align_data.sources.arxiv_papers as arxiv_papers
+import align_data.sources.reports as reports
+import align_data.sources.greaterwrong as greaterwrong
+import align_data.sources.stampy as stampy
+import align_data.sources.alignment_newsletter as alignment_newsletter
+import align_data.sources.distill as distill
+import align_data.sources.youtube as youtube
 
 DATASET_REGISTRY = (
     arbital.ARBITAL_REGISTRY
@@ -20,10 +19,9 @@ DATASET_REGISTRY = (
     + reports.REPORT_REGISTRY
     + greaterwrong.GREATERWRONG_REGISTRY
     + stampy.STAMPY_REGISTRY
-    + audio_transcripts.AUDIO_TRANSCRIPTS_REGISTRY
     + distill.DISTILL_REGISTRY
     + alignment_newsletter.ALIGNMENT_NEWSLETTER_REGISTRY
-    + gdocs.GDOCS_REGISTRY
+    + youtube.YOUTUBE_REGISTRY
 )
 
 ALL_DATASETS = sorted([dataset.name for dataset in DATASET_REGISTRY])

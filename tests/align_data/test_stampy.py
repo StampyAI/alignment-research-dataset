@@ -1,7 +1,7 @@
 from unittest.mock import patch
+from dateutil.parser import parse
 
-
-from align_data.stampy import Stampy
+from align_data.sources.stampy import Stampy
 
 
 def test_validate_coda_token():
@@ -19,12 +19,12 @@ def test_get_item_key():
 
 def test_get_published_date():
     dataset = Stampy(name='bla')
-    assert dataset._get_published_date({'Doc Last Edited': '2012/01/03 12:23:32'}) == '2012-01-03T12:23:32Z'
+    assert dataset._get_published_date({'Doc Last Edited': '2012/01/03 12:23:32'}) == parse('2012-01-03T12:23:32Z')
 
 
 def test_get_published_date_missing():
     dataset = Stampy(name='bla')
-    assert dataset._get_published_date({'Doc Last Edited': ''}) == ''
+    assert dataset._get_published_date({'Doc Last Edited': ''}) == None
 
 
 def test_process_entry():
@@ -35,13 +35,13 @@ def test_process_entry():
         'UI ID': '1234',
         'Doc Last Edited': '2012-02-03',
     }
-    assert dataset.process_entry(entry) == {
+    assert dataset.process_entry(entry).to_dict() == {
         'authors': ['Stampy aisafety.info'],
         'date_published': '2012-02-03T00:00:00Z',
         'id': None,
         'source': 'bla',
         'source_type': 'markdown',
-        'summary': [],
+        'summaries': [],
         'text': 'bla bla bla',
         'title': 'Why\nnot just?',
         'url': 'https://aisafety.info?state=1234',

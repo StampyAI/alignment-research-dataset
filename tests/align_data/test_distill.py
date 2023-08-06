@@ -3,7 +3,7 @@ from unittest.mock import patch, Mock
 import pytest
 from bs4 import BeautifulSoup
 
-from align_data.distill import Distill
+from align_data.sources.distill import Distill
 
 
 def test_extract_authors():
@@ -74,7 +74,7 @@ def test_extra_values():
         ],
         'doi': '10.23915/distill.00032',
         'journal_ref': 'distill-pub',
-        'summary': ['A wild summary has appeared!'],
+        'summary': 'A wild summary has appeared!',
     }
 
 
@@ -128,7 +128,7 @@ def test_process_entry():
         dataset.items_list
 
     with patch('requests.get', return_value=Mock(content=contents)):
-        assert dataset.process_entry('http://example.org/bla') == {
+        assert dataset.process_entry('http://example.org/bla').to_dict() == {
             'authors': ['Ameya Daigavane', 'Balaraman Ravindran', 'Gaurav Aggarwal'],
             'bibliography': [
                 {
@@ -145,7 +145,7 @@ def test_process_entry():
             'journal_ref': 'distill-pub',
             'source': 'distill',
             'source_type': 'blog',
-            'summary': ['A wild summary has appeared!'],
+            'summaries': ['A wild summary has appeared!'],
             'text': 'bla bla [a link](bla.com) ble',
             'title': 'the article title',
             'url': 'http://example.org/bla',
