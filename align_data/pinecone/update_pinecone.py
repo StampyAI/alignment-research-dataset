@@ -62,7 +62,6 @@ class PineconeUpdater:
             length_function=self.length_function,
             truncate_function=self.truncate_function
         )
-        self.mysql_db = MySQLDB()
         self.pinecone_db = PineconeDB()
         
         if USE_OPENAI_EMBEDDINGS:
@@ -84,8 +83,8 @@ class PineconeUpdater:
 
         :param custom_sources: List of sources to update.
         """
-        with self.mysql_db.session_scope() as session:
-            entries_stream = self.mysql_db.stream_pinecone_updates(custom_sources)
+        with make_session() as session:
+            entries_stream = stream_pinecone_updates(custom_sources)
             for article, pinecone_entry in self.process_entries(entries_stream):
                 self.pinecone_db.upsert_entry(pinecone_entry.dict())
                 article.pinecone_update_required = False
