@@ -96,34 +96,22 @@ class Article(Base):
 
     def verify_fields(self):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
-        if missing:
-            logger.warning(f'Entry is missing the following fields: {missing}')
-            return 'missing'
-        return 'not_missing'
+        assert not missing, f'Entry is missing the following fields: {missing}'
+    
+    def verify_id(self):
+        assert self.id is not None, "Entry is missing id"
+
+        id_string = self.generate_id_string()
+        id_from_fields = hashlib.md5(id_string).hexdigest()
+        assert self.id == id_from_fields, f"Entry id {self.id} does not match id from id_fields, {id_from_fields}"
 
     @classmethod
     def before_write(cls, mapper, connection, target):
-        session = Session(connection)
+        target.verify_fields()
 
-        # Check if an Article with the same id already exists
-        db_article = session.query(Article).filter(Article.id == target.id).one_or_none()
-        if db_article is not None:
-            # Compare fields and update if necessary
-            for field in ['title', 'url', 'source', 'source_type', 'authors', 'text', 'date_published', 'meta']:
-                if getattr(db_article, field) != getattr(target, field):
-                    setattr(db_article, field, getattr(target, field))
-                    db_article.pinecone_update_required = True
-            return
-
-        # Verify required fields
-        if target.verify_fields() == 'not_missing':
-            target.incomplete = False
-            target.pinecone_update_required = True
+        if target.id:
+            target.verify_id()
         else:
-            target.incomplete = True
-
-        # Generate id if necessary
-        if target.id is None:
             id_string = target.generate_id_string()
             target.id = hashlib.md5(id_string).hexdigest()
 
