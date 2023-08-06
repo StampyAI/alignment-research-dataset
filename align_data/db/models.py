@@ -7,6 +7,7 @@ from typing import List, Optional
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Boolean, Text, Float, func, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
+from align_data.settings import PINECONE_METADATA_KEYS
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,16 @@ class Article(Base):
             self.text == other.text
         )
 
-    def generate_id_string(self):
+    def is_metadata_keys_equal(self, other):
+        if not isinstance(other, Article):
+            return NotImplemented
+        return not any(
+            key != 'entry_id' and getattr(self, key, None) != getattr(other, key, None) 
+            for key in PINECONE_METADATA_KEYS
+        )
+
+
+    def generate_id_string(self) -> str:
         return ''.join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
 
     def verify_fields(self):
