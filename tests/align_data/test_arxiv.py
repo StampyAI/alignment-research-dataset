@@ -44,7 +44,6 @@ def test_process_entry():
     with patch('align_data.arxiv_papers.arxiv_papers.parse_vanity', return_value=contents):
         with patch('align_data.arxiv_papers.arxiv_papers.arxiv', arxiv):
             assert dataset.process_entry(item).to_dict() == {
-                'abstract': 'abstract bla bla',
                 'author_comment': 'no comment',
                 'authors': ['mr blobby'],
                 'categories': 'wut',
@@ -56,7 +55,7 @@ def test_process_entry():
                 'primary_category': 'cat',
                 'source': 'asd',
                 'source_type': 'html',
-                'summaries': [],
+                'summaries': ['abstract bla bla'],
                 'text': 'this is the text',
                 'title': 'this is the title',
                 'url': 'https://arxiv.org/abs/2001.11038',

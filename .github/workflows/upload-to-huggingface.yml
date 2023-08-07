@@ -1,8 +1,8 @@
-name: Weekly dataset updates
+name: Upload datasets to Huggingface
 on:
   workflow_dispatch: # allow manual triggering
   schedule:
-    - cron: "0 0 * * 0"  # Every Sunday at midnight
+    - cron: "0 3 * * 0"  # Every Sunday at 3 AM
 
 jobs:
   update_dateset:
@@ -12,12 +12,13 @@ jobs:
           - agentmodels
           - aiimpacts
           - aisafety.camp
+          - aisafety.info
           - ai_alignment_playlist
           - ai_explained
           - ai_safety_talks
           - ai_safety_reading_group
           - ai_tech_tu_delft
-          - alignment_newsletter
+          - alignmentforum
           - arbital
           - arxiv
           - carado.moe
@@ -26,7 +27,6 @@ jobs:
           - deepmind_technical_blog
           - distill
           - eaforum
-          - ebooks
           - eleuther.ai
           - gdocs
           - generative.ink
@@ -34,6 +34,7 @@ jobs:
           - html_articles
           - importai
           - jsteinhardt_blog
+          - lesswrong
           - markdown
           - miri
           - ml_safety_newsletter
@@ -44,7 +45,7 @@ jobs:
           - yudkowsky_blog
           - xmls
 
-    uses: ./.github/workflows/fetch-dataset.yml
+    uses: ./.github/workflows/push-dataset.yml
     with:
       datasource: ${{ matrix.datasource }}
       coda_token: ${{ inputs.coda_token }}

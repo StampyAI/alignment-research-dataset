@@ -82,12 +82,16 @@ class PDFArticles(SpreadsheetDataset):
     COOLDOWN = 1
     batch_size = 1
 
+    def setup(self):
+        super().setup()
+        self.files_path.mkdir(exist_ok=True, parents=True)
+
     def _get_text(self, item):
         url = f'https://drive.google.com/uc?id={item.file_id}'
 
         filename = self.files_path / f'{item.title}.pdf'
-        download(str(filename), id=item.file_id)
-        return read_pdf(filename)
+        if download(output=str(filename), id=item.file_id):
+            return read_pdf(filename)
 
 
 class HTMLArticles(SpreadsheetDataset):
@@ -106,6 +110,10 @@ class EbookArticles(SpreadsheetDataset):
     source_filetype = 'epub'
     COOLDOWN = 10 # Add a large cooldown, as google complains a lot
     batch_size = 1
+
+    def setup(self):
+        super().setup()
+        self.files_path.mkdir(exist_ok=True, parents=True)
 
     def _get_text(self, item):
         file_id = item.source_url.split('/')[-2]
@@ -135,6 +143,10 @@ class MarkdownArticles(SpreadsheetDataset):
 class DocArticles(SpreadsheetDataset):
 
     source_filetype = 'docx'
+
+    def setup(self):
+        super().setup()
+        self.files_path.mkdir(exist_ok=True, parents=True)
 
     def _get_text(self, item):
         pandoc_path = Path('data/raw/pandoc/pandoc/')

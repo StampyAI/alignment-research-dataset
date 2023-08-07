@@ -12,7 +12,6 @@ BLOG_REGISTRY = [
     WordpressBlog(name="aisafety.camp", url="https://aisafety.camp"),
     WordpressBlog(name="miri", url="https://intelligence.org"),
     WordpressBlog(name="jsteinhardt_blog", url="https://jsteinhardt.wordpress.com"),
-    WordpressBlog(name="qualiacomputing", url="https://qualiacomputing.com"),
     WordpressBlog(name="vkrakovna_blog", url="https://vkrakovna.wordpress.com"),
     WordpressBlog(name="yudkowsky_blog", url="https://yudkowsky.net"),
     MediumBlog(name="deepmind_blog", url="https://deepmindsafetyresearch.medium.com/", authors=["DeepMind Safety Research"]),

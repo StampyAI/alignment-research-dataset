@@ -5,18 +5,15 @@ from pathlib import Path
 import pandas as pd
 
 from dataclasses import dataclass
-from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.alignment_dataset import SummaryDataset
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class AlignmentNewsletter(AlignmentDataset):
+class AlignmentNewsletter(SummaryDataset):
 
-    done_key = "title"
-
-    source_key = 'url'
-    summary_key = 'text'
+    done_key = "url"
 
     def __post_init__(self, data_path=Path(__file__).parent / '../../../data/'):
         self.data_path = data_path
@@ -28,12 +25,17 @@ class AlignmentNewsletter(AlignmentDataset):
         self.newsletter_xlsx_path = self.raw_data_path / "alignment_newsletter.xlsx"
         self.df = pd.read_excel(self.newsletter_xlsx_path)
 
-    def get_item_key(self, row):
-        return row.Title
-
     @staticmethod
-    def _get_published_date(year):
-        if not year or pd.isna(year):
+    def maybe(val):
+        if pd.isna(val):
+            return None
+        return val
+
+    def get_item_key(self, row):
+        return self.maybe(row.URL)
+
+    def _get_published_date(self, year):
+        if not self.maybe(year):
             return None
         return datetime(int(year), 1, 1, tzinfo=timezone.utc)
 
@@ -47,11 +49,11 @@ class AlignmentNewsletter(AlignmentDataset):
         converted_with, source_type, venue, newsletter_category, highlight, newsletter_number,
         summarizer, opinion, prerequisites, read_more, title, authors, date_published, text
         """
-        if pd.isna(row.Summary) or not row.Summary:
+        if not self.maybe(row.Summary) or not self.maybe(row.URL):
             return None
 
         def handle_na(v, cast=None):
-            if not v or pd.isna(v):
+            if not self.maybe(v):
                 return ''
             if cast:
                 return cast(v)
@@ -73,5 +75,5 @@ class AlignmentNewsletter(AlignmentDataset):
             "title": handle_na(row.Title, str),
             "authors": [i.strip() for i in str(row.Authors).split(',')],
             "date_published": self._get_published_date(row.Year),
-            "text": handle_na(row.Summary, str),
+            "summary": handle_na(row.Summary, str),
         })
