@@ -91,8 +91,7 @@ class Article(Base):
         else:
             id_string = target.generate_id_string()
             target.id = hashlib.md5(id_string).hexdigest()
-                    
-        target.pinecone_update_required = True
+            target.pinecone_update_required = True
 
     def to_dict(self):
         if date := self.date_published:
