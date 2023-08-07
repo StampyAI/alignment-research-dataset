@@ -49,7 +49,7 @@ class Article(Base):
     
     pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
     
-    summaries: Mapped[List[Summary]] = relationship("Summary", back_populates="article", cascade="all, delete-orphan")
+    summaries: Mapped[List["Summary"]] = relationship(back_populates="article", cascade="all, delete-orphan")   
 
     __id_fields = ['url', 'title']
 
@@ -58,22 +58,8 @@ class Article(Base):
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
-        return f"Article(id={self.id!r}, name={self.title!r}, fullname={self.url!r}, source={self.source!r}, source_type={self.source_type!r}, authors={self.authors!r}, date_published={self.date_published!r}, pinecone_update_required={self.pinecone_update_required!r})"
+        return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
     
-    def __eq__(self, other):
-        if not isinstance(other, Article):
-            raise NotImplemented
-        return (
-            self.id == other.id and
-            self.title == other.title and
-            self.url == other.url and
-            self.source == other.source and
-            self.source_type == other.source_type and
-            self.authors == other.authors and
-            self.date_published == other.date_published and
-            self.text == other.text
-        )
-
     def is_metadata_keys_equal(self, other):
         if not isinstance(other, Article):
             raise NotImplemented
@@ -81,7 +67,6 @@ class Article(Base):
             getattr(self, key, None) != getattr(other, key, None)  # entry_id is implicitly ignored
             for key in PINECONE_METADATA_KEYS
         )
-
 
     def generate_id_string(self) -> str:
         return ''.join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
@@ -106,7 +91,7 @@ class Article(Base):
         else:
             id_string = target.generate_id_string()
             target.id = hashlib.md5(id_string).hexdigest()
-        
+                    
         target.pinecone_update_required = True
 
     def to_dict(self):

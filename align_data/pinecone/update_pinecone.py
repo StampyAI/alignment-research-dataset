@@ -38,7 +38,7 @@ class PineconeEntry(BaseModel):
 
     @validator('id', 'source', 'title', 'url', 'date_published', 'authors', 'text_chunks', pre=True, always=True)
     def empty_strings_not_allowed(cls, value):
-        if not value.strip():
+        if not str(value).strip():
             raise ValueError("Attribute should not be empty.")
         return value
     

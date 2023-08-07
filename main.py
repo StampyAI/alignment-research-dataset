@@ -40,7 +40,7 @@ class AlignmentDataset:
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
             dataset = get_dataset(name)
-
+            
             dataset.add_entries(dataset.fetch_entries())
 
     def fetch_all(self, *skip) -> None:
