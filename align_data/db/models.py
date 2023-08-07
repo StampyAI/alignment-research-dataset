@@ -62,7 +62,7 @@ class Article(Base):
     
     def is_metadata_keys_equal(self, other):
         if not isinstance(other, Article):
-            raise NotImplemented
+            raise TypeError(f"Expected an instance of Article, got {type(other).__name__}")
         return not any(
             getattr(self, key, None) != getattr(other, key, None)  # entry_id is implicitly ignored
             for key in PINECONE_METADATA_KEYS
