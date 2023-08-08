@@ -1,8 +1,8 @@
 from datetime import datetime
+from itertools import islice
 import logging
 import time
 from dataclasses import dataclass, field, KW_ONLY
-from itertools import islice
 from pathlib import Path
 from typing import Iterable, List, Optional, Set
 from sqlalchemy import select
@@ -15,7 +15,6 @@ from dateutil.parser import parse, ParserError
 from tqdm import tqdm
 from align_data.db.models import Article, Summary
 from align_data.db.session import make_session
-
 
 INIT_DICT = {
     "source": None,
@@ -138,7 +137,7 @@ class AlignmentDataset:
                         session.add(entry)
                         if not commit():
                             logger.error(f'found duplicate of {entry}')
-
+    
     def setup(self):
         self._outputted_items = self._load_outputted_items()
 
@@ -187,14 +186,14 @@ class AlignmentDataset:
     def fetch_entries(self):
         """Get all entries to be written to the file."""
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
-             entry = self.process_entry(item)
-             if not entry:
-                 continue
+            entry = self.process_entry(item)
+            if not entry:
+                continue
 
-             yield entry
+            yield entry
 
-             if self.COOLDOWN:
-                 time.sleep(self.COOLDOWN)
+            if self.COOLDOWN:
+                time.sleep(self.COOLDOWN)
 
     def process_entry(self, entry):
         """Process a single entry."""

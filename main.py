@@ -8,7 +8,7 @@ import fire
 from align_data import ALL_DATASETS, get_dataset
 from align_data.analysis.count_tokens import count_token
 from align_data.sources.articles.articles import update_new_items, check_new_articles
-from align_data.pinecone.update_pinecone import ARDUpdater
+from align_data.pinecone.update_pinecone import PineconeUpdater
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_SOURCE_SPREADSHEET
 )
@@ -40,7 +40,7 @@ class AlignmentDataset:
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
             dataset = get_dataset(name)
-
+            
             dataset.add_entries(dataset.fetch_entries())
 
     def fetch_all(self, *skip) -> None:
@@ -98,12 +98,23 @@ class AlignmentDataset:
         """
         return check_new_articles(source_spreadsheet, source_sheet)
 
-    def update_pinecone(self):
+    def pinecone_update(self, *names) -> None:
         """
         This function updates the Pinecone vector DB.
         """
-        updater = ARDUpdater()
-        updater.update()
+        if names == ('all',):
+            names = ALL_DATASETS
+        missing = {name for name in names if name not in ALL_DATASETS}
+        assert not missing, f"{missing} are not valid dataset names"
+        PineconeUpdater().update(names)
+    
+    def pinecone_update_all(self, *skip) -> None:
+        """
+        This function updates the Pinecone vector DB.
+        """
+        names = [name for name in ALL_DATASETS if name not in skip]
+        PineconeUpdater().update(names)
+
 
 if __name__ == "__main__":
     fire.Fire(AlignmentDataset)

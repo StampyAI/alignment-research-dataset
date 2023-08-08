@@ -16,12 +16,14 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
     
     DEFAULT_MIN_CHUNK_SIZE = 900
     DEFAULT_MAX_CHUNK_SIZE = 1100
+    DEFAULT_LENGTH_FUNCTION = lambda string: len(string)
     DEFAULT_TRUNCATE_FUNCTION = lambda string, length, from_end=False: string[-length:] if from_end else string[:length]
 
     def __init__(
         self, 
         min_chunk_size: int = DEFAULT_MIN_CHUNK_SIZE,
         max_chunk_size: int = DEFAULT_MAX_CHUNK_SIZE,
+        length_function: Callable[[str], int] = DEFAULT_LENGTH_FUNCTION,
         truncate_function: Callable[[str, int], str] = DEFAULT_TRUNCATE_FUNCTION,
         **kwargs: Any
     ):
@@ -29,6 +31,7 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
         self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size        
 
+        self._length_function = length_function
         self._truncate_function = truncate_function
 
     def split_text(self, text: str) -> List[str]:

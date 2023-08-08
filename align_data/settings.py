@@ -45,7 +45,7 @@ PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", None)
 PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT", None)
 PINECONE_VALUES_DIMS = OPENAI_EMBEDDINGS_DIMS if USE_OPENAI_EMBEDDINGS else SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS
 PINECONE_METRIC = "dotproduct"
-PINECONE_METADATA_ENTRIES = ["entry_id", "source", "title", "authors", "text"]
+PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "authors", "text", "url"]
 
 ### MISCELLANEOUS ###
 CHUNK_SIZE = 1750

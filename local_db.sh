@@ -9,7 +9,7 @@ fi
 
 echo "Waiting till mysql is available..."
 while ! mysql -h 127.0.0.1 --user root --password=$ROOT_PASSWORD -e "SELECT 1" ; do
-    sleep 1
+    sleep 5
 done
 
 echo "Setting up database..."

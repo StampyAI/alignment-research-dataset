@@ -1,10 +1,16 @@
+import json
+import logging
 import pytz
 import hashlib
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy import JSON, DateTime, ForeignKey, String, func, Text, event
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Boolean, Text, Float, func, event
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
+from align_data.settings import PINECONE_METADATA_KEYS
+
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -24,6 +30,7 @@ class Summary(Base):
 
 
 class Article(Base):
+    
     __tablename__ = "articles"
 
     _id: Mapped[int] = mapped_column('id', primary_key=True)
@@ -34,30 +41,40 @@ class Article(Base):
     source_type: Mapped[Optional[str]] = mapped_column(String(128))
     authors: Mapped[str] = mapped_column(String(1024))
     text: Mapped[Optional[str]] = mapped_column(LONGTEXT)
-    confidence: Mapped[Optional[float]]  # Describes the confidence in how good this article is, as a value <0, 1>
+    confidence: Mapped[Optional[float]] # Describes the confidence in how good this article is, as a value <0, 1>
     date_published: Mapped[Optional[datetime]]
     meta: Mapped[Optional[JSON]] = mapped_column(JSON, name='metadata', default='{}')
     date_created: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     date_updated: Mapped[Optional[datetime]] = mapped_column(DateTime, onupdate=func.current_timestamp())
+    
+    pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    summaries: Mapped[List["Summary"]] = relationship(back_populates="article", cascade="all, delete-orphan")   
 
-    summaries: Mapped[List["Summary"]] = relationship(back_populates="article", cascade="all, delete-orphan")
-
-    __id_fields = ['title', 'url']
+    __id_fields = ['url', 'title']
 
     def __init__(self, *args, id_fields, **kwargs):
         self.__id_fields = id_fields
         super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
-        return f"User(id={self.id!r}, name={self.title!r}, fullname={self.url!r})"
+        return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
+    
+    def is_metadata_keys_equal(self, other):
+        if not isinstance(other, Article):
+            raise TypeError(f"Expected an instance of Article, got {type(other).__name__}")
+        return not any(
+            getattr(self, key, None) != getattr(other, key, None)  # entry_id is implicitly ignored
+            for key in PINECONE_METADATA_KEYS
+        )
 
-    def generate_id_string(self):
+    def generate_id_string(self) -> str:
         return ''.join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
 
     def verify_fields(self):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
         assert not missing, f'Entry is missing the following fields: {missing}'
-
+    
     def verify_id(self):
         assert self.id is not None, "Entry is missing id"
 
@@ -88,10 +105,12 @@ class Article(Base):
             target.verify_id()
         else:
             target._set_id()
+            target.pinecone_update_required = True
 
     def to_dict(self):
         if date := self.date_published:
             date = date.replace(tzinfo=pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        meta = json.loads(self.meta) if isinstance(self.meta, str) else self.meta
 
         authors = []
         if self.authors and self.authors.strip():

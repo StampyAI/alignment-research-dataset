@@ -1,10 +1,13 @@
 # dataset/pinecone_db_handler.py
 
+import logging
+from typing import Dict
+
 import pinecone
 
-from align_data.settings import PINECONE_INDEX_NAME, PINECONE_VALUES_DIMS, PINECONE_METRIC, PINECONE_METADATA_ENTRIES, PINECONE_API_KEY, PINECONE_ENVIRONMENT
+from align_data.settings import PINECONE_INDEX_NAME, PINECONE_VALUES_DIMS, PINECONE_METRIC, PINECONE_METADATA_KEYS, PINECONE_API_KEY, PINECONE_ENVIRONMENT
 
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,14 +17,14 @@ class PineconeDB:
         index_name: str = PINECONE_INDEX_NAME,
         values_dims: int = PINECONE_VALUES_DIMS,
         metric: str = PINECONE_METRIC,
-        metadata_entries: list = PINECONE_METADATA_ENTRIES,
+        metadata_keys: list = PINECONE_METADATA_KEYS,
         create_index: bool = False,
         log_index_stats: bool = True,
     ):
         self.index_name = index_name
         self.values_dims = values_dims
         self.metric = metric
-        self.metadata_entries = metadata_entries
+        self.metadata_keys = metadata_keys
         
         pinecone.init(
             api_key = PINECONE_API_KEY,
@@ -36,52 +39,25 @@ class PineconeDB:
         if log_index_stats:
             index_stats_response = self.index.describe_index_stats()
             logger.info(f"{self.index_name}:\n{index_stats_response}")
-    
-    def upsert_entry(self, entry, chunks, embeddings, upsert_size=100):
+            
+    def upsert_entry(self, entry: Dict, upsert_size=100):
         self.index.upsert(
             vectors=list(
                 zip(
-                    [f"{entry['id']}_{str(i).zfill(6)}" for i in range(len(chunks))], 
-                    embeddings.tolist(), 
+                    [f"{entry['id']}_{str(i).zfill(6)}" for i in range(len(entry['text_chunks']))], 
+                    entry['embeddings'].tolist(), 
                     [
                         {
                             'entry_id': entry['id'],
                             'source': entry['source'],
                             'title': entry['title'],
                             'authors': entry['authors'],
-                            'text': chunk,
-                        } for chunk in chunks
+                            'text': text_chunk,
+                        } for text_chunk in entry['text_chunks']
                     ]
                 )
             ),
             batch_size=upsert_size
-        )
-    
-    def upsert_entries(self, entries_batch, chunks_batch, chunks_ids_batch, embeddings, upsert_size=100):
-        self.index.upsert(
-            vectors=list(
-                zip(
-                    chunks_ids_batch,
-                    embeddings.tolist(),
-                    [
-                        {
-                            'entry_id': entry['id'],
-                            'source': entry['source'],
-                            'title': entry['title'],
-                            'authors': entry['authors'],
-                            'text': chunk,
-                        }
-                        for entry in entries_batch
-                        for chunk in chunks_batch
-                    ]
-                )
-            ),
-            batch_size=upsert_size
-        )
-
-    def delete_entry(self, id):
-        self.index.delete(
-            filter={"entry_id": {"$eq": id}}
         )
     
     def delete_entries(self, ids):
@@ -97,7 +73,7 @@ class PineconeDB:
             name=self.index_name,
             dimension=self.values_dims,
             metric=self.metric,
-            metadata_config = {"indexed": self.metadata_entries},
+            metadata_config = {"indexed": self.metadata_keys},
         )
 
     def delete_index(self):
