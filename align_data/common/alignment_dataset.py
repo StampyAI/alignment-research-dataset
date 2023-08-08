@@ -186,9 +186,9 @@ class AlignmentDataset:
     def fetch_entries(self):
         """Get all entries to be written to the file."""
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
-             entry = self.process_entry(item)
-             if not entry:
-                 continue
+            entry = self.process_entry(item)
+            if not entry:
+                continue
 
             yield entry
 
