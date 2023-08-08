@@ -15,13 +15,15 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 from align_data.settings import DB_CONNECTION_URI
-config.set_main_option('sqlalchemy.url', DB_CONNECTION_URI)
+
+config.set_main_option("sqlalchemy.url", DB_CONNECTION_URI)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from align_data.db.models import Base
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -68,9 +70,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

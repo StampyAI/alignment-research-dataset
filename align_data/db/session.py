@@ -24,6 +24,4 @@ def stream_pinecone_updates(session, custom_sources: List[str]):
     """Yield Pinecone entries that require an update."""
     yield from session.query(Article).filter(
         Article.pinecone_update_required.is_(True)
-    ).filter(
-        Article.source.in_(custom_sources)  
-    ).yield_per(1000)
+    ).filter(Article.source.in_(custom_sources)).yield_per(1000)

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class WordpressBlog(RSSDataset):
-    summary_key = 'summary'
+    summary_key = "summary"
 
     @property
     def feed_url(self):
@@ -31,19 +31,21 @@ class WordpressBlog(RSSDataset):
                 logging.info(f"Fetching {paged_url}")
 
                 feed = feedparser.parse(paged_url)
-                title = feed.get('feed', {}).get('title')
+                title = feed.get("feed", {}).get("title")
                 if not title or title == prev_title:
                     break
 
                 prev_title = feed["feed"]["title"]
                 page_number += 1
 
-                for item in feed['entries']:
-                    self.items[item['link']] = item
+                for item in feed["entries"]:
+                    self.items[item["link"]] = item
 
                 # update the tqdm progress bar
-                pbar.set_postfix_str(f"page {page_number}", refresh=True)  # Set postfix to "page X"
+                pbar.set_postfix_str(
+                    f"page {page_number}", refresh=True
+                )  # Set postfix to "page X"
                 pbar.update()  # Here we increment the progress bar by 1
 
-        logger.info(f'Got {len(self.items)} pages')
+        logger.info(f"Got {len(self.items)} pages")
         return list(self.items.keys())
