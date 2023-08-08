@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def make_session(auto_commit=False):
     engine = create_engine(DB_CONNECTION_URI, echo=False)
-    with Session(engine) as session:
+    with Session(engine).no_autoflush as session:
         yield session
         if auto_commit:
             session.commit()

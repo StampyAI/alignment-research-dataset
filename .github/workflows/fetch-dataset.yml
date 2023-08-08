@@ -29,7 +29,6 @@ on:
         options:
           - agentmodels
           - aiimpacts
-          - aipulse
           - aisafety.camp
           - aisafety.info
           - ai_alignment_playlist
@@ -40,6 +39,7 @@ on:
           - alignmentforum
           - alignment_newsletter
           - arbital
+          - arxiv
           - carado.moe
           - cold_takes
           - deepmind_blog
@@ -49,7 +49,6 @@ on:
           - ebooks
           - eleuther.ai
           - gdocs
-          - gdrive_ebooks
           - generative.ink
           - gwern_blog
           - html_articles
@@ -59,14 +58,12 @@ on:
           - markdown
           - miri
           - ml_safety_newsletter
-          - nonarxiv_papers
-          - qualiacomputing
           - openai.research
           - pdfs
-          - reports
           - rob_miles_ai_safety
           - vkrakovna_blog
           - yudkowsky_blog
+          - xmls
 
 jobs:
   build-dataset:
@@ -81,10 +78,17 @@ jobs:
       with:
         python-version: '3.x'
 
+    - name: Install Pandoc
+      run: |
+        if [ "${{ inputs.datasource }}" = "gdocs" ]; then
+          sudo apt-get update
+          sudo apt-get -y install pandoc
+        fi
+
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Generate dataset file
+    - name: Process dataset
       env:
         CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
         YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}

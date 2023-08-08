@@ -82,6 +82,21 @@ class Article(Base):
         id_from_fields = hashlib.md5(id_string).hexdigest()
         assert self.id == id_from_fields, f"Entry id {self.id} does not match id from id_fields, {id_from_fields}"
 
+    def update(self, other):
+        for field in self.__table__.columns.keys():
+            if field not in ['id', 'hash_id', 'metadata'] and getattr(other, field):
+                setattr(self, field, getattr(other, field))
+        self.meta.update({k: v for k, v in other.meta.items() if k and v})
+
+        if other._id:
+            self._id = other._id
+        self.id = None  # update the hash id so it calculates a new one if needed
+        return self
+
+    def _set_id(self):
+        id_string = self.generate_id_string()
+        self.id = hashlib.md5(id_string).hexdigest()
+
     @classmethod
     def before_write(cls, mapper, connection, target):
         target.verify_fields()
@@ -89,14 +104,18 @@ class Article(Base):
         if target.id:
             target.verify_id()
         else:
-            id_string = target.generate_id_string()
-            target.id = hashlib.md5(id_string).hexdigest()
+            target._set_id()
             target.pinecone_update_required = True
 
     def to_dict(self):
         if date := self.date_published:
             date = date.replace(tzinfo=pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         meta = json.loads(self.meta) if isinstance(self.meta, str) else self.meta
+
+        authors = []
+        if self.authors and self.authors.strip():
+            authors = [i.strip() for i in self.authors.split(',')]
+
         return {
             'id': self.id,
             'title': self.title,
@@ -105,9 +124,9 @@ class Article(Base):
             'source_type': self.source_type,
             'text': self.text,
             'date_published': date,
-            'authors': [i.strip() for i in self.authors.split(',')] if self.authors.strip() else [],
-            'summaries': [s.text for s in self.summaries],
-            **meta,
+            'authors': authors,
+            'summaries': [s.text for s in (self.summaries or [])],
+            **(self.meta or {}),
         }
 
 

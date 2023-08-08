@@ -62,7 +62,7 @@ class ArxivPapers(SpreadsheetDataset):
             "authors": authors,
             "date_published": self._get_published_date(self.is_val(item.date_published) or paper.get('date_published')),
             "data_last_modified": str(metadata.updated),
-            "abstract": metadata.summary.replace("\n", " "),
+            "summary": metadata.summary.replace("\n", " "),
             "author_comment": metadata.comment,
             "journal_ref": metadata.journal_ref,
             "doi": metadata.doi,

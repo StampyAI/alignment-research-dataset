@@ -62,6 +62,8 @@ class AlignmentDataset:
 
         :param List[str] names: The names of the datasets to generate
         """
+        if names == ('all',):
+            names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
