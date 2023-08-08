@@ -1,6 +1,10 @@
 import os
+import logging
 from dotenv import load_dotenv
 load_dotenv()
+
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'WARNING').upper()
+logging.basicConfig(level=LOG_LEVEL)
 
 ### CODA ###
 CODA_TOKEN = os.environ.get("CODA_TOKEN")

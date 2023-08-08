@@ -5,19 +5,34 @@ on:
     - cron: "0 0 * * *"  # Every day at midnight
 
 jobs:
-  update_dateset:
+  update_dataset:
     strategy:
       matrix:
-        datasource:
-          - lesswrong
-          - alignmentforum
-          - aisafety.info
+        datasource: ${{ fromJson(vars.DAILY_DATASOURCES) }}
 
     uses: ./.github/workflows/fetch-dataset.yml
     with:
       datasource: ${{ matrix.datasource }}
       coda_token: ${{ inputs.coda_token }}
+      youtube_api_key: ${{ inputs.youtube_api_key }}
       db_user: ${{ inputs.db_user }}
       db_password: ${{ inputs.db_password }}
       db_host: ${{ inputs.db_host }}
+    secrets: inherit
+
+  update_indexes:
+    needs: update_dataset
+    strategy:
+      matrix:
+        datasource: ${{ fromJson(vars.DAILY_DATASOURCES) }}
+
+    uses: ./.github/workflows/update-pinecone.yml
+    with:
+      datasource: ${{ matrix.datasource }}
+      db_user: ${{ inputs.db_user }}
+      db_password: ${{ inputs.db_password }}
+      db_host: ${{ inputs.db_host }}
+      openai_api_key: ${{ inputs.openai_api_key }}
+      pinecone_api_key: ${{ inputs.pinecone_api_key }}
+      pinecone_environment: ${{ inputs.pinecone_environment }}
     secrets: inherit
