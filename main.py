@@ -10,7 +10,9 @@ from align_data.analysis.count_tokens import count_token
 from align_data.sources.articles.articles import update_new_items, check_new_articles
 from align_data.pinecone.update_pinecone import PineconeUpdater
 from align_data.settings import (
-    METADATA_OUTPUT_SPREADSHEET, METADATA_SOURCE_SHEET, METADATA_SOURCE_SPREADSHEET
+    METADATA_OUTPUT_SPREADSHEET,
+    METADATA_SOURCE_SHEET,
+    METADATA_SOURCE_SPREADSHEET,
 )
 
 
@@ -19,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AlignmentDataset:
-
     out_path: str = "data"
     """The path to the directory where the data will be downloaded, defaults to data"""
 
@@ -34,13 +35,13 @@ class AlignmentDataset:
         :param str name: The name of the dataset to fetch
         :return: The path to the file that was written to.
         """
-        if names == ('all',):
+        if names == ("all",):
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
             dataset = get_dataset(name)
-            
+
             dataset.add_entries(dataset.fetch_entries())
 
     def fetch_all(self, *skip) -> None:
@@ -62,7 +63,7 @@ class AlignmentDataset:
 
         :param List[str] names: The names of the datasets to generate
         """
-        if names == ('all',):
+        if names == ("all",):
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
@@ -75,12 +76,16 @@ class AlignmentDataset:
         This function counts the number of tokens, words, and characters in the dataset
         :return: None
         """
-        assert os.path.exists(merged_dataset_path), "The path to the merged dataset does not exist"
+        assert os.path.exists(
+            merged_dataset_path
+        ), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
 
     def update_metadata(
-            self, source_spreadsheet=METADATA_SOURCE_SPREADSHEET,
-            source_sheet=METADATA_SOURCE_SHEET, output_spreadsheet=METADATA_OUTPUT_SPREADSHEET
+        self,
+        source_spreadsheet=METADATA_SOURCE_SPREADSHEET,
+        source_sheet=METADATA_SOURCE_SHEET,
+        output_spreadsheet=METADATA_OUTPUT_SPREADSHEET,
     ):
         """Go through all unprocessed items from the source worksheet, updating the appropriate metadata in the output one.
 
@@ -90,7 +95,11 @@ class AlignmentDataset:
         """
         return update_new_items(source_spreadsheet, source_sheet, output_spreadsheet)
 
-    def fetch_new_articles(self, source_spreadsheet=METADATA_SOURCE_SPREADSHEET, source_sheet=METADATA_SOURCE_SHEET):
+    def fetch_new_articles(
+        self,
+        source_spreadsheet=METADATA_SOURCE_SPREADSHEET,
+        source_sheet=METADATA_SOURCE_SHEET,
+    ):
         """Look for unseen articles in the special indices, adding any that are found to the provided spreadsheet.
 
         :param str source_spreadsheet: The id of the google docs spreadsheet containing the items to be processed
@@ -102,12 +111,12 @@ class AlignmentDataset:
         """
         This function updates the Pinecone vector DB.
         """
-        if names == ('all',):
+        if names == ("all",):
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
         PineconeUpdater().update(names)
-    
+
     def pinecone_update_all(self, *skip) -> None:
         """
         This function updates the Pinecone vector DB.

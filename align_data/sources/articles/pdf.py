@@ -22,21 +22,21 @@ def sci_hub_pdf(identifier):
     large file containing multiple articles, e.g. a whole journal or book, in which case this function
     will ignore the result.
     """
-    elem = fetch_element(f'https://sci-hub.st/{identifier}', 'embed')
+    elem = fetch_element(f"https://sci-hub.st/{identifier}", "embed")
     if not elem:
         return None
-    src = elem.get('src').strip()
-    if src.startswith('//'):
-        src = 'https:' + src
-    elif src.startswith('/'):
-        src = f'https://sci-hub.st/{src}'
+    src = elem.get("src").strip()
+    if src.startswith("//"):
+        src = "https:" + src
+    elif src.startswith("/"):
+        src = f"https://sci-hub.st/{src}"
     return src
 
 
 def read_pdf(filename):
     try:
         pdf_reader = PdfReader(filename)
-        return '\n'.join(page.extract_text() for page in pdf_reader.pages)
+        return "\n".join(page.extract_text() for page in pdf_reader.pages)
     except PdfReadError as e:
         logger.error(e)
     return None
@@ -50,36 +50,45 @@ def fetch_pdf(link):
     :returns: the contents of the pdf file as markdown."""
     res = fetch(link)
     if res.status_code >= 400:
-        logger.error('Could not fetch the pdf file at %s - are you sure that link is correct?', link)
+        logger.error(
+            "Could not fetch the pdf file at %s - are you sure that link is correct?",
+            link,
+        )
 
-    content_type = {c_type.strip().lower() for c_type in res.headers.get('Content-Type').split(';')}
-    if not content_type & {'application/octet-stream', 'application/pdf'}:
+    content_type = {
+        c_type.strip().lower() for c_type in res.headers.get("Content-Type").split(";")
+    }
+    if not content_type & {"application/octet-stream", "application/pdf"}:
         return {
-            'error': f'Wrong content type retrieved: {content_type} - {link}',
-            'contents': res.content,
+            "error": f"Wrong content type retrieved: {content_type} - {link}",
+            "contents": res.content,
         }
 
     try:
         pdf_reader = PdfReader(io.BytesIO(res.content))
         return {
-            'source_url': link,
-            'text': '\n'.join(page.extract_text() for page in pdf_reader.pages),
-            'data_source': 'pdf',
+            "source_url": link,
+            "text": "\n".join(page.extract_text() for page in pdf_reader.pages),
+            "data_source": "pdf",
         }
     except PdfReadError as e:
-        logger.error('Could not read PDF file: %s', e)
-        return {'error': str(e)}
+        logger.error("Could not read PDF file: %s", e)
+        return {"error": str(e)}
 
     filenames = [
-        i.strip().split('=')[1]
-        for i in res.headers.get('Content-Disposition', '').split(';')
-        if 'filename' in i
+        i.strip().split("=")[1]
+        for i in res.headers.get("Content-Disposition", "").split(";")
+        if "filename" in i
     ]
-    if filenames and 'pdf' not in filenames[0].lower():
-        logger.error('Are you sure %s points to a pdf file? The response says the file should be called %s', link, filenames[0])
-        error = f'Probably bad file type: {filenames[0]} - {link}'
+    if filenames and "pdf" not in filenames[0].lower():
+        logger.error(
+            "Are you sure %s points to a pdf file? The response says the file should be called %s",
+            link,
+            filenames[0],
+        )
+        error = f"Probably bad file type: {filenames[0]} - {link}"
 
-    return {'error': error}
+    return {"error": error}
 
 
 def get_arxiv_link(doi):
@@ -88,14 +97,19 @@ def get_arxiv_link(doi):
     if res.status_code != 200:
         return None
 
-    vals = [i for i in response.json().get('values') if i.get('type', '').upper() == 'URL']
+    vals = [
+        val
+        for val in response.json().get("values")
+        if val.get("type", "").upper() == "URL"
+    ]
+
     if not vals:
         return None
     return vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
 
 
 def get_arxiv_pdf(link):
-    return fetch_pdf(link.replace('/abs/', '/pdf/'))
+    return fetch_pdf(link.replace("/abs/", "/pdf/"))
 
 
 def get_doi(doi):
@@ -104,23 +118,23 @@ def get_doi(doi):
     This will look for it in sci-hub and arxiv (if applicable), as those are likely the most
     comprehensive sources of pdfs.
     """
-    if 'arXiv' in doi:
+    if "arXiv" in doi:
         link = get_arxiv_link(doi)
-        pdf = (link and fetch_pdf(link))
-        if pdf and 'text' in pdf:
-            pdf['downloaded_from'] = 'arxiv'
+        pdf = link and fetch_pdf(link)
+        if pdf and "text" in pdf:
+            pdf["downloaded_from"] = "arxiv"
             return pdf
 
     if link := sci_hub_pdf(doi):
         if pdf := fetch_pdf(link):
-            pdf['downloaded_from'] = 'scihub'
+            pdf["downloaded_from"] = "scihub"
             return pdf
-    return {'error': 'Could not find pdf of article by DOI'}
+    return {"error": "Could not find pdf of article by DOI"}
 
 
 def doi_getter(url):
     """Extract the DOI from the given `url` and fetch the contents of its article."""
-    return get_doi(urlparse(url).path.lstrip('/'))
+    return get_doi(urlparse(url).path.lstrip("/"))
 
 
 def get_pdf_from_page(*link_selectors):
@@ -133,34 +147,38 @@ def get_pdf_from_page(*link_selectors):
     :param List[str] link_selectors: CSS selector used to find the final download link
     :returns: the contents of the pdf file as a string
     """
+
     def getter(url):
         link = url
         for selector in link_selectors:
             elem = fetch_element(link, selector)
             if not elem:
-                return {'error': f'Could not find pdf download link for {link} using \'{selector}\''}
+                return {
+                    "error": f"Could not find pdf download link for {link} using '{selector}'"
+                }
 
-            link = elem.get('href')
-            if not link.startswith('http') or not link.startswith('//'):
+            link = elem.get("href")
+            if not link.startswith("http") or not link.startswith("//"):
                 link = urljoin(url, link)
 
         # Some pages keep link to google drive previews of pdf files, which need to be
         # mangled to get the URL of the actual pdf file
-        if 'drive.google.com' in link and '/view' in link:
+        if "drive.google.com" in link and "/view" in link:
             return extract_gdrive_contents(link)
 
         if pdf := fetch_pdf(link):
             return pdf
-        return {'error': f'Could not fetch pdf from {link}'}
+        return {"error": f"Could not fetch pdf from {link}"}
+
     return getter
 
 
 def parse_vanity(url):
-    contents = fetch_element(url, 'article')
+    contents = fetch_element(url, "article")
     if not contents:
         return None
 
-    if title := contents.select_one('h1.ltx_title'):
+    if title := contents.select_one("h1.ltx_title"):
         title = title.text
 
     def get_first_child(item):
@@ -170,24 +188,26 @@ def parse_vanity(url):
 
         if not isinstance(child, str):
             child = child.text
-        return child.split(',')
+        return child.split(",")
 
     authors = [
-        a.strip() for item in contents.select('div.ltx_authors .ltx_personname') for a in get_first_child(item)
+        a.strip()
+        for item in contents.select("div.ltx_authors .ltx_personname")
+        for a in get_first_child(item)
     ]
 
-    if date_published := contents.select_one('div.ltx_dates'):
-       date_published = date_published.text.strip('()')
+    if date_published := contents.select_one("div.ltx_dates"):
+        date_published = date_published.text.strip("()")
 
-    text = '\n\n'.join([
+    text = "\n\n".join(
         MarkdownConverter().convert_soup(elem).strip()
-        for elem in contents.select('section.ltx_section')
-    ])
+        for elem in contents.select("section.ltx_section")
+    )
 
     return {
-        'title': title,
-        'authors': authors,
-        'text': text,
-        'date_published': date_published,
-        'data_source': 'html',
+        "title": title,
+        "authors": authors,
+        "text": text,
+        "date_published": date_published,
+        "data_source": "html",
     }

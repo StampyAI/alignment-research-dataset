@@ -38,10 +38,10 @@ class AlignmentDataset:
 
     _: KW_ONLY
 
-    files_path = Path('')
+    files_path = Path("")
     """The path where data can be found. Usually a folder"""
 
-    done_key = 'id'
+    done_key = "id"
     """The key of the entry to use as the id when checking if already processed."""
 
     COOLDOWN = 0
@@ -58,30 +58,30 @@ class AlignmentDataset:
     _outputted_items = set()
     """A set of the ids of all previously processed items"""
     _: KW_ONLY
-    id_fields: List[str] = field(default_factory=lambda: ['url', 'title'])
+    id_fields: List[str] = field(default_factory=lambda: ["url", "title"])
     """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
     def __str__(self) -> str:
         return self.name
 
-    def __post_init__(self, data_path=Path(__file__).parent / '../../data/'):
+    def __post_init__(self, data_path=Path(__file__).parent / "../../data/"):
         self.data_path = data_path
-        self.raw_data_path = self.data_path / 'raw'
+        self.raw_data_path = self.data_path / "raw"
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
 
     def _add_authors(self, article: Article, authors: List[str]) -> Article:
         # TODO: Don't keep adding the same authors - come up with some way to reuse them
-        article.authors = ','.join(authors)
+        article.authors = ",".join(authors)
         if len(article.authors) > 1024:
-            article.authors = ','.join(article.authors[:1024].split(',')[:-1])
+            article.authors = ",".join(article.authors[:1024].split(",")[:-1])
         return article
 
     def make_data_entry(self, data, **kwargs) -> Article:
         data = dict(data, **kwargs)
-        summary = data.pop('summary', None)
-        authors = data.pop('authors', [])
+        summary = data.pop("summary", None)
+        authors = data.pop("authors", [])
 
         article = Article(
             id_fields=self.id_fields,
@@ -95,13 +95,13 @@ class AlignmentDataset:
 
     def to_jsonl(self, out_path=None, filename=None) -> Path:
         if not out_path:
-            out_path=Path(__file__).parent / '../../data/'
+            out_path = Path(__file__).parent / "../../data/"
 
         if not filename:
             filename = f"{self.name}.jsonl"
         filename = Path(out_path) / filename
 
-        with jsonlines.open(filename, 'w') as jsonl_writer:
+        with jsonlines.open(filename, "w") as jsonl_writer:
             for article in self.read_entries():
                 jsonl_writer.write(article.to_dict())
         return filename.resolve()
@@ -109,7 +109,7 @@ class AlignmentDataset:
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
         with make_session() as session:
-            query = select(Article).where(Article.source==self.name)
+            query = select(Article).where(Article.source == self.name)
             if sort_by is not None:
                 query = query.order_by(sort_by)
             for item in session.scalars(query):
@@ -136,8 +136,8 @@ class AlignmentDataset:
                     for entry in batch:
                         session.add(entry)
                         if not commit():
-                            logger.error(f'found duplicate of {entry}')
-    
+                            logger.error(f"found duplicate of {entry}")
+
     def setup(self):
         self._outputted_items = self._load_outputted_items()
 
@@ -160,9 +160,14 @@ class AlignmentDataset:
                 # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
                 # duplicates. The bad thing is that this could potentially return a massive amount of data if there
                 # are lots of items.
-                return set(session.scalars(select(getattr(Article, self.done_key))).all())
+                return set(
+                    session.scalars(select(getattr(Article, self.done_key))).all()
+                )
             # TODO: Properly handle this - it should create a proper SQL JSON select
-            return {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
+            return {
+                item.get(self.done_key)
+                for item in session.scalars(select(Article.meta)).all()
+            }
 
     def unprocessed_items(self, items=None) -> Iterable:
         """Return a list of all items to be processed.
@@ -213,7 +218,6 @@ class AlignmentDataset:
 
 
 class SummaryDataset(AlignmentDataset):
-
     def unprocessed_items(self, items=None) -> Iterable:
         # This breaks the possible lazy loading of the items. Should be fine...
         items = list(super().unprocessed_items(items))
@@ -221,7 +225,10 @@ class SummaryDataset(AlignmentDataset):
         urls = map(self.get_item_key, items)
         with make_session() as session:
             self.articles = {
-                a.url: a for a in session.query(Article).options(joinedload(Article.summaries)).filter(Article.url.in_(urls))
+                a.url: a
+                for a in session.query(Article)
+                .options(joinedload(Article.summaries))
+                .filter(Article.url.in_(urls))
                 if a.url
             }
 
@@ -230,7 +237,13 @@ class SummaryDataset(AlignmentDataset):
     def _load_outputted_items(self) -> Set[str]:
         """Load the output file (if it exists) in order to know which items have already been output."""
         with make_session() as session:
-            return set(session.scalars(select(Article.url).join(Article.summaries).filter(Summary.source == self.name)))
+            return set(
+                session.scalars(
+                    select(Article.url)
+                    .join(Article.summaries)
+                    .filter(Summary.source == self.name)
+                )
+            )
 
     def _add_batch(self, session, batch):
         def merge(item):

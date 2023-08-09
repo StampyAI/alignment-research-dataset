@@ -5,6 +5,7 @@ from align_data.common.html_dataset import HTMLDataset
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class MediumBlog(HTMLDataset):
     """
@@ -27,8 +28,8 @@ class MediumBlog(HTMLDataset):
     """
 
     source_type = "medium_blog"
-    ignored_selectors = ['div:first-child span']
+    ignored_selectors = ["div:first-child span"]
 
     def _get_published_date(self, contents):
-        possible_date_elements = contents.select('article div:first-child span')
+        possible_date_elements = contents.select("article div:first-child span")
         return self._find_date(possible_date_elements)

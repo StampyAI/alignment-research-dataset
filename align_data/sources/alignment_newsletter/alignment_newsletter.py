@@ -12,12 +12,11 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AlignmentNewsletter(SummaryDataset):
-
     done_key = "url"
 
-    def __post_init__(self, data_path=Path(__file__).parent / '../../../data/'):
+    def __post_init__(self, data_path=Path(__file__).parent / "../../../data/"):
         self.data_path = data_path
-        self.raw_data_path = self.data_path / 'raw'
+        self.raw_data_path = self.data_path / "raw"
 
     def setup(self) -> None:
         super().setup()
@@ -54,26 +53,30 @@ class AlignmentNewsletter(SummaryDataset):
 
         def handle_na(v, cast=None):
             if not self.maybe(v):
-                return ''
+                return ""
             if cast:
                 return cast(v)
             return v
 
-        return self.make_data_entry({
-            "url": handle_na(row.URL),
-            "source": handle_na(self.name),
-            "converted_with": "python",
-            "source_type": "google-sheets",
-            "venue": handle_na(row.Venue, str),  # arXiv, Distill, LessWrong, Alignment Forum, ICML 2018, etc
-            "newsletter_category": handle_na(row.Category, str),
-            "highlight": row[2] == "Highlight",
-            "newsletter_number": handle_na(row.Email, str),
-            "summarizer": handle_na(row.Summarizer, str),
-            "opinion": handle_na(row[11], str),
-            "prerequisites": handle_na(row.Prerequisites, str),
-            "read_more": handle_na(row[13], str),
-            "title": handle_na(row.Title, str),
-            "authors": [i.strip() for i in str(row.Authors).split(',')],
-            "date_published": self._get_published_date(row.Year),
-            "summary": handle_na(row.Summary, str),
-        })
+        return self.make_data_entry(
+            {
+                "url": handle_na(row.URL),
+                "source": handle_na(self.name),
+                "converted_with": "python",
+                "source_type": "google-sheets",
+                "venue": handle_na(
+                    row.Venue, str
+                ),  # arXiv, Distill, LessWrong, Alignment Forum, ICML 2018, etc
+                "newsletter_category": handle_na(row.Category, str),
+                "highlight": row[2] == "Highlight",
+                "newsletter_number": handle_na(row.Email, str),
+                "summarizer": handle_na(row.Summarizer, str),
+                "opinion": handle_na(row[11], str),
+                "prerequisites": handle_na(row.Prerequisites, str),
+                "read_more": handle_na(row[13], str),
+                "title": handle_na(row.Title, str),
+                "authors": [i.strip() for i in str(row.Authors).split(",")],
+                "date_published": self._get_published_date(row.Year),
+                "summary": handle_na(row.Summary, str),
+            }
+        )
