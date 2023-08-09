@@ -97,9 +97,7 @@ def format_far_ai(item):
     return {
         "title": get_text(item, ".article-title"),
         "url": f'https://www.safe.ai/research{item.select_one(".article-title a").get("href")}',
-        "source_url": item.select_one('div.btn-links a:-soup-contains("PDF")').get(
-            "href"
-        ),
+        "source_url": item.select_one('div.btn-links a:-soup-contains("PDF")').get("href"),
         "authors": ", ".join(i.text for i in item.select(".article-metadata a")),
     }
 

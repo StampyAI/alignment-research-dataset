@@ -5,6 +5,10 @@ from langchain.text_splitter import TextSplitter
 from nltk.tokenize import sent_tokenize
 
 
+def default_truncate_function(string: str, length: int, from_end: bool = False) -> str:
+    return string[-length:] if from_end else string[:length]
+
+
 class ParagraphSentenceUnitTextSplitter(TextSplitter):
     """A custom TextSplitter that breaks text by paragraphs, sentences, and then units (chars/words/tokens/etc).
 
@@ -17,12 +21,8 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
     DEFAULT_MIN_CHUNK_SIZE = 900
     DEFAULT_MAX_CHUNK_SIZE = 1100
     DEFAULT_LENGTH_FUNCTION = lambda string: len(string)
-    DEFAULT_TRUNCATE_FUNCTION = (
-        lambda string, length, from_end=False: string[-length:]
-        if from_end
-        else string[:length]
-    )
-
+    DEFAULT_TRUNCATE_FUNCTION = default_truncate_function
+    
     def __init__(
         self,
         min_chunk_size: int = DEFAULT_MIN_CHUNK_SIZE,
@@ -47,12 +47,8 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
             current_block += "\n\n" + paragraph
             block_length = self._length_function(current_block)
 
-            if (
-                block_length > self.max_chunk_size
-            ):  # current block is too large, truncate it
-                current_block = self._handle_large_paragraph(
-                    current_block, blocks, paragraph
-                )
+            if block_length > self.max_chunk_size:
+                current_block = self._handle_large_paragraph(current_block, blocks, paragraph)
             elif block_length >= self.min_chunk_size:
                 blocks.append(current_block)
                 current_block = ""
@@ -65,7 +61,8 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
 
     def _handle_large_paragraph(self, current_block, blocks, paragraph):
         # Undo adding the whole paragraph
-        current_block = current_block[: -(len(paragraph) + 2)]  # +2 accounts for "\n\n"
+        offset = len(paragraph) + 2  # +2 accounts for "\n\n"
+        current_block = current_block[:-offset]
 
         sentences = sent_tokenize(paragraph)
         for sentence in sentences:

@@ -124,8 +124,8 @@ def check_new_articles(source_spreadsheet, source_sheet):
     seen_urls = {
         url
         for item in current.values()
-        for url in [item.get("url"), item.get("source_url")]
-        if url
+        for key in ("url", "source_url")
+        if (url := item.get(key)) is not None
     }
 
     indices_items = fetch_all()

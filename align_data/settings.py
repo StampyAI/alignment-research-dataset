@@ -9,7 +9,7 @@ CODA_DOC_ID = os.environ.get("CODA_DOC_ID", "fau7sl2hmG")
 ON_SITE_TABLE = os.environ.get("CODA_ON_SITE_TABLE", "table-aOTSHIz_mN")
 
 ### GOOGLE DRIVE ###
-PDFS_FOLDER_ID = os.environ.get("PDF_FOLDER_ID", "1etWiXPRl0QqdgYzivVIj6wCv9xj5VYoN")
+PDFS_FOLDER_ID = os.environ.get("PDFS_FOLDER_ID", "1etWiXPRl0QqdgYzivVIj6wCv9xj5VYoN")
 
 ### GOOGLE SHEETS ###
 METADATA_SOURCE_SPREADSHEET = os.environ.get(
@@ -41,9 +41,7 @@ OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 OPENAI_EMBEDDINGS_DIMS = 1536
 OPENAI_EMBEDDINGS_RATE_LIMIT = 3500
 
-SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL = (
-    "sentence-transformers/multi-qa-mpnet-base-cos-v1"
-)
+SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL = "sentence-transformers/multi-qa-mpnet-base-cos-v1"
 SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS = 768
 
 ### PINECONE ###

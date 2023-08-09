@@ -27,6 +27,11 @@ from align_data.settings import (
 logger = logging.getLogger(__name__)
 
 
+# Define type aliases for the Callables
+LengthFunctionType = Callable[[str], int]
+TruncateFunctionType = Callable[[str, int], str]
+
+
 class PineconeEntry(BaseModel):
     id: str
     source: str
@@ -65,12 +70,8 @@ class PineconeUpdater:
         self,
         min_chunk_size: int = ParagraphSentenceUnitTextSplitter.DEFAULT_MIN_CHUNK_SIZE,
         max_chunk_size: int = ParagraphSentenceUnitTextSplitter.DEFAULT_MAX_CHUNK_SIZE,
-        length_function: Callable[
-            [str], int
-        ] = ParagraphSentenceUnitTextSplitter.DEFAULT_LENGTH_FUNCTION,
-        truncate_function: Callable[
-            [str, int], str
-        ] = ParagraphSentenceUnitTextSplitter.DEFAULT_TRUNCATE_FUNCTION,
+        length_function: LengthFunctionType = ParagraphSentenceUnitTextSplitter.DEFAULT_LENGTH_FUNCTION,
+        truncate_function: TruncateFunctionType = ParagraphSentenceUnitTextSplitter.DEFAULT_TRUNCATE_FUNCTION,
     ):
         self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size

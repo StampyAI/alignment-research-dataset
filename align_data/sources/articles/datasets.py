@@ -39,14 +39,15 @@ class SpreadsheetDataset(AlignmentDataset):
 
     @property
     def items_list(self):
-        logger.info(
-            f"Fetching https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=CS&gid={self.sheet_id}"
-        )
-        df = pd.read_csv(
-            f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}"
-        )
+        fetch_url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}"
+        log_url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=CS&gid={self.sheet_id}"
+
+        logger.info(f"Fetching {log_url}")
+
+        sheet_data = pd.read_csv(fetch_url)
+
         return (
-            item for item in df.itertuples() if not pd.isna(self.get_item_key(item))
+            item for item in sheet_data.itertuples() if not pd.isna(self.get_item_key(item))
         )
 
     def get_item_key(self, item):

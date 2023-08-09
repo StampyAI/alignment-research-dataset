@@ -98,8 +98,11 @@ def get_arxiv_link(doi):
         return None
 
     vals = [
-        i for i in response.json().get("values") if i.get("type", "").upper() == "URL"
+        val
+        for val in response.json().get("values")
+        if val.get("type", "").upper() == "URL"
     ]
+
     if not vals:
         return None
     return vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
@@ -197,10 +200,8 @@ def parse_vanity(url):
         date_published = date_published.text.strip("()")
 
     text = "\n\n".join(
-        [
-            MarkdownConverter().convert_soup(elem).strip()
-            for elem in contents.select("section.ltx_section")
-        ]
+        MarkdownConverter().convert_soup(elem).strip()
+        for elem in contents.select("section.ltx_section")
     )
 
     return {

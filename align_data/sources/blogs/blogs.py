@@ -74,15 +74,16 @@ class OpenAIResearch(HTMLDataset):
             return item_metadata(paper_link.get("href")).get("text")
 
     def extract_authors(self, article):
-        authors = article.select_one(
-            'div:-soup-contains("Authors") + div .f-body-1'
-        ) or article.select_one('div:-soup-contains("Acknowledgments") + div .f-body-1')
-        if not authors:
+        author_selector = 'div:-soup-contains("Authors") + div .f-body-1'
+        ack_selector = 'div:-soup-contains("Acknowledgments") + div .f-body-1'
+        
+        authors_div = article.select_one(author_selector) or article.select_one(ack_selector)
+        if not authors_div:
             return []
 
         return [
             i.split("(")[0].strip()
-            for i in authors.select_one("p").children
+            for i in authors_div.select_one("p").children
             if not i.name
         ]
 
