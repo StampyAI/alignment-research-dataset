@@ -44,7 +44,7 @@ def test_spreadsheet_dataset_items_list(articles):
 
 def test_spreadsheet_dataset_get_item_key():
     dataset = SpreadsheetDataset(name="bla", spreadsheet_id="123", sheet_id="456")
-    assert dataset.get_item_key(Mock(bla="ble", title="the key")) == "the key"
+    assert dataset.get_item_key(Mock(bla="ble", url="the key")) == "the key"
 
 
 @pytest.mark.parametrize(

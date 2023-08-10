@@ -53,6 +53,7 @@ on:
           - gwern_blog
           - html_articles
           - importai
+          - indices
           - jsteinhardt_blog
           - lesswrong
           - markdown
@@ -61,6 +62,7 @@ on:
           - openai.research
           - pdfs
           - rob_miles_ai_safety
+          - special_docs
           - vkrakovna_blog
           - yudkowsky_blog
           - xmls
