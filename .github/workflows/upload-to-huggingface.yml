@@ -28,22 +28,19 @@ jobs:
           - distill
           - eaforum
           - eleuther.ai
-          - gdocs
           - generative.ink
           - gwern_blog
           - html_articles
           - importai
           - jsteinhardt_blog
           - lesswrong
-          - markdown
           - miri
           - ml_safety_newsletter
           - openai.research
-          - pdfs
           - rob_miles_ai_safety
+          - special_docs
           - vkrakovna_blog
           - yudkowsky_blog
-          - xmls
 
     uses: ./.github/workflows/push-dataset.yml
     with:

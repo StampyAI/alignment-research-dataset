@@ -247,7 +247,7 @@ def test_markdown_articles_process_entry(articles):
             "date_published": "2023-01-01T12:32:11Z",
             "id": None,
             "source": "bla",
-            "source_filetype": "md",
+            "source_filetype": "markdown",
             "source_type": "something",
             "summaries": ["the summary of article 0"],
             "text": "bla bla",
