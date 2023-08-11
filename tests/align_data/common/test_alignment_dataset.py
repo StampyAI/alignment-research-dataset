@@ -75,78 +75,26 @@ def test_data_entry_id_from_urls_and_title():
     )
 
 
-def test_data_entry_no_url_and_title():
+@pytest.mark.parametrize('item, error', (
+    ({"key1": 12, "key2": 312}, 'missing fields: url, title'),
+    (
+        {"key1": 12, "key2": 312, "title": "wikipedia goes to war on porcupines"},
+        'missing fields: url'
+    ),
+    ({"key1": 12, "key2": 312, "url": None}, 'missing fields: url, title'),
+    (
+        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": None},
+        'missing fields: title'
+    ),
+    ({"key1": 12, "key2": 312, "url": "", "title": ""}, 'missing fields: url, title'),
+    ({"key1": 12, "key2": 312, "url": "", "title": "once upon a time"}, 'missing fields: url'),
+    ({"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": ""}, 'missing fields: title'),
+))
+def test_data_entry_missing(item, error):
     dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry({"key1": 12, "key2": 312})
-    with pytest.raises(
-        AssertionError,
-        match="Entry is missing the following fields: \\['url', 'title'\\]",
-    ):
-        Article.before_write(None, None, entry)
-
-
-def test_data_entry_no_url():
-    dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry(
-        {"key1": 12, "key2": 312, "title": "wikipedia goes to war on porcupines"}
-    )
-    with pytest.raises(
-        AssertionError, match="Entry is missing the following fields: \\['url'\\]"
-    ):
-        Article.before_write(None, None, entry)
-
-
-def test_data_entry_none_url():
-    dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry({"key1": 12, "key2": 312, "url": None})
-    with pytest.raises(
-        AssertionError,
-        match="Entry is missing the following fields: \\['url', 'title'\\]",
-    ):
-        Article.before_write(None, None, entry)
-
-
-def test_data_entry_none_title():
-    dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry(
-        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": None}
-    )
-    with pytest.raises(
-        AssertionError, match="Entry is missing the following fields: \\['title'\\]"
-    ):
-        Article.before_write(None, None, entry)
-
-
-def test_data_entry_empty_url_and_title():
-    dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry({"key1": 12, "key2": 312, "url": "", "title": ""})
-    with pytest.raises(
-        AssertionError,
-        match="Entry is missing the following fields: \\['url', 'title'\\]",
-    ):
-        Article.before_write(None, None, entry)
-
-
-def test_data_entry_empty_url_only():
-    dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry(
-        {"key1": 12, "key2": 312, "url": "", "title": "once upon a time"}
-    )
-    with pytest.raises(
-        AssertionError, match="Entry is missing the following fields: \\['url'\\]"
-    ):
-        Article.before_write(None, None, entry)
-
-
-def test_data_entry_empty_title_only():
-    dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry(
-        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": ""}
-    )
-    with pytest.raises(
-        AssertionError, match="Entry is missing the following fields: \\['title'\\]"
-    ):
-        Article.before_write(None, None, entry)
+    entry = dataset.make_data_entry(item)
+    Article.before_write(None, None, entry)
+    assert entry.status == error
 
 
 def test_data_entry_verify_id_passes():
@@ -174,24 +122,6 @@ def test_data_entry_verify_id_fails():
     )
     with pytest.raises(AssertionError, match="Entry id does not match id_fields"):
         entry.verify_id()
-
-
-def test_data_entry_id_fields_url_no_url():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
-    entry = dataset.make_data_entry({"source": "arbital", "text": "once upon a time"})
-    with pytest.raises(
-        AssertionError, match="Entry is missing the following fields: \\['url'\\]"
-    ):
-        Article.before_write(None, None, entry)
-
-
-def test_data_entry_id_fields_url_empty_url():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
-    entry = dataset.make_data_entry({"url": ""})
-    with pytest.raises(
-        AssertionError, match="Entry is missing the following fields: \\['url'\\]"
-    ):
-        Article.before_write(None, None, entry)
 
 
 def test_data_entry_id_fields_url():

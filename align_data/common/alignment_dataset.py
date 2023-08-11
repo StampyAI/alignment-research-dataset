@@ -85,7 +85,7 @@ class AlignmentDataset:
 
         article = Article(
             id_fields=self.id_fields,
-            meta={k: v for k, v in data.items() if k not in INIT_DICT},
+            meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )
         self._add_authors(article, authors)

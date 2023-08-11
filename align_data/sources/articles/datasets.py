@@ -86,11 +86,6 @@ class SpecialDocs(SpreadsheetDataset):
         if url := self.maybe(item.source_url) or self.maybe(item.url):
             metadata = item_metadata(url)
 
-        text = metadata.get('text')
-        if not text:
-            logger.error('Could not get text for %s - skipping for now', item.title)
-            return None
-
         return self.make_data_entry({
             'source': metadata.get('data_source') or self.name,
             'url': self.maybe(item.url),
@@ -98,7 +93,8 @@ class SpecialDocs(SpreadsheetDataset):
             'source_type': self.maybe(item.source_type),
             'date_published': self._get_published_date(item.date_published) or metadata.get('date_published'),
             'authors': self.extract_authors(item) or metadata.get('authors', []),
-            'text': text,
+            'text': metadata.get('text'),
+            'status': metadata.get('error'),
         })
 
 
