@@ -30,6 +30,13 @@ def test_extract_authors():
     ]
 
 
+def test_extract_authors_none():
+    dataset = Distill(name="distill", url="bla.bla")
+
+    soup = BeautifulSoup("", "html.parser")
+    assert dataset.extract_authors({"soup": soup}) == ["Distill"]
+
+
 @pytest.mark.parametrize(
     "text",
     (

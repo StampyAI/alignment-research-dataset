@@ -682,7 +682,7 @@ def test_openai_research_get_text():
           </div>
         </div>
         """,
-            [],
+            ["OpenAI Research"],
         ),
     ),
 )
