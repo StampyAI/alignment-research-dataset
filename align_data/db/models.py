@@ -58,6 +58,7 @@ class Article(Base):
         DateTime, onupdate=func.current_timestamp()
     )
     status: Mapped[Optional[str]] = mapped_column(String(256))
+    comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
 
     pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
 
