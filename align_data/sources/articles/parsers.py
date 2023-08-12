@@ -250,8 +250,12 @@ PDF_PARSERS = {
 }
 
 
+def parse_domain(url: str) -> str:
+    return url and urlparse(url).netloc.lstrip('www.')
+
+
 def item_metadata(url) -> Dict[str, str]:
-    domain = urlparse(url).netloc.lstrip('www.')
+    domain = parse_domain(url)
     try:
         res = fetch(url, 'head')
     except (MissingSchema, InvalidSchema, ConnectionError) as e:
