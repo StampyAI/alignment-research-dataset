@@ -7,7 +7,7 @@ import fire
 
 from align_data import ALL_DATASETS, get_dataset
 from align_data.analysis.count_tokens import count_token
-from align_data.sources.articles.articles import update_new_items, check_new_articles
+from align_data.sources.articles.articles import update_new_items, check_new_articles, update_articles
 from align_data.pinecone.update_pinecone import PineconeUpdater
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
@@ -32,7 +32,7 @@ class AlignmentDataset:
         """
         > This function takes a dataset name and writes the entries of that dataset to a file
 
-        :param str name: The name of the dataset to fetch
+        :param str name: The name of the dataset to fetch, or 'all' for all of them
         :return: The path to the file that was written to.
         """
         if names == ("all",):
@@ -81,6 +81,14 @@ class AlignmentDataset:
         ), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
 
+    def update(self, csv_path, delimiter=','):
+        """Update all articles in the provided csv files, overwriting the provided values and fetching new text if a different url provided.
+
+        :param str csv_path: The path to the csv file to be processed
+        :param str delimiter: Specifies what's used as a column delimiter
+        """
+        update_articles(csv_path, delimiter)
+
     def update_metadata(
         self,
         source_spreadsheet=METADATA_SOURCE_SPREADSHEET,
@@ -110,6 +118,8 @@ class AlignmentDataset:
     def pinecone_update(self, *names) -> None:
         """
         This function updates the Pinecone vector DB.
+
+        :param List[str] names: The name of the dataset to update, or 'all' for all of them
         """
         if names == ("all",):
             names = ALL_DATASETS
