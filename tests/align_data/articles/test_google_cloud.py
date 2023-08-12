@@ -78,7 +78,7 @@ def test_parse_grobid():
         'authors': ['Cullen Oâ\x80\x99Keefe'],
         'text': 'This is the contents',
         'title': 'The title!!',
-        'data_source': 'xml',
+        'source_type': 'xml',
     }
 
 
@@ -100,7 +100,7 @@ def test_parse_grobid_no_body():
             </text>
         </TEI>
     """
-    assert parse_grobid(xml) == {'error': 'No contents in XML file', 'data_source': 'xml'}
+    assert parse_grobid(xml) == {'error': 'No contents in XML file', 'source_type': 'xml'}
 
 
 @pytest.mark.parametrize('header, expected', (
@@ -160,7 +160,7 @@ def test_extract_gdrive_contents_ebook(header):
         assert extract_gdrive_contents(url) == {
             'downloaded_from': 'google drive',
             'source_url': 'https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing',
-            'data_source': 'ebook',
+            'source_type': 'ebook',
         }
 
 
@@ -185,7 +185,7 @@ def test_extract_gdrive_contents_html():
                 'downloaded_from': 'google drive',
                 'source_url': 'https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing',
                 'text': 'bla bla',
-                'data_source': 'html',
+                'source_type': 'html',
             }
 
 
@@ -207,7 +207,7 @@ def test_extract_gdrive_contents_xml():
                 'source_url': 'https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing',
                 'text': 'This is the contents',
                 'title': 'The title!!',
-                'data_source': 'xml',
+                'source_type': 'xml',
             }
 
 
@@ -238,7 +238,7 @@ def test_extract_gdrive_contents_xml_with_confirm():
                 'source_url': 'https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing',
                 'text': 'This is the contents',
                 'title': 'The title!!',
-                'data_source': 'xml',
+                'source_type': 'xml',
             }
 
 

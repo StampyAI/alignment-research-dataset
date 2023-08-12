@@ -35,6 +35,26 @@ def articles():
     return pd.DataFrame(articles)
 
 
+@pytest.fixture
+def mock_arxiv():
+    metadata = Mock(
+        summary="abstract bla bla",
+        comment="no comment",
+        categories="wut",
+        updated=datetime.fromisoformat("2023-01-01T00:00:00"),
+        authors=[],
+        doi="123",
+        journal_ref="sdf",
+        primary_category="cat",
+    )
+    metadata.get_short_id.return_value = '2001.11038'
+    arxiv = Mock()
+    arxiv.Search.return_value.results.return_value = iter([metadata])
+
+    with patch("align_data.sources.arxiv_papers.arxiv_papers.arxiv", arxiv):
+        yield
+
+
 def test_spreadsheet_dataset_items_list(articles):
     dataset = SpreadsheetDataset(name="bla", spreadsheet_id="123", sheet_id="456")
     df = pd.concat(
@@ -293,7 +313,8 @@ def test_doc_articles_process_entry(articles):
             }
 
 
-def test_arxiv_process_entry():
+@patch('requests.get', return_value=Mock(content=''))
+def test_arxiv_process_entry(_, mock_arxiv):
     dataset = ArxivPapers(name="asd", spreadsheet_id="ad", sheet_id="da")
     item = Mock(
         title="this is the title",
@@ -305,43 +326,69 @@ def test_arxiv_process_entry():
         "text": "this is the text",
         "date_published": "December 12, 2021",
         "authors": ["mr blobby"],
-        "data_source": "html",
+        "source_type": "html",
     }
-    metadata = Mock(
-        summary="abstract bla bla",
-        comment="no comment",
-        categories="wut",
-        updated=datetime.fromisoformat("2023-01-01T00:00:00"),
-        authors=[],
-        doi="123",
-        journal_ref="sdf",
-        primary_category="cat",
-    )
-    metadata.get_short_id.return_value = '2001.11038'
-    arxiv = Mock()
-    arxiv.Search.return_value.results.return_value = iter([metadata])
-
     with patch(
         "align_data.sources.arxiv_papers.arxiv_papers.parse_vanity", return_value=contents
     ):
-        with patch("align_data.sources.arxiv_papers.arxiv_papers.arxiv", arxiv):
-            assert dataset.process_entry(item).to_dict() == {
-                "author_comment": "no comment",
-                "authors": ["mr blobby"],
-                "categories": "wut",
-                "data_last_modified": "2023-01-01T00:00:00",
-                "date_published": "2020-01-29T00:00:00Z",
-                "doi": "123",
-                "id": None,
-                "journal_ref": "sdf",
-                "primary_category": "cat",
-                "source": "asd",
-                "source_type": "html",
-                "summaries": ["abstract bla bla"],
-                "text": "this is the text",
-                "title": "this is the title",
-                "url": "https://arxiv.org/abs/2001.11038",
-            }
+        assert dataset.process_entry(item).to_dict() == {
+            "comment": "no comment",
+            "authors": ["mr blobby"],
+            "categories": "wut",
+            "data_last_modified": "2023-01-01T00:00:00",
+            "date_published": "2020-01-29T00:00:00Z",
+            "doi": "123",
+            "id": None,
+            "journal_ref": "sdf",
+            "primary_category": "cat",
+            "source": "asd",
+            "source_type": "html",
+            "summaries": ["abstract bla bla"],
+            "text": "this is the text",
+            "title": "this is the title",
+            "url": "https://arxiv.org/abs/2001.11038",
+        }
+
+
+def test_arxiv_process_entry_retracted(mock_arxiv):
+    dataset = ArxivPapers(name="asd", spreadsheet_id="ad", sheet_id="da")
+    item = Mock(
+        title="this is the title",
+        url="https://arxiv.org/abs/2001.11038",
+        authors="",
+        date_published="2020-01-29",
+    )
+    response = """
+    <div class="extra-services">
+      <div class="full-text">
+        <a name="other"></a>
+        <span class="descriptor">Full-text links:</span>
+        <h2>Download:</h2>
+        <ul><li>Withdrawn</li></ul>
+        <div class="abs-license"><div hidden="">No license for this version due to withdrawn</div></div>
+      </div>
+     </div>
+    """
+
+    with patch('requests.get', return_value=Mock(content=response)):
+        assert dataset.process_entry(item).to_dict() == {
+            "comment": "no comment",
+            "authors": [],
+            "categories": "wut",
+            "data_last_modified": "2023-01-01T00:00:00",
+            "date_published": "2020-01-29T00:00:00Z",
+            "doi": "123",
+            "id": None,
+            "journal_ref": "sdf",
+            "primary_category": "cat",
+            "source": "asd",
+            "source_type": None,
+            "summaries": ["abstract bla bla"],
+            "title": "this is the title",
+            "url": "https://arxiv.org/abs/2001.11038",
+            "status": "Retracted",
+            "text": None,
+        }
 
 
 def test_special_docs_process_entry():
@@ -357,7 +404,7 @@ def test_special_docs_process_entry():
         "text": "this is the text",
         "date_published": "December 12, 2021",
         "authors": ["mr blobby"],
-        "data_source": "html",
+        "source_type": "html",
     }
 
     with patch("align_data.sources.articles.datasets.item_metadata", return_value=contents):
@@ -374,7 +421,8 @@ def test_special_docs_process_entry():
         }
 
 
-def test_special_docs_process_entry_arxiv():
+@patch('requests.get', return_value=Mock(content=''))
+def test_special_docs_process_entry_arxiv(_, mock_arxiv):
     dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
     item = Mock(
         title="this is the title",
@@ -386,40 +434,26 @@ def test_special_docs_process_entry_arxiv():
         "text": "this is the text",
         "date_published": "December 12, 2021",
         "authors": ["mr blobby"],
-        "data_source": "pdf",
+        "source_type": "pdf",
     }
-    metadata = Mock(
-        summary="abstract bla bla",
-        comment="no comment",
-        categories="wut",
-        updated=datetime.fromisoformat("2023-01-01T00:00:00"),
-        authors=[],
-        doi="123",
-        journal_ref="sdf",
-        primary_category="cat",
-    )
-    metadata.get_short_id.return_value = '2001.11038'
-    arxiv = Mock()
-    arxiv.Search.return_value.results.return_value = iter([metadata])
 
     with patch(
         "align_data.sources.arxiv_papers.arxiv_papers.parse_vanity", return_value=contents
     ):
-        with patch("align_data.sources.arxiv_papers.arxiv_papers.arxiv", arxiv):
-            assert dataset.process_entry(item).to_dict() == {
-                "author_comment": "no comment",
-                "authors": ["mr blobby"],
-                "categories": "wut",
-                "data_last_modified": "2023-01-01T00:00:00",
-                "date_published": "2020-01-29T00:00:00Z",
-                "doi": "123",
-                "id": None,
-                "journal_ref": "sdf",
-                "primary_category": "cat",
-                "source": "arxiv",
-                "source_type": "pdf",
-                "summaries": ["abstract bla bla"],
-                "text": "this is the text",
-                "title": "this is the title",
-                "url": "https://arxiv.org/abs/2001.11038",
-            }
+        assert dataset.process_entry(item).to_dict() == {
+            "comment": "no comment",
+            "authors": ["mr blobby"],
+            "categories": "wut",
+            "data_last_modified": "2023-01-01T00:00:00",
+            "date_published": "2020-01-29T00:00:00Z",
+            "doi": "123",
+            "id": None,
+            "journal_ref": "sdf",
+            "primary_category": "cat",
+            "source": "arxiv",
+            "source_type": "pdf",
+            "summaries": ["abstract bla bla"],
+            "text": "this is the text",
+            "title": "this is the title",
+            "url": "https://arxiv.org/abs/2001.11038",
+        }

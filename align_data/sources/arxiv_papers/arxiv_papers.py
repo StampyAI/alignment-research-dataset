@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 import arxiv
 from align_data.sources.articles.pdf import fetch_pdf, parse_vanity
+from align_data.sources.articles.html import fetch_element
 
 logger = logging.getLogger(__name__)
 
@@ -46,35 +47,40 @@ def get_version(id: str) -> Optional[str]:
         return res.group(1)
 
 
+def check_if_retracted(url: str):
+    if elem := fetch_element(canonical_url(url), '.extra-services .full-text ul'):
+        return elem.text.strip().lower() == 'withdrawn'
+    return None
+
+
 def fetch(url) -> Dict:
     paper_id = get_id(url)
     if not paper_id:
         return {'error': 'Could not extract arxiv id'}
 
-    paper = get_contents(paper_id)
-    if not paper or not paper.get("text"):
-        return paper
-
     metadata = get_arxiv_metadata(paper_id)
+
+    if check_if_retracted(url):
+        paper = {'status': 'Retracted'}
+    else:
+        paper = get_contents(paper_id)
     if metadata and metadata.authors:
         authors = metadata.authors
     else:
         authors = paper.get("authors") or []
     authors = [str(a).strip() for a in authors]
 
-    return {
+    return dict({
+        "title": metadata.title,
         "url": canonical_url(url),
-        "source_type": paper['data_source'],
-        "title": paper.get('title'),
         "authors": authors,
-        "date_published": paper.get('date_published'),
+        "date_published": metadata.published,
         "data_last_modified": metadata.updated.isoformat(),
         "summary": metadata.summary.replace("\n", " "),
-        "author_comment": metadata.comment,
+        "comment": metadata.comment,
         "journal_ref": metadata.journal_ref,
         "doi": metadata.doi,
         "primary_category": metadata.primary_category,
         "categories": metadata.categories,
         "version": get_version(metadata.get_short_id()),
-        "text": paper['text'],
-    }
+    }, **paper)

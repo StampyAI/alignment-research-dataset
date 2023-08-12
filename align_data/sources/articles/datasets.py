@@ -99,7 +99,6 @@ class SpecialDocs(SpreadsheetDataset):
             'authors': self.extract_authors(item) or metadata.get('authors', []),
             'text': metadata.get('text'),
             'status': metadata.get('error'),
-            'text': metadata.get('text'),
         }
 
     def process_entry(self, item):
