@@ -86,7 +86,7 @@ class AlignmentDataset:
 
         article = Article(
             id_fields=self.id_fields,
-            meta={k: v for k, v in data.items() if k not in INIT_DICT},
+            meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )
         self._add_authors(article, authors)
@@ -107,10 +107,14 @@ class AlignmentDataset:
                 jsonl_writer.write(article.to_dict())
         return filename.resolve()
 
+    @property
+    def _query_items(self):
+        return select(Article).where(Article.source == self.name)
+
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
         with make_session() as session:
-            query = select(Article).where(Article.source == self.name)
+            query = self._query_items
             if sort_by is not None:
                 query = query.order_by(sort_by)
             for item in session.scalars(query):

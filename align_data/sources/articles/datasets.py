@@ -1,18 +1,20 @@
-import os
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-from pypandoc import convert_file
 import pandas as pd
 from gdown.download import download
 from markdownify import markdownify
+from pypandoc import convert_file
+from sqlalchemy import select
 
-from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents, item_metadata
-from align_data.sources.articles.google_cloud import fetch_markdown, fetch_file
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.db.models import Article
+from align_data.sources.articles.google_cloud import fetch_file, fetch_markdown
+from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents, item_metadata
+from align_data.sources.articles.pdf import read_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -74,15 +76,15 @@ class SpreadsheetDataset(AlignmentDataset):
 
 class SpecialDocs(SpreadsheetDataset):
 
+    @property
+    def _query_items(self):
+        special_docs_types = ["pdf", "html", "xml", "markdown", "docx"]
+        return select(Article).where(Article.source.in_(special_docs_types))
+
     def process_entry(self, item):
         metadata = {}
         if url := self.maybe(item.source_url) or self.maybe(item.url):
             metadata = item_metadata(url)
-
-        text = metadata.get('text')
-        if not text:
-            logger.error('Could not get text for %s - skipping for now', item.title)
-            return None
 
         return self.make_data_entry({
             'source': metadata.get('data_source') or self.name,
@@ -91,7 +93,8 @@ class SpecialDocs(SpreadsheetDataset):
             'source_type': self.maybe(item.source_type),
             'date_published': self._get_published_date(item.date_published) or metadata.get('date_published'),
             'authors': self.extract_authors(item) or metadata.get('authors', []),
-            'text': text,
+            'text': metadata.get('text'),
+            'status': metadata.get('error'),
         })
 
 
@@ -148,7 +151,7 @@ class XMLArticles(SpreadsheetDataset):
 
 
 class MarkdownArticles(SpreadsheetDataset):
-    source_filetype = "md"
+    source_filetype = "markdown"
 
     def _get_text(self, item):
         file_id = item.source_url.split("/")[-2]

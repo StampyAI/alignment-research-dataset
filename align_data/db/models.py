@@ -11,11 +11,10 @@ from sqlalchemy import (
     String,
     Boolean,
     Text,
-    Float,
     func,
     event,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
 from align_data.settings import PINECONE_METADATA_KEYS
 
@@ -58,6 +57,8 @@ class Article(Base):
     date_updated: Mapped[Optional[datetime]] = mapped_column(
         DateTime, onupdate=func.current_timestamp()
     )
+    status: Mapped[Optional[str]] = mapped_column(String(256))
+    comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
 
     pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -90,8 +91,12 @@ class Article(Base):
             "utf-8"
         )
 
+    @property
+    def missing_fields(self):
+        return [field for field in self.__id_fields if not getattr(self, field)]
+
     def verify_fields(self):
-        missing = [field for field in self.__id_fields if not getattr(self, field)]
+        missing = self.missing_fields
         assert not missing, f"Entry is missing the following fields: {missing}"
 
     def verify_id(self):
@@ -107,7 +112,7 @@ class Article(Base):
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
                 setattr(self, field, getattr(other, field))
-        self.meta.update({k: v for k, v in other.meta.items() if k and v})
+        self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
 
         if other._id:
             self._id = other._id
@@ -120,12 +125,18 @@ class Article(Base):
 
     @classmethod
     def before_write(cls, mapper, connection, target):
-        target.verify_fields()
+        if not target.status and target.missing_fields:
+            target.status = f'missing fields: {", ".join(target.missing_fields)}'
 
         if target.id:
             target.verify_id()
         else:
             target._set_id()
+
+        # This assumes that status pretty much just notes down that an entry is invalid. If it has
+        # all fields set and is being written to the database, then it must have been modified, ergo
+        # should be also updated in pinecone
+        if not target.status:
             target.pinecone_update_required = True
 
     def to_dict(self):
@@ -147,7 +158,7 @@ class Article(Base):
             "date_published": date,
             "authors": authors,
             "summaries": [s.text for s in (self.summaries or [])],
-            **(self.meta or {}),
+            **(meta or {}),
         }
 
 
