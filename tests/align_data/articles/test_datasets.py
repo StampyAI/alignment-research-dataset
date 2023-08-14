@@ -123,6 +123,7 @@ def test_pdf_articles_process_item(articles):
                 "text": "pdf contents [bla](asd.com)",
                 "title": "article no 0",
                 "url": "http://example.com/item/0",
+                'source_url': 'http://example.com/source_url/0',
             }
 
 
@@ -168,6 +169,7 @@ def test_html_articles_process_entry(articles):
             "text": "html contents with [proper elements](bla.com) ble ble",
             "title": "article no 0",
             "url": "http://example.com/item/0",
+            'source_url': 'http://example.com/source_url/0',
         }
 
 
@@ -212,6 +214,7 @@ def test_ebook_articles_process_entry(articles):
                 "text": "html contents with [proper elements](bla.com) ble ble",
                 "title": "article no 0",
                 "url": "http://example.com/item/0",
+                'source_url': 'http://example.com/source_url/0',
             }
 
 
@@ -244,6 +247,7 @@ def test_xml_articles_process_entry(articles):
             "text": "bla bla",
             "title": "article no 0",
             "url": "http://example.com/item/0",
+            'source_url': 'http://example.com/source_url/0',
         }
 
 
@@ -276,6 +280,7 @@ def test_markdown_articles_process_entry(articles):
             "text": "bla bla",
             "title": "article no 0",
             "url": "http://example.com/item/0",
+            'source_url': 'http://example.com/source_url/0',
         }
 
 
@@ -310,6 +315,7 @@ def test_doc_articles_process_entry(articles):
                 "text": "bla bla",
                 "title": "article no 0",
                 "url": "http://example.com/item/0",
+                'source_url': 'http://example.com/source_url/0',
             }
 
 
@@ -400,6 +406,7 @@ def test_special_docs_process_entry():
         authors="mr. blobby",
         date_published="2023-10-02T01:23:45",
         source_type=None,
+        source_url="https://ble.ble.com"
     )
     contents = {
         "text": "this is the text",
@@ -414,7 +421,8 @@ def test_special_docs_process_entry():
             'date_published': '2023-10-02T01:23:45Z',
             'id': None,
             'source': 'html',
-            'source_type': None,
+            'source_url': "https://ble.ble.com",
+            'source_type': 'html',
             'summaries': [],
             'text': 'this is the text',
             'title': 'this is the title',

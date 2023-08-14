@@ -116,10 +116,10 @@ class AlignmentDataset:
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
         with make_session() as session:
-            query = self._query_items
+            query = self._query_items.options(joinedload(Article.summaries))
             if sort_by is not None:
                 query = query.order_by(sort_by)
-            for item in session.scalars(query):
+            for item in session.scalars(query).unique():
                 yield item
 
     def _add_batch(self, session, batch):
@@ -236,13 +236,8 @@ class SummaryDataset(AlignmentDataset):
 
         urls = map(self.get_item_key, items)
         with make_session() as session:
-            self.articles = {
-                a.url: a
-                for a in session.query(Article)
-                .options(joinedload(Article.summaries))
-                .filter(Article.url.in_(urls))
-                if a.url
-            }
+            articles = session.query(Article).options(joinedload(Article.summaries)).filter(Article.url.in_(urls))
+            self.articles = {a.url: a for a in articles if a.url}
 
         return items
 
