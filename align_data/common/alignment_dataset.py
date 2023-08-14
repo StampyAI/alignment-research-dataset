@@ -25,6 +25,8 @@ INIT_DICT = {
     "url": None,
     "authors": lambda: [],
     "source_type": None,
+    "status": None,
+    "comments": None,
 }
 
 logger = logging.getLogger(__name__)
