@@ -5,44 +5,10 @@ on:
     - cron: "0 0 * * 0"  # Every Sunday at midnight
 
 jobs:
-  update_dateset:
+  update_dataset:
     strategy:
       matrix:
-        datasource:
-          - agentmodels
-          - aiimpacts
-          - aisafety.camp
-          - ai_alignment_playlist
-          - ai_explained
-          - ai_safety_talks
-          - ai_safety_reading_group
-          - ai_tech_tu_delft
-          - alignment_newsletter
-          - arbital
-          - arxiv
-          - carado.moe
-          - cold_takes
-          - deepmind_blog
-          - deepmind_technical_blog
-          - distill
-          - eaforum
-          - ebooks
-          - eleuther.ai
-          - gdocs
-          - generative.ink
-          - gwern_blog
-          - html_articles
-          - importai
-          - jsteinhardt_blog
-          - markdown
-          - miri
-          - ml_safety_newsletter
-          - openai.research
-          - pdfs
-          - rob_miles_ai_safety
-          - vkrakovna_blog
-          - yudkowsky_blog
-          - xmls
+        datasource: ${{ fromJson(vars.WEEKLY_DATASOURCES) }}
 
     uses: ./.github/workflows/fetch-dataset.yml
     with:
@@ -52,4 +18,21 @@ jobs:
       db_user: ${{ inputs.db_user }}
       db_password: ${{ inputs.db_password }}
       db_host: ${{ inputs.db_host }}
+    secrets: inherit
+
+  update_indexes:
+    needs: update_dataset
+    strategy:
+      matrix:
+        datasource: ${{ fromJson(vars.WEEKLY_DATASOURCES) }}
+
+    uses: ./.github/workflows/update-pinecone.yml
+    with:
+      datasource: ${{ matrix.datasource }}
+      db_user: ${{ inputs.db_user }}
+      db_password: ${{ inputs.db_password }}
+      db_host: ${{ inputs.db_host }}
+      openai_api_key: ${{ inputs.openai_api_key }}
+      pinecone_api_key: ${{ inputs.pinecone_api_key }}
+      pinecone_environment: ${{ inputs.pinecone_environment }}
     secrets: inherit
