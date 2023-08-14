@@ -64,6 +64,7 @@ def fetch(url) -> Dict:
         paper = {'status': 'Withdrawn'}
     else:
         paper = get_contents(paper_id)
+
     if metadata and metadata.authors:
         authors = metadata.authors
     else:

@@ -371,7 +371,9 @@ def test_arxiv_process_entry_retracted(mock_arxiv):
     """
 
     with patch('requests.get', return_value=Mock(content=response)):
-        assert dataset.process_entry(item).to_dict() == {
+        article = dataset.process_entry(item)
+        assert article.status == 'Withdrawn'
+        assert article.to_dict() == {
             "comment": "no comment",
             "authors": [],
             "categories": "wut",
@@ -386,7 +388,6 @@ def test_arxiv_process_entry_retracted(mock_arxiv):
             "summaries": ["abstract bla bla"],
             "title": "this is the title",
             "url": "https://arxiv.org/abs/2001.11038",
-            "status": "Withdrawn",
             "text": None,
         }
 

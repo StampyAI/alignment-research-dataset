@@ -93,11 +93,8 @@ class Article(Base):
 
     @property
     def missing_fields(self):
-        return [field for field in self.__id_fields if not getattr(self, field)]
-
-    def verify_fields(self):
-        missing = self.missing_fields
-        assert not missing, f"Entry is missing the following fields: {missing}"
+        fields = set(self.__id_fields) | {'text', 'title', 'url', 'source', 'date_published'}
+        return sorted([field for field in fields if not getattr(self, field, None)])
 
     def verify_id(self):
         assert self.id is not None, "Entry is missing id"
@@ -106,7 +103,11 @@ class Article(Base):
         id_from_fields = hashlib.md5(id_string).hexdigest()
         assert (
             self.id == id_from_fields
-        ), f"Entry id {self.id} does not match id from id_fields, {id_from_fields}"
+        ), f"Entry id {self.id} does not match id from id_fields: {id_from_fields}"
+
+    def verify_id_fields(self):
+        missing = [field for field in self.__id_fields if not getattr(self, field)]
+        assert not missing, f"Entry is missing the following fields: {missing}"
 
     def update(self, other):
         for field in self.__table__.columns.keys():
@@ -125,8 +126,11 @@ class Article(Base):
 
     @classmethod
     def before_write(cls, mapper, connection, target):
+        target.verify_id_fields()
+
         if not target.status and target.missing_fields:
-            target.status = f'missing fields: {", ".join(target.missing_fields)}'
+            target.status = 'Missing fields'
+            target.comments = f'missing fields: {", ".join(target.missing_fields)}'
 
         if target.id:
             target.verify_id()

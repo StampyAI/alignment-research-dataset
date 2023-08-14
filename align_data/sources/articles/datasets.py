@@ -98,7 +98,8 @@ class SpecialDocs(SpreadsheetDataset):
             'date_published': self._get_published_date(item.date_published) or metadata.get('date_published'),
             'authors': self.extract_authors(item) or metadata.get('authors', []),
             'text': metadata.get('text'),
-            'status': metadata.get('error'),
+            'status': 'Invalid' if metadata.get('error') else None,
+            'comments': metadata.get('error'),
         }
 
     def process_entry(self, item):

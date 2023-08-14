@@ -76,25 +76,41 @@ def test_data_entry_id_from_urls_and_title():
 
 
 @pytest.mark.parametrize('item, error', (
-    ({"key1": 12, "key2": 312}, 'missing fields: url, title'),
     (
-        {"key1": 12, "key2": 312, "title": "wikipedia goes to war on porcupines"},
-        'missing fields: url'
+        {"key1": 12, "key2": 312, "title": "wikipedia goes to war on porcupines", "url": "asd"},
+        'missing fields: date_published, source, text'
     ),
-    ({"key1": 12, "key2": 312, "url": None}, 'missing fields: url, title'),
     (
-        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": None},
-        'missing fields: title'
+        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "text": "asdasd", "title": "asdasd"},
+        'missing fields: date_published, source'
     ),
-    ({"key1": 12, "key2": 312, "url": "", "title": ""}, 'missing fields: url, title'),
-    ({"key1": 12, "key2": 312, "url": "", "title": "once upon a time"}, 'missing fields: url'),
-    ({"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": ""}, 'missing fields: title'),
+    (
+        {
+            "key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": "bla",
+            "source": "dwe", "date_published": "dwe"
+        },
+        'missing fields: text'
+    ),
+    (
+        {
+            "key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": "bla",
+            "text": "asdasd", "date_published": "dwe"
+        },
+        'missing fields: source'
+    ),
+    (
+        {
+            "key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": "bla", "text": "asdasd", "source": "dwe"
+        },
+        'missing fields: date_published'
+    ),
 ))
 def test_data_entry_missing(item, error):
     dataset = AlignmentDataset(name="blaa")
     entry = dataset.make_data_entry(item)
     Article.before_write(None, None, entry)
-    assert entry.status == error
+    assert entry.status == 'Missing fields'
+    assert entry.comments == error
 
 
 def test_data_entry_verify_id_passes():
@@ -120,74 +136,8 @@ def test_data_entry_verify_id_fails():
             "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
         }
     )
-    with pytest.raises(AssertionError, match="Entry id does not match id_fields"):
-        entry.verify_id()
-
-
-def test_data_entry_id_fields_url():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
-    entry = dataset.make_data_entry({"url": "https://www.google.ca/once_upon_a_time"})
-
-    Article.before_write(None, None, entry)
-    assert entry.id
-
-
-def test_data_entry_id_fields_url_verify_id_passes():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
-    entry = dataset.make_data_entry(
-        {"url": "arbitalonce upon a time", "id": "809d336a0b9b38c4f585e862317e667d"}
-    )
-    entry.verify_id()
-
-
-def test_data_entry_different_id_from_different_url():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
-    entry1 = dataset.make_data_entry({"url": " https://aisafety.info?state=6478"})
-    entry2 = dataset.make_data_entry(
-        {
-            "source": "arbital",
-            "text": "once upon a time",
-            "url": " https://aisafety.info?state=6479",
-        }
-    )
-    assert entry1.generate_id_string() != entry2.generate_id_string()
-
-
-@pytest.mark.parametrize(
-    "data, error",
-    (
-        ({"text": "bla bla bla"}, "Entry is missing id"),
-        ({"text": "bla bla bla", "id": None}, "Entry is missing id"),
-        (
-            {
-                "id": "123",
-                "url": "www.google.com/winter_wonderland",
-                "title": "winter wonderland",
-            },
-            "Entry id 123 does not match id from id_fields, [0-9a-fA-F]{32}",
-        ),
-        (
-            {
-                "id": "457c21e0ecabebcb85c12022d481d9f4",
-                "url": "www.google.com",
-                "title": "winter wonderland",
-            },
-            "Entry id [0-9a-fA-F]{32} does not match id from id_fields, [0-9a-fA-F]{32}",
-        ),
-        (
-            {
-                "id": "457c21e0ecabebcb85c12022d481d9f4",
-                "url": "www.google.com",
-                "title": "Once upon a time",
-            },
-            "Entry id [0-9a-fA-F]{32} does not match id from id_fields, [0-9a-fA-F]{32}",
-        ),
-    ),
-)
-def test_data_entry_verify_id_fails(data, error):
-    dataset = AlignmentDataset(name="blaa", id_fields=["url", "title"])
-    entry = dataset.make_data_entry(data)
-    with pytest.raises(AssertionError, match=error):
+    expected = 'Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 770fe57c8c2130eda08dc392b8696f97'
+    with pytest.raises(AssertionError, match=expected):
         entry.verify_id()
 
 
@@ -217,7 +167,36 @@ def test_data_entry_verify_fields_fails(data, error):
     dataset = AlignmentDataset(name="blaa", id_fields=["url", "title"])
     entry = dataset.make_data_entry(data)
     with pytest.raises(AssertionError, match=error):
-        entry.verify_fields()
+        entry.verify_id_fields()
+
+
+def test_data_entry_id_fields_url():
+    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
+    entry = dataset.make_data_entry({"url": "https://www.google.ca/once_upon_a_time"})
+
+    Article.before_write(None, None, entry)
+    assert entry.id
+
+
+def test_data_entry_id_fields_url_verify_id_passes():
+    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
+    entry = dataset.make_data_entry(
+        {"url": "arbitalonce upon a time", "id": "809d336a0b9b38c4f585e862317e667d"}
+    )
+    entry.verify_id()
+
+
+def test_data_entry_different_id_from_different_url():
+    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
+    entry1 = dataset.make_data_entry({"url": " https://aisafety.info?state=6478"})
+    entry2 = dataset.make_data_entry(
+        {
+            "source": "arbital",
+            "text": "once upon a time",
+            "url": " https://aisafety.info?state=6479",
+        }
+    )
+    assert entry1.generate_id_string() != entry2.generate_id_string()
 
 
 @pytest.fixture
