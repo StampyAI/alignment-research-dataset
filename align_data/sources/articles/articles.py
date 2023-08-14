@@ -65,7 +65,7 @@ def process_row(row, sheets):
         row.set_status(error)
         return
 
-    data_source = contents.get("data_source")
+    data_source = contents.get("source_type")
     if data_source not in sheets:
         error = "Unhandled data type"
         logger.error(error)

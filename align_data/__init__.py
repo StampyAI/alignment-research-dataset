@@ -2,7 +2,6 @@ import align_data.sources.arbital as arbital
 import align_data.sources.articles as articles
 import align_data.sources.blogs as blogs
 import align_data.sources.ebooks as ebooks
-import align_data.sources.arxiv_papers as arxiv_papers
 import align_data.sources.greaterwrong as greaterwrong
 import align_data.sources.stampy as stampy
 import align_data.sources.alignment_newsletter as alignment_newsletter
@@ -14,7 +13,6 @@ DATASET_REGISTRY = (
     + articles.ARTICLES_REGISTRY
     + blogs.BLOG_REGISTRY
     + ebooks.EBOOK_REGISTRY
-    + arxiv_papers.ARXIV_REGISTRY
     + greaterwrong.GREATERWRONG_REGISTRY
     + stampy.STAMPY_REGISTRY
     + distill.DISTILL_REGISTRY

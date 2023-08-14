@@ -66,7 +66,7 @@ def fetch_pdf(link):
         return {
             "source_url": link,
             "text": "\n".join(page.extract_text() for page in pdf_reader.pages),
-            "data_source": "pdf",
+            "source_type": "pdf",
         }
     except (TypeError, PdfReadError) as e:
         logger.error('Could not read PDF file: %s', e)
@@ -170,5 +170,5 @@ def parse_vanity(url):
         "authors": authors,
         "text": text,
         "date_published": date_published,
-        "data_source": "html",
+        "source_type": "html",
     }
