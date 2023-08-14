@@ -74,6 +74,7 @@ def fetch(url) -> Dict:
     return dict({
         "title": metadata.title,
         "url": canonical_url(url),
+        "source_type": paper.get('data_source'),
         "authors": authors,
         "date_published": metadata.published,
         "data_last_modified": metadata.updated.isoformat(),

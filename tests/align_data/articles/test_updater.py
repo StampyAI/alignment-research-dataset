@@ -158,4 +158,5 @@ def test_process_entry(csv_file):
             'text': 'bla bla bla',
             'title': 'bla bla',
             'url': 'http://bla.com',
+            'source_url': 'http://bla.bla.com',
         }

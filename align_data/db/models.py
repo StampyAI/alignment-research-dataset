@@ -124,6 +124,11 @@ class Article(Base):
         id_string = self.generate_id_string()
         self.id = hashlib.md5(id_string).hexdigest()
 
+    def add_meta(self, key, val):
+        if self.meta is None:
+            self.meta = {}
+        self.meta[key] = val
+
     @classmethod
     def before_write(cls, mapper, connection, target):
         target.verify_id_fields()

@@ -61,6 +61,9 @@ class ReplacerDataset(AlignmentDataset):
         if not url:
             return
 
+        if article.url != url:
+            article.add_meta('source_url', url)
+
         metadata = item_metadata(url)
         # Only change the text if it could be fetched - better to have outdated values than none
         if metadata.get('text'):
