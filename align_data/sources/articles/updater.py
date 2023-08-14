@@ -25,7 +25,7 @@ class ReplacerDataset(AlignmentDataset):
     @staticmethod
     def maybe(item, key):
         val = getattr(item, key, None)
-        if pd.isna(val):
+        if pd.isna(val) or (isinstance(val, str) and not val.strip()):
             return None
         return val
 

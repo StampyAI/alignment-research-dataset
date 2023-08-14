@@ -53,29 +53,13 @@ def is_withdrawn(url: str):
     return None
 
 
-def fetch(url) -> Dict:
-    paper_id = get_id(url)
-    if not paper_id:
-        return {'error': 'Could not extract arxiv id'}
-
+def add_metadata(data, paper_id):
     metadata = get_arxiv_metadata(paper_id)
-
-    if is_withdrawn(url):
-        paper = {'status': 'Withdrawn'}
-    else:
-        paper = get_contents(paper_id)
-
-    if metadata and metadata.authors:
-        authors = metadata.authors
-    else:
-        authors = paper.get("authors") or []
-    authors = [str(a).strip() for a in authors]
-
+    if not metadata:
+        return {}
     return dict({
+        "authors": metadata.authors,
         "title": metadata.title,
-        "url": canonical_url(url),
-        "source_type": paper.get('data_source'),
-        "authors": authors,
         "date_published": metadata.published,
         "data_last_modified": metadata.updated.isoformat(),
         "summary": metadata.summary.replace("\n", " "),
@@ -85,4 +69,24 @@ def fetch(url) -> Dict:
         "primary_category": metadata.primary_category,
         "categories": metadata.categories,
         "version": get_version(metadata.get_short_id()),
-    }, **paper)
+    }, **data)
+
+
+def fetch(url) -> Dict:
+    paper_id = get_id(url)
+    if not paper_id:
+        return {'error': 'Could not extract arxiv id'}
+
+    if is_withdrawn(url):
+        paper = {'status': 'Withdrawn'}
+    else:
+        paper = get_contents(paper_id)
+
+    data = add_metadata({
+        "url": canonical_url(url),
+        "source_type": paper.get('data_source'),
+    }, paper_id)
+    authors = data.get('authors') or paper.get("authors") or []
+    data['authors'] = [str(a).strip() for a in authors]
+
+    return dict(data, **paper)
