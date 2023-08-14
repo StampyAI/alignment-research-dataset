@@ -176,6 +176,13 @@ class AlignmentDataset:
                 for item in session.scalars(select(Article.meta)).all()
             }
 
+    def not_processed(self, item):
+        # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
+        # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
+        # this function runs a query to check if the item is in the database rather than first getting all done_keys.
+        # If it get's to that level, consider batching it somehow
+        return self.get_item_key(item) not in self._outputted_items
+
     def unprocessed_items(self, items=None) -> Iterable:
         """Return a list of all items to be processed.
 
@@ -184,14 +191,7 @@ class AlignmentDataset:
         """
         self.setup()
 
-        def not_processed(item):
-            # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
-            # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
-            # this function runs a query to check if the item is in the database rather than first getting all done_keys.
-            # If it get's to that level, consider batching it somehow
-            return self.get_item_key(item) not in self._outputted_items
-
-        filtered = filter(not_processed, items or self.items_list)
+        filtered = filter(self.not_processed, items or self.items_list)
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice
         if not self.lazy_eval:
