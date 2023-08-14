@@ -115,6 +115,10 @@ class SpecialDocs(SpreadsheetDataset):
         else:
             contents = self.get_contents(item)
 
+        # Skip items that can't be saved because missing fields
+        if not all(contents.get(key) for key in self.id_fields):
+            return None
+
         return self.make_data_entry(contents)
 
 

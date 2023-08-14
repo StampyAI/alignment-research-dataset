@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 from csv import DictWriter
+from numpy import source
 
 import pandas as pd
 import pytest
@@ -158,5 +159,46 @@ def test_process_entry(csv_file):
             'text': 'bla bla bla',
             'title': 'bla bla',
             'url': 'http://bla.com',
+            'source_url': 'http://bla.bla.com',
+        }
+
+
+def test_process_entry_empty(csv_file):
+    dataset = ReplacerDataset(name='bla', csv_path=csv_file, delimiter=',')
+
+    article = Article(
+        _id=123, id='deadbeef0123',
+        title='this should not be changed',
+        url='this should not be changed',
+        source='this should not be changed',
+        authors='this should not be changed',
+
+        text='this should be changed',
+        date_published='this should be changed',
+        id_fields=['url', 'title'],
+    )
+
+    updates = Mock(
+        id='123',
+        hash_id='deadbeef001',
+        title=None,
+        url='',
+        source_url='http://bla.bla.com',
+        source='       ',
+        authors=' \n \n \t \t ',
+        date_published='2000-12-23T10:32:43Z',
+    )
+
+    with patch('align_data.sources.articles.updater.item_metadata', return_value={'text': 'bla bla bla'}):
+        assert dataset.process_entry(Item(updates, article)).to_dict() == {
+            'authors': ['this should not be changed'],
+            'date_published': '2000-12-23T10:32:43Z',
+            'id': '606e9224254f508d297bcb17bcc6d104',
+            'source': 'this should not be changed',
+            'source_type': None,
+            'summaries': [],
+            'text': 'bla bla bla',
+            'title': 'this should not be changed',
+            'url': 'this should not be changed',
             'source_url': 'http://bla.bla.com',
         }
