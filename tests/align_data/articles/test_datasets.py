@@ -466,3 +466,34 @@ def test_special_docs_process_entry_arxiv(_, mock_arxiv):
             "title": "this is the title",
             "url": "https://arxiv.org/abs/2001.11038",
         }
+
+
+@pytest.mark.parametrize('url, expected', (
+    ("http://bla.bla", "http://bla.bla"),
+    ("http://arxiv.org/abs/2001.11038", "https://arxiv.org/abs/2001.11038"),
+    ("https://arxiv.org/abs/2001.11038", "https://arxiv.org/abs/2001.11038"),
+    ("https://arxiv.org/abs/2001.11038/", "https://arxiv.org/abs/2001.11038"),
+    ("https://arxiv.org/pdf/2001.11038", "https://arxiv.org/abs/2001.11038"),
+    ("https://arxiv.org/pdf/2001.11038.pdf", "https://arxiv.org/abs/2001.11038"),
+    ("https://arxiv.org/pdf/2001.11038v3.pdf", "https://arxiv.org/abs/2001.11038"),
+    ("https://arxiv.org/abs/math/2001.11038", "https://arxiv.org/abs/math/2001.11038"),
+))
+def test_special_docs_not_processed_true(url, expected):
+    dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
+    dataset._outputted_items = [url, expected]
+    assert not dataset.not_processed(Mock(url=url, source_url=None))
+    assert not dataset.not_processed(Mock(url=None, source_url=url))
+
+
+@pytest.mark.parametrize('url', (
+    "http://bla.bla"
+    "http://arxiv.org/abs/2001.11038",
+    "https://arxiv.org/abs/2001.11038",
+    "https://arxiv.org/abs/2001.11038/",
+    "https://arxiv.org/pdf/2001.11038",
+))
+def test_special_docs_not_processed_false(url):
+    dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
+    dataset._outputted_items = []
+    assert dataset.not_processed(Mock(url=url, source_url=None))
+    assert dataset.not_processed(Mock(url=None, source_url=url))

@@ -18,7 +18,9 @@ from align_data.sources.articles.parsers import (
     HTML_PARSERS, extract_gdrive_contents, item_metadata, parse_domain
 )
 from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.arxiv_papers.arxiv_papers import fetch as fetch_arxiv
+from align_data.sources.arxiv_papers.arxiv_papers import (
+    fetch as fetch_arxiv, canonical_url as arxiv_cannonical_url
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +109,18 @@ class SpecialDocs(SpreadsheetDataset):
             'status': 'Invalid' if metadata.get('error') else None,
             'comments': metadata.get('error'),
         }
+
+    def not_processed(self, item):
+        url = self.maybe(item, 'url')
+        source_url = self.maybe(item, 'source_url')
+
+        return (
+            self.get_item_key(item) not in self._outputted_items and
+            url not in self._outputted_items and
+            source_url not in self._outputted_items and
+            (not url or arxiv_cannonical_url(url) not in self._outputted_items) and
+            (not source_url or arxiv_cannonical_url(source_url) not in self._outputted_items)
+        )
 
     def process_entry(self, item):
         if parse_domain(item.url) == "arxiv.org":
