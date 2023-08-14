@@ -76,48 +76,13 @@ def test_data_entry_id_from_urls_and_title():
 
 
 @pytest.mark.parametrize('item, error', (
-    ({"key1": 12, "key2": 312}, 'missing fields: date_published, source, text, title, url'),
     (
-        {"key1": 12, "key2": 312, "title": "wikipedia goes to war on porcupines"},
-        'missing fields: date_published, source, text, url'
+        {"key1": 12, "key2": 312, "title": "wikipedia goes to war on porcupines", "url": "asd"},
+        'missing fields: date_published, source, text'
     ),
     (
-        {"key1": 12, "key2": 312, "url": None},
-        'missing fields: date_published, source, text, title, url'
-    ),
-    (
-        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": None},
-        'missing fields: date_published, source, text, title'
-    ),
-    (
-        {"key1": 12, "key2": 312, "url": "", "title": ""},
-        'missing fields: date_published, source, text, title, url'
-    ),
-    (
-        {"key1": 12, "key2": 312, "url": "", "title": "once upon a time"},
-        'missing fields: date_published, source, text, url'
-    ),
-    (
-        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": ""},
-        'missing fields: date_published, source, text, title'
-    ),
-    (
-        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "text": "asdasd"},
-        'missing fields: date_published, source, title'
-    ),
-
-    (
-        {
-            "key1": 12, "key2": 312, "title": "bla", "text": "asdasd", "source": "dwe", "date_published": "dwe"
-        },
-        'missing fields: url'
-    ),
-    (
-        {
-            "key1": 12, "key2": 312, "url": "www.wikipedia.org",
-            "text": "asdasd", "source": "dwe", "date_published": "dwe"
-        },
-        'missing fields: title'
+        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "text": "asdasd", "title": "asdasd"},
+        'missing fields: date_published, source'
     ),
     (
         {
@@ -174,6 +139,35 @@ def test_data_entry_verify_id_fails():
     expected = 'Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 770fe57c8c2130eda08dc392b8696f97'
     with pytest.raises(AssertionError, match=expected):
         entry.verify_id()
+
+
+@pytest.mark.parametrize(
+    "data, error",
+    (
+        ({"id": "123"}, "Entry is missing the following fields: \\['url', 'title'\\]"),
+        (
+            {"id": "123", "url": None},
+            "Entry is missing the following fields: \\['url', 'title'\\]",
+        ),
+        (
+            {"id": "123", "url": "www.google.com/"},
+            "Entry is missing the following fields: \\['title'\\]",
+        ),
+        (
+            {"id": "123", "url": "google", "text": None},
+            "Entry is missing the following fields: \\['title'\\]",
+        ),
+        (
+            {"id": "123", "url": "", "title": ""},
+            "Entry is missing the following fields: \\['url', 'title'\\]",
+        ),
+    ),
+)
+def test_data_entry_verify_fields_fails(data, error):
+    dataset = AlignmentDataset(name="blaa", id_fields=["url", "title"])
+    entry = dataset.make_data_entry(data)
+    with pytest.raises(AssertionError, match=error):
+        entry.verify_id_fields()
 
 
 def test_data_entry_id_fields_url():

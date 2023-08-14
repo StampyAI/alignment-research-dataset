@@ -105,6 +105,10 @@ class Article(Base):
             self.id == id_from_fields
         ), f"Entry id {self.id} does not match id from id_fields: {id_from_fields}"
 
+    def verify_id_fields(self):
+        missing = [field for field in self.__id_fields if not getattr(self, field)]
+        assert not missing, f"Entry is missing the following fields: {missing}"
+
     def update(self, other):
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
@@ -122,6 +126,8 @@ class Article(Base):
 
     @classmethod
     def before_write(cls, mapper, connection, target):
+        target.verify_id_fields()
+
         if not target.status and target.missing_fields:
             target.status = 'Missing fields'
             target.comments = f'missing fields: {", ".join(target.missing_fields)}'
