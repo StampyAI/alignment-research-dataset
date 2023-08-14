@@ -386,7 +386,7 @@ def test_arxiv_process_entry_retracted(mock_arxiv):
             "summaries": ["abstract bla bla"],
             "title": "this is the title",
             "url": "https://arxiv.org/abs/2001.11038",
-            "status": "Retracted",
+            "status": "Withdrawn",
             "text": None,
         }
 

@@ -93,7 +93,7 @@ class SpecialDocs(SpreadsheetDataset):
         return {
             'url': self.maybe(item.url),
             'title': self.maybe(item.title) or metadata.get('title'),
-            'source': metadata.get('data_source') or self.name,
+            'source': metadata.get('source_type') or self.name,
             'source_type': self.maybe(item.source_type),
             'date_published': self._get_published_date(item.date_published) or metadata.get('date_published'),
             'authors': self.extract_authors(item) or metadata.get('authors', []),
