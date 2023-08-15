@@ -2,7 +2,7 @@ from datetime import datetime
 from itertools import islice
 import logging
 import time
-from dataclasses import dataclass, field, KW_ONLY
+from dataclasses import dataclass, KW_ONLY
 from pathlib import Path
 from typing import Iterable, List, Optional, Set
 from sqlalchemy import select
@@ -60,9 +60,6 @@ class AlignmentDataset:
     """Used internally for writing debugging info - each file write will increment it"""
     _outputted_items = set()
     """A set of the ids of all previously processed items"""
-    _: KW_ONLY
-    id_fields: List[str] = field(default_factory=lambda: ["url", "title"])
-    """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
     def __str__(self) -> str:
         return self.name
@@ -87,7 +84,6 @@ class AlignmentDataset:
         authors = data.pop("authors", [])
 
         article = Article(
-            id_fields=self.id_fields,
             meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )

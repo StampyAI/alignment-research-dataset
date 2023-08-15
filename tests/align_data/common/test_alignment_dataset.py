@@ -164,30 +164,22 @@ def test_data_entry_verify_id_fails():
     ),
 )
 def test_data_entry_verify_fields_fails(data, error):
-    dataset = AlignmentDataset(name="blaa", id_fields=["url", "title"])
+    dataset = AlignmentDataset(name="blaa")
     entry = dataset.make_data_entry(data)
     with pytest.raises(AssertionError, match=error):
         entry.verify_id_fields()
 
 
-def test_data_entry_id_fields_url():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
-    entry = dataset.make_data_entry({"url": "https://www.google.ca/once_upon_a_time"})
+def test_data_entry_id_fields():
+    dataset = AlignmentDataset(name="blaa")
+    entry = dataset.make_data_entry({"url": "https://www.google.ca/once_upon_a_time", 'title': 'bla'})
 
     Article.before_write(None, None, entry)
     assert entry.id
 
 
-def test_data_entry_id_fields_url_verify_id_passes():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
-    entry = dataset.make_data_entry(
-        {"url": "arbitalonce upon a time", "id": "809d336a0b9b38c4f585e862317e667d"}
-    )
-    entry.verify_id()
-
-
 def test_data_entry_different_id_from_different_url():
-    dataset = AlignmentDataset(name="blaa", id_fields=["url"])
+    dataset = AlignmentDataset(name="blaa")
     entry1 = dataset.make_data_entry({"url": " https://aisafety.info?state=6478"})
     entry2 = dataset.make_data_entry(
         {
