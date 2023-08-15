@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
+from align_data.db.models import Article
 from align_data.sources.articles.datasets import (
     ArxivPapers,
     EbookArticles,

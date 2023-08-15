@@ -66,12 +66,6 @@ class Article(Base):
         back_populates="article", cascade="all, delete-orphan"
     )
 
-    __id_fields = ["url", "title"]
-
-    def __init__(self, *args, id_fields, **kwargs):
-        self.__id_fields = id_fields
-        super().__init__(*args, **kwargs)
-
     def __repr__(self) -> str:
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
 
@@ -86,10 +80,18 @@ class Article(Base):
             for key in PINECONE_METADATA_KEYS
         )
 
-    def generate_id_string(self) -> str:
+    def generate_id_string(self) -> bytes:
         return "".join(str(getattr(self, field)) for field in self.__id_fields).encode(
             "utf-8"
         )
+
+    @property
+    def __id_fields(self):
+        if self.source == 'aisafety.info':
+            return ['url']
+        if self.source in ['importai', 'ml_safety_newsletter', 'alignment_newsletter']:
+            return ['url', 'title', 'source']
+        return ["url", "title"]
 
     @property
     def missing_fields(self):
