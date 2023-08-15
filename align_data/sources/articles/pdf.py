@@ -105,10 +105,6 @@ def get_arxiv_link(doi):
     return vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
 
 
-def get_arxiv_pdf(link):
-    return fetch_pdf(link.replace("/abs/", "/pdf/"))
-
-
 def get_doi(doi):
     """Get the article with the given `doi`.
 

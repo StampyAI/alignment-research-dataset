@@ -58,7 +58,11 @@ def test_medium_blog():
     </article>
     """
     with patch("requests.get", return_value=Mock(content=html)):
-        assert medium_blog("bla.com") == "bla bla bla [a link](http://ble.com) bla bla"
+        assert medium_blog("bla.com") == {
+            'text': "bla bla bla [a link](http://ble.com) bla bla",
+            'source_url': 'bla.com',
+            'source_type': 'html',
+        }
 
 
 def test_medium_blog_no_title():
@@ -73,10 +77,11 @@ def test_medium_blog_no_title():
     </article>
     """
     with patch("requests.get", return_value=Mock(content=html)):
-        assert (
-            medium_blog("bla.com")
-            == "Some random thing\n\n\n bla bla bla [a link](http://ble.com) bla bla"
-        )
+        assert medium_blog("bla.com") == {
+            'text': "Some random thing\n\n\n bla bla bla [a link](http://ble.com) bla bla",
+            'source_url': 'bla.com',
+            'source_type': 'html',
+        }
 
 
 def test_medium_blog_no_contents():
@@ -91,4 +96,4 @@ def test_medium_blog_no_contents():
     </div>
     """
     with patch('requests.get', return_value=Mock(content=html)):
-        assert medium_blog('bla.com') is None
+        assert medium_blog('bla.com') == {}

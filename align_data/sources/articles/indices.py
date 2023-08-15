@@ -7,7 +7,7 @@ from markdownify import MarkdownConverter
 from tqdm import tqdm
 
 from align_data.sources.articles.html import fetch, fetch_element
-from align_data.sources.articles.parsers import item_metadata
+from align_data.sources.articles.parsers import item_metadata, parse_domain
 from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
@@ -276,10 +276,20 @@ class IndicesDataset(AlignmentDataset):
         if url := item.get('source_url') or item.get('url'):
             metadata = item_metadata(url)
 
-        text = metadata.get('text')
-        if not text:
+        if not metadata.get('text'):
             logger.error('Could not get text for %s (%s) - %s - skipping for now', item.get('title'), url, metadata.get('error'))
             return None
+
+        if parse_domain(metadata.get('source_url') or '') != 'arxiv.org':
+            return self.make_data_entry({
+                'source': self.name,
+                'url': self.get_item_key(item),
+                'title': item.get('title'),
+                'date_published': self._get_published_date(item.get('date_published')),
+                'authors': self.extract_authors(item),
+                'status': 'Ignored',
+                'comments': 'Added from indices',
+            })
 
         return self.make_data_entry({
             'source': self.name,
@@ -287,5 +297,4 @@ class IndicesDataset(AlignmentDataset):
             'title': item.get('title'),
             'date_published': self._get_published_date(item.get('date_published')),
             'authors': self.extract_authors(item),
-            'text': text,
-        })
+        }, **metadata)

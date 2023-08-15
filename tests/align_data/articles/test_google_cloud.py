@@ -57,7 +57,11 @@ def test_google_doc():
         """)
 
     with patch('requests.get', fetcher):
-        assert google_doc('https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit') == 'ble ble [a link](bla.com)'
+        url = 'https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit'
+        assert google_doc(url) == {
+            'text': 'ble ble [a link](bla.com)',
+            'source_url': url
+        }
 
 
 def test_google_doc_no_body():
@@ -66,11 +70,11 @@ def test_google_doc_no_body():
         return Mock(content="<html> <header>bla bla bla</header> </html>")
 
     with patch('requests.get', fetcher):
-        assert google_doc('https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit') is None
+        assert google_doc('https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit')  == {}
 
 
 def test_google_doc_bad_url():
-    assert google_doc('https://docs.google.com/bla/bla') is None
+    assert google_doc('https://docs.google.com/bla/bla') == {}
 
 def test_parse_grobid():
     assert parse_grobid(SAMPLE_XML) == {

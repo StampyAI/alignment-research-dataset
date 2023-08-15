@@ -642,12 +642,11 @@ def test_openai_research_get_text():
     dataset = OpenAIResearch(name="openai", url="bla.bla")
 
     soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    parsers = {"arxiv.org": lambda _: {'text': 'bla bla bla'}}
     with patch(
         "requests.head", return_value=Mock(headers={"Content-Type": "text/html"})
     ):
-        with patch(
-            "align_data.articles.pdf.fetch_pdf", return_value={"text": "bla bla bla"}
-        ):
+        with patch("align_data.sources.articles.parsers.PDF_PARSERS", parsers):
             assert dataset._get_text(soup) == "bla bla bla"
 
 
@@ -697,14 +696,12 @@ def test_openai_research_process_entry():
     dataset = OpenAIResearch(name="openai", url="bla.bla")
 
     soup = BeautifulSoup(OPENAI_HTML, "html.parser")
+    parsers = {"arxiv.org": lambda _: {'text': 'bla bla bla'}}
     with patch(
         "requests.head", return_value=Mock(headers={"Content-Type": "text/html"})
     ):
         with patch("requests.get", return_value=Mock(content=OPENAI_HTML)):
-            with patch(
-                "align_data.articles.pdf.fetch_pdf",
-                return_value={"text": "bla bla bla"},
-            ):
+            with patch("align_data.sources.articles.parsers.PDF_PARSERS", parsers):
                 assert dataset.process_entry(soup).to_dict() == {
                     "authors": ["Mr. Blobby", "John Snow"],
                     "date_published": "2023-07-06T00:00:00Z",
