@@ -202,6 +202,12 @@ class AlignmentDataset:
             if not entry:
                 continue
 
+            try:
+                entry.verify_id_fields()
+            except AssertionError as e:
+                logger.error(e)
+                continue
+
             yield entry
 
             if self.COOLDOWN:
