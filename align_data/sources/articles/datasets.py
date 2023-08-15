@@ -6,6 +6,7 @@ from typing import Dict
 from urllib.parse import urlparse
 
 import pandas as pd
+from align_data.sources.articles import articles
 from gdown.download import download
 from markdownify import markdownify
 from pypandoc import convert_file
@@ -123,15 +124,11 @@ class SpecialDocs(SpreadsheetDataset):
         )
 
     def process_entry(self, item):
-        if parse_domain(item.url) == "arxiv.org":
+        if ArxivPapers.is_arxiv(item.url):
             contents = ArxivPapers.get_contents(item)
             contents['source'] = 'arxiv'
         else:
             contents = self.get_contents(item)
-
-        # Skip items that can't be saved because missing fields
-        if not all(contents.get(key) for key in ['title', 'url']):
-            return None
 
         return self.make_data_entry(contents)
 
@@ -217,6 +214,10 @@ class DocArticles(SpreadsheetDataset):
 
 class ArxivPapers(SpreadsheetDataset):
     COOLDOWN: int = 1
+
+    @staticmethod
+    def is_arxiv(url):
+        return parse_domain(url) == "arxiv.org"
 
     @classmethod
     def get_contents(cls, item) -> Dict:

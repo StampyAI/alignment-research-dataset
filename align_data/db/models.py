@@ -16,10 +16,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
+from sqlalchemy.ext.hybrid import hybrid_property
 from align_data.settings import PINECONE_METADATA_KEYS
 
 
 logger = logging.getLogger(__name__)
+OK_STATUS = None
 
 
 class Base(DeclarativeBase):
@@ -130,6 +132,25 @@ class Article(Base):
         if self.meta is None:
             self.meta = {}
         self.meta[key] = val
+
+    @hybrid_property
+    def is_valid(self):
+        return (
+            self.text and self.text.strip() and
+            self.url and self.title and
+            self.authors is not None and
+            self.status == OK_STATUS
+        )
+
+    @is_valid.expression
+    def is_valid(cls):
+        return (
+            (cls.status == OK_STATUS)
+            & (cls.text != None)
+            & (cls.url != None)
+            & (cls.title != None)
+            & (cls.authors != None)
+        )
 
     @classmethod
     def before_write(cls, mapper, connection, target):
