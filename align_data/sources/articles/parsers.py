@@ -299,7 +299,7 @@ def item_metadata(url) -> Dict[str, str]:
         if domain not in (
             HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()
         ):
-            return {'error': f'No domain handler defined for {domain}'}
+            return {"error": f"No domain handler defined for {domain}"}
         return {"error": "could not parse url"}
     elif content_type & {"application/octet-stream", "application/pdf"}:
         # this looks like it could be a pdf - try to download it as one

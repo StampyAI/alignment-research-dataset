@@ -1,9 +1,9 @@
 import logging
 import re
 from typing import Dict, Optional
-from dataclasses import dataclass, KW_ONLY
 
 import arxiv
+
 from align_data.sources.articles.pdf import fetch_pdf, parse_vanity
 from align_data.sources.articles.html import fetch_element
 

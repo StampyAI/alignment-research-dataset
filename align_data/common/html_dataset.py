@@ -1,7 +1,7 @@
 import pytz
 import logging
 from datetime import datetime
-from dataclasses import dataclass, field, KW_ONLY
+from dataclasses import dataclass, field
 from urllib.parse import urljoin
 from typing import List
 import re
@@ -16,7 +16,7 @@ from align_data.common.alignment_dataset import AlignmentDataset
 logger = logging.getLogger(__name__)
 
 
-@dataclass(kw_only=KW_ONLY)
+@dataclass()
 class HTMLDataset(AlignmentDataset):
     """
     Fetches articles from a different blog by collecting links to articles from an index page.

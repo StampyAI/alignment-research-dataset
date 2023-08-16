@@ -6,7 +6,6 @@ import requests
 from bs4 import BeautifulSoup, Tag
 from markdownify import MarkdownConverter
 
-import logging
 logger = logging.getLogger(__name__)
 
 

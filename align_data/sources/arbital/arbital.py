@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import timezone
 import logging
-from typing import List, Tuple, Iterator, Dict
+from typing import List, Tuple, Iterator, Dict, Union
 
 import requests
 from dateutil.parser import parse
@@ -19,11 +19,10 @@ def parse_arbital_link(contents):
     return f"[{title}]({url})"
 
 
-def flatten(val): # val is Union[List, Tuple, str] and returns List[str]
+def flatten(val: Union[List[str], Tuple[str], str]) -> List[str]:
     if isinstance(val, (list, tuple)):
         return [item for sublist in val for item in flatten(sublist)]
     return [val]
-
 
 def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]):
     """Recursively parse the text parts in `view` to create a markdown AST from them.

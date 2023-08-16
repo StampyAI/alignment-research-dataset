@@ -87,7 +87,7 @@ class AlignmentDataset:
 
     def to_jsonl(self, out_path: Path = None, filename: str = None):
         if not out_path:
-            out_path=self.data_path
+            out_path = self.data_path
 
         filename = filename or f"{self.name}.jsonl"
         filepath = out_path / filename
@@ -96,10 +96,6 @@ class AlignmentDataset:
             for article in self.read_entries():
                 jsonl_writer.write(article.to_dict())
         return filepath.resolve()
-
-    @property
-    def _query_items(self):
-        return select(Article).where(Article.source == self.name)
 
     @property
     def _query_items(self):
@@ -186,7 +182,7 @@ class AlignmentDataset:
             # this function runs a query to check if the item is in the database rather than first getting all done_keys.
             # If it get's to that level, consider batching it somehow
             return self.get_item_key(item) not in self._outputted_items
-        
+
         items_to_process = filter(not_processed, items)
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice

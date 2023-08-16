@@ -107,8 +107,8 @@ def process_spreadsheets(source_sheet, output_sheets):
             row["source_url"] = row["url"]
         if row.get("source_url") in seen:
             logger.info(f'skipping "{title}", as it has already been seen')
-        # elif row.get('status'): #TODO: Should we remove this
-        #     logger.info(f'skipping "{title}", as it has a status set - remove it for this row to be processed')
+        elif row.get('status'): #TODO: Should we remove this?
+            logger.info(f'skipping "{title}", as it has a status set - remove it for this row to be processed')
         else:
             process_row(row, output_sheets)
 
@@ -128,7 +128,6 @@ def check_new_articles(source_spreadsheet, source_sheet):
     current = {row.get("title"): row for row in iterate_rows(source_sheet)}
     logger.info('Found %s articles in the sheet', len(current))
 
-    # get all the urls from the sheet. they are in the 'url' and 'source_url' fields
     seen_urls = {
         url
         for item in current.values()
