@@ -153,7 +153,7 @@ class Article(Base):
         )
 
     @classmethod
-    def before_write(cls, mapper, connection, target):
+    def before_write(cls, _mapper, _connection, target):
         target.verify_id_fields()
 
         if not target.status and target.missing_fields:
@@ -164,12 +164,6 @@ class Article(Base):
             target.verify_id()
         else:
             target._set_id()
-
-        # This assumes that status pretty much just notes down that an entry is invalid. If it has
-        # all fields set and is being written to the database, then it must have been modified, ergo
-        # should be also updated in pinecone
-        if not target.status:
-            target.pinecone_update_required = True
 
     def to_dict(self):
         if date := self.date_published:

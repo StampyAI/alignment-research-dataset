@@ -84,6 +84,7 @@ class AlignmentDataset:
         authors = data.pop("authors", [])
 
         article = Article(
+            pinecone_update_required=True,
             meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )
