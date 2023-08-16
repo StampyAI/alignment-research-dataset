@@ -24,6 +24,9 @@ INIT_DICT = {
     "title": None,
     "url": None,
     "authors": lambda: [],
+    "source_type": None,
+    "status": None,
+    "comments": None,
 }
 
 logger = logging.getLogger(__name__)
@@ -85,7 +88,7 @@ class AlignmentDataset:
 
         article = Article(
             id_fields=self.id_fields,
-            meta={k: v for k, v in data.items() if k not in INIT_DICT},
+            meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )
         self._add_authors(article, authors)
@@ -106,13 +109,17 @@ class AlignmentDataset:
                 jsonl_writer.write(article.to_dict())
         return filename.resolve()
 
+    @property
+    def _query_items(self):
+        return select(Article).where(Article.source == self.name)
+
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
         with make_session() as session:
-            query = select(Article).where(Article.source == self.name)
+            query = self._query_items.options(joinedload(Article.summaries))
             if sort_by is not None:
                 query = query.order_by(sort_by)
-            for item in session.scalars(query):
+            for item in session.scalars(query).unique():
                 yield item
 
     def _add_batch(self, session, batch):
@@ -204,7 +211,7 @@ class AlignmentDataset:
             if self.COOLDOWN:
                 time.sleep(self.COOLDOWN)
 
-    def process_entry(self, entry):
+    def process_entry(self, entry) -> Optional[Article]:
         """Process a single entry."""
         raise NotImplementedError
 
@@ -212,7 +219,8 @@ class AlignmentDataset:
     def _format_datetime(date) -> str:
         return date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    def _get_published_date(self, date) -> Optional[datetime]:
+    @staticmethod
+    def _get_published_date(date) -> Optional[datetime]:
         try:
             # Totally ignore any timezone info, forcing everything to UTC
             return parse(str(date)).replace(tzinfo=pytz.UTC)
@@ -228,13 +236,8 @@ class SummaryDataset(AlignmentDataset):
 
         urls = map(self.get_item_key, items)
         with make_session() as session:
-            self.articles = {
-                a.url: a
-                for a in session.query(Article)
-                .options(joinedload(Article.summaries))
-                .filter(Article.url.in_(urls))
-                if a.url
-            }
+            articles = session.query(Article).options(joinedload(Article.summaries)).filter(Article.url.in_(urls))
+            self.articles = {a.url: a for a in articles if a.url}
 
         return items
 

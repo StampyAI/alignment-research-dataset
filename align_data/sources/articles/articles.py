@@ -15,6 +15,7 @@ from align_data.sources.articles.google_cloud import (
 from align_data.sources.articles.parsers import item_metadata, fetch
 from align_data.sources.articles.indices import fetch_all
 from align_data.sources.articles.html import with_retry
+from align_data.sources.articles.updater import ReplacerDataset
 from align_data.settings import PDFS_FOLDER_ID
 
 
@@ -65,7 +66,7 @@ def process_row(row, sheets):
         row.set_status(error)
         return
 
-    data_source = contents.get("data_source")
+    data_source = contents.get("source_type")
     if data_source not in sheets:
         error = "Unhandled data type"
         logger.error(error)
@@ -158,3 +159,8 @@ def check_new_articles(source_spreadsheet, source_sheet):
     updated = res["updates"]["updatedRows"]
     logger.info("Added %s rows", updated)
     return updated
+
+
+def update_articles(csv_file, delimiter):
+    dataset = ReplacerDataset(name='updater', csv_path=csv_file, delimiter=delimiter)
+    dataset.add_entries(dataset.fetch_entries())

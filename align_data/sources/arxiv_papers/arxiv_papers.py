@@ -1,75 +1,92 @@
 import logging
 import re
-from dataclasses import dataclass
+from typing import Dict, Optional
 
 import arxiv
-from align_data.sources.articles.datasets import SpreadsheetDataset
 from align_data.sources.articles.pdf import fetch_pdf, parse_vanity
+from align_data.sources.articles.html import fetch_element
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ArxivPapers(SpreadsheetDataset):
-    summary_key: str = "summary"
-    COOLDOWN: int = 1
-    done_key = "url"
-    batch_size = 1
+def get_arxiv_metadata(paper_id) -> arxiv.Result:
+    """
+    Get metadata from arxiv
+    """
+    try:
+        search = arxiv.Search(id_list=[paper_id], max_results=1)
+        return next(search.results())
+    except Exception as e:
+        logger.error(e)
+    return None
 
-    def _get_arxiv_metadata(self, paper_id) -> arxiv.Result:
-        """
-        Get metadata from arxiv
-        """
-        try:
-            search = arxiv.Search(id_list=[paper_id], max_results=1)
-            return next(search.results())
-        except Exception as e:
-            logger.error(e)
-            return None
 
-    def get_id(self, item):
-        if res := re.search(r"https://arxiv.org/abs/(.*?)/?$", item.url):
-            return res.group(1)
+def get_id(url: str) -> Optional[str]:
+    if res := re.search(r"https?://arxiv.org/(?:abs|pdf)/(.*?)(?:v\d+)?(?:/|\.pdf)?$", url):
+        return res.group(1)
 
-    def get_contents(self, item) -> dict:
-        paper_id = self.get_id(item)
-        for link in [
-            f"https://www.arxiv-vanity.com/papers/{paper_id}",
-            f"https://ar5iv.org/abs/{paper_id}",
-        ]:
-            if contents := parse_vanity(link):
-                return contents
-        return fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
 
-    def process_entry(self, item) -> None:
-        logger.info(f"Processing {item.title}")
+def canonical_url(url: str) -> str:
+    if paper_id := get_id(url):
+        return f'https://arxiv.org/abs/{paper_id}'
+    return url
 
-        paper = self.get_contents(item)
-        if not paper or not paper.get("text"):
-            return None
 
-        metadata = self._get_arxiv_metadata(self.get_id(item))
-        if self.maybe(item.authors) and item.authors.strip():
-            authors = item.authors.split(',')
-        elif metadata and metadata.authors:
-            authors = metadata.authors
-        else:
-            authors = paper.get("authors") or []
-        authors = [str(a).strip() for a in authors]
+def get_contents(paper_id: str) -> dict:
+    for link in [
+        f"https://www.arxiv-vanity.com/papers/{paper_id}",
+        f"https://ar5iv.org/abs/{paper_id}",
+    ]:
+        if contents := parse_vanity(link):
+            return contents
+    return fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
 
-        return self.make_data_entry({
-            "url": self.get_item_key(item),
-            "source": self.name,
-            "source_type": paper['data_source'],
-            "title": self.maybe(item.title) or paper.get('title'),
-            "authors": authors,
-            "date_published": self._get_published_date(self.maybe(item.date_published) or paper.get('date_published')),
-            "data_last_modified": str(metadata.updated),
-            "summary": metadata.summary.replace("\n", " "),
-            "author_comment": metadata.comment,
-            "journal_ref": metadata.journal_ref,
-            "doi": metadata.doi,
-            "primary_category": metadata.primary_category,
-            "categories": metadata.categories,
-            "text": paper['text'],
-        })
+
+def get_version(id: str) -> Optional[str]:
+    if res := re.search(r'.*v(\d+)$', id):
+        return res.group(1)
+
+
+def is_withdrawn(url: str):
+    if elem := fetch_element(canonical_url(url), '.extra-services .full-text ul'):
+        return elem.text.strip().lower() == 'withdrawn'
+    return None
+
+
+def add_metadata(data, paper_id):
+    metadata = get_arxiv_metadata(paper_id)
+    if not metadata:
+        return {}
+    return dict({
+        "authors": metadata.authors,
+        "title": metadata.title,
+        "date_published": metadata.published,
+        "data_last_modified": metadata.updated.isoformat(),
+        "summary": metadata.summary.replace("\n", " "),
+        "comment": metadata.comment,
+        "journal_ref": metadata.journal_ref,
+        "doi": metadata.doi,
+        "primary_category": metadata.primary_category,
+        "categories": metadata.categories,
+        "version": get_version(metadata.get_short_id()),
+    }, **data)
+
+
+def fetch(url) -> Dict:
+    paper_id = get_id(url)
+    if not paper_id:
+        return {'error': 'Could not extract arxiv id'}
+
+    if is_withdrawn(url):
+        paper = {'status': 'Withdrawn'}
+    else:
+        paper = get_contents(paper_id)
+
+    data = add_metadata({
+        "url": canonical_url(url),
+        "source_type": paper.get('data_source'),
+    }, paper_id)
+    authors = data.get('authors') or paper.get("authors") or []
+    data['authors'] = [str(a).strip() for a in authors]
+
+    return dict(data, **paper)

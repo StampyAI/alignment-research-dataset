@@ -143,7 +143,7 @@ def fetch_markdown(file_id):
         file_name = fetch_file(file_id)
         return {
             "text": Path(file_name).read_text(),
-            "data_source": "markdown",
+            "source_type": "markdown",
         }
     except Exception as e:
         return {'error': str(e)}
@@ -156,7 +156,7 @@ def parse_grobid(contents):
     if not doc_dict.get('body'):
         return {
             'error': 'No contents in XML file',
-            'data_source': 'xml',
+            'source_type': 'xml',
         }
 
     return {
@@ -164,7 +164,7 @@ def parse_grobid(contents):
         "abstract": doc_dict.get("abstract"),
         "text": doc_dict["body"],
         "authors": list(filter(None, authors)),
-        "data_source": "xml",
+        "source_type": "xml",
     }
 
 
@@ -198,7 +198,7 @@ def extract_gdrive_contents(link):
     elif content_type & {'text/markdown'}:
         result.update(fetch_markdown(file_id))
     elif content_type & {'application/epub+zip', 'application/epub'}:
-        result['data_source'] = 'ebook'
+        result['source_type'] = 'ebook'
     elif content_type & {'text/html'}:
         res = fetch(url)
         if 'Google Drive - Virus scan warning' in res.text:
@@ -213,7 +213,7 @@ def extract_gdrive_contents(link):
             soup = BeautifulSoup(res.content, "html.parser")
             result.update({
                 'text': MarkdownConverter().convert_soup(soup.select_one('body')).strip(),
-                'data_source': 'html',
+                'source_type': 'html',
             })
         else:
             result['error'] = f'unknown content type: {content_type}'

@@ -11,11 +11,10 @@ from sqlalchemy import (
     String,
     Boolean,
     Text,
-    Float,
     func,
     event,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
 from align_data.settings import PINECONE_METADATA_KEYS
 
@@ -58,6 +57,8 @@ class Article(Base):
     date_updated: Mapped[Optional[datetime]] = mapped_column(
         DateTime, onupdate=func.current_timestamp()
     )
+    status: Mapped[Optional[str]] = mapped_column(String(256))
+    comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
 
     pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -90,9 +91,10 @@ class Article(Base):
             "utf-8"
         )
 
-    def verify_fields(self):
-        missing = [field for field in self.__id_fields if not getattr(self, field)]
-        assert not missing, f"Entry is missing the following fields: {missing}"
+    @property
+    def missing_fields(self):
+        fields = set(self.__id_fields) | {'text', 'title', 'url', 'source', 'date_published'}
+        return sorted([field for field in fields if not getattr(self, field, None)])
 
     def verify_id(self):
         assert self.id is not None, "Entry is missing id"
@@ -101,13 +103,17 @@ class Article(Base):
         id_from_fields = hashlib.md5(id_string).hexdigest()
         assert (
             self.id == id_from_fields
-        ), f"Entry id {self.id} does not match id from id_fields, {id_from_fields}"
+        ), f"Entry id {self.id} does not match id from id_fields: {id_from_fields}"
+
+    def verify_id_fields(self):
+        missing = [field for field in self.__id_fields if not getattr(self, field)]
+        assert not missing, f"Entry is missing the following fields: {missing}"
 
     def update(self, other):
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
                 setattr(self, field, getattr(other, field))
-        self.meta.update({k: v for k, v in other.meta.items() if k and v})
+        self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
 
         if other._id:
             self._id = other._id
@@ -118,14 +124,28 @@ class Article(Base):
         id_string = self.generate_id_string()
         self.id = hashlib.md5(id_string).hexdigest()
 
+    def add_meta(self, key, val):
+        if self.meta is None:
+            self.meta = {}
+        self.meta[key] = val
+
     @classmethod
     def before_write(cls, mapper, connection, target):
-        target.verify_fields()
+        target.verify_id_fields()
+
+        if not target.status and target.missing_fields:
+            target.status = 'Missing fields'
+            target.comments = f'missing fields: {", ".join(target.missing_fields)}'
 
         if target.id:
             target.verify_id()
         else:
             target._set_id()
+
+        # This assumes that status pretty much just notes down that an entry is invalid. If it has
+        # all fields set and is being written to the database, then it must have been modified, ergo
+        # should be also updated in pinecone
+        if not target.status:
             target.pinecone_update_required = True
 
     def to_dict(self):
@@ -147,7 +167,7 @@ class Article(Base):
             "date_published": date,
             "authors": authors,
             "summaries": [s.text for s in (self.summaries or [])],
-            **(self.meta or {}),
+            **(meta or {}),
         }
 
 

@@ -174,7 +174,7 @@ class GreaterWrong(AlignmentDataset):
         authors = item["coauthors"]
         if item["user"]:
             authors = [item["user"]] + authors
-        authors = [a["displayName"] for a in authors]
+        authors = [a["displayName"] for a in authors] or ['anonymous']
         return self.make_data_entry(
             {
                 "title": item["title"],

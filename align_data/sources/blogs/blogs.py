@@ -76,16 +76,16 @@ class OpenAIResearch(HTMLDataset):
     def extract_authors(self, article):
         author_selector = 'div:-soup-contains("Authors") + div .f-body-1'
         ack_selector = 'div:-soup-contains("Acknowledgments") + div .f-body-1'
-        
-        authors_div = article.select_one(author_selector) or article.select_one(ack_selector)
-        if not authors_div:
-            return []
 
-        return [
-            i.split("(")[0].strip()
-            for i in authors_div.select_one("p").children
-            if not i.name
-        ]
+        authors_div = article.select_one(author_selector) or article.select_one(ack_selector)
+        authors = []
+        if authors_div:
+            authors = [
+                i.split("(")[0].strip()
+                for i in authors_div.select_one("p").children
+                if not i.name
+            ]
+        return authors or ["OpenAI Research"]
 
 
 class DeepMindTechnicalBlog(HTMLDataset):

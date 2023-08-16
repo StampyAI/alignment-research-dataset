@@ -1,18 +1,24 @@
-import os
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict
 from urllib.parse import urlparse
 
-from pypandoc import convert_file
 import pandas as pd
 from gdown.download import download
 from markdownify import markdownify
+from pypandoc import convert_file
+from sqlalchemy import select
 
-from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.articles.parsers import HTML_PARSERS, extract_gdrive_contents, item_metadata
-from align_data.sources.articles.google_cloud import fetch_markdown, fetch_file
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.db.models import Article
+from align_data.sources.articles.google_cloud import fetch_file, fetch_markdown
+from align_data.sources.articles.parsers import (
+    HTML_PARSERS, extract_gdrive_contents, item_metadata, parse_domain
+)
+from align_data.sources.articles.pdf import read_pdf
+from align_data.sources.arxiv_papers.arxiv_papers import fetch as fetch_arxiv
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +32,21 @@ class SpreadsheetDataset(AlignmentDataset):
     batch_size = 1
 
     @staticmethod
-    def maybe(val):
+    def maybe(item, key: str):
+        val = getattr(item, key, None)
         if pd.isna(val):
             return None
         return val
+
+    def get_item_key(self, item):
+        return self.maybe(item, self.done_key)
 
     @property
     def items_list(self):
         url = f'https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}'
         logger.info(f'Fetching {url}')
         df = pd.read_csv(url)
-        return (item for item in df.itertuples() if self.maybe(self.get_item_key(item)))
-
-    def get_item_key(self, item):
-        return getattr(item, self.done_key)
+        return (item for item in df.itertuples() if self.get_item_key(item))
 
     @staticmethod
     def _get_text(item):
@@ -47,7 +54,7 @@ class SpreadsheetDataset(AlignmentDataset):
 
     @staticmethod
     def extract_authors(item):
-        if not SpreadsheetDataset.maybe(item.authors):
+        if not SpreadsheetDataset.maybe(item, "authors"):
             return []
         return [author.strip() for author in item.authors.split(",") if author.strip()]
 
@@ -57,42 +64,62 @@ class SpreadsheetDataset(AlignmentDataset):
             logger.error("Could not get text for %s - skipping for now", item.title)
             return None
 
+        url = self.maybe(item, "url")
+        source_url = self.maybe(item, "source_url")
+
         return self.make_data_entry(
             {
                 "text": markdownify(text).strip(),
-                "url": self.maybe(item.url),
-                "title": self.maybe(item.title),
+                "url": url,
+                "source_url": source_url if source_url != url else None,
+                "title": self.maybe(item, "title"),
                 "source": self.name,
-                "source_type": self.maybe(item.source_type),
+                "source_type": self.maybe(item, "source_type"),
                 "source_filetype": self.source_filetype,
                 "date_published": self._get_published_date(item.date_published),
                 "authors": self.extract_authors(item),
-                "summary": self.maybe(item.summary),
+                "summary": self.maybe(item, "summary"),
             }
         )
 
 
 class SpecialDocs(SpreadsheetDataset):
 
-    def process_entry(self, item):
+    @property
+    def _query_items(self):
+        special_docs_types = ["pdf", "html", "xml", "markdown", "docx"]
+        return select(Article).where(Article.source.in_(special_docs_types))
+
+    def get_contents(self, item) -> Dict:
         metadata = {}
-        if url := self.maybe(item.source_url) or self.maybe(item.url):
+        if url := self.maybe(item, "source_url") or self.maybe(item, "url"):
             metadata = item_metadata(url)
 
-        text = metadata.get('text')
-        if not text:
-            logger.error('Could not get text for %s - skipping for now', item.title)
-            return None
-
-        return self.make_data_entry({
-            'source': metadata.get('data_source') or self.name,
-            'url': self.maybe(item.url),
-            'title': self.maybe(item.title) or metadata.get('title'),
-            'source_type': self.maybe(item.source_type),
+        return {
+            'url': self.maybe(item, "url"),
+            'title': self.maybe(item, "title") or metadata.get('title'),
+            'source': metadata.get('source_type') or self.name,
+            'source_url': self.maybe(item, "source_url"),
+            'source_type': metadata.get('source_type') or self.maybe(item, "source_type"),
             'date_published': self._get_published_date(item.date_published) or metadata.get('date_published'),
             'authors': self.extract_authors(item) or metadata.get('authors', []),
-            'text': text,
-        })
+            'text': metadata.get('text'),
+            'status': 'Invalid' if metadata.get('error') else None,
+            'comments': metadata.get('error'),
+        }
+
+    def process_entry(self, item):
+        if parse_domain(item.url) == "arxiv.org":
+            contents = ArxivPapers.get_contents(item)
+            contents['source'] = 'arxiv'
+        else:
+            contents = self.get_contents(item)
+
+        # Skip items that can't be saved because missing fields
+        if not all(contents.get(key) for key in self.id_fields):
+            return None
+
+        return self.make_data_entry(contents)
 
 
 class PDFArticles(SpreadsheetDataset):
@@ -148,7 +175,7 @@ class XMLArticles(SpreadsheetDataset):
 
 
 class MarkdownArticles(SpreadsheetDataset):
-    source_filetype = "md"
+    source_filetype = "markdown"
 
     def _get_text(self, item):
         file_id = item.source_url.split("/")[-2]
@@ -172,3 +199,26 @@ class DocArticles(SpreadsheetDataset):
         file_id = item.source_url.split("/")[-2]
         file_name = fetch_file(file_id)
         return convert_file(file_name, "md", format="docx", extra_args=["--wrap=none"])
+
+
+class ArxivPapers(SpreadsheetDataset):
+    COOLDOWN: int = 1
+
+    @classmethod
+    def get_contents(cls, item) -> Dict:
+        contents = fetch_arxiv(item.url or item.source_url)
+
+        if cls.maybe(item, "authors") and item.authors.strip():
+            contents['authors'] = [i.strip() for i in item.authors.split(',')]
+        if cls.maybe(item, "title"):
+            contents['title'] = cls.maybe(item, "title")
+
+        contents['date_published'] = cls._get_published_date(
+            cls.maybe(item, "date_published") or contents.get('date_published')
+        )
+        return contents
+
+    def process_entry(self, item):
+        logger.info(f"Processing {item.title}")
+
+        return self.make_data_entry(self.get_contents(item), source=self.name)

@@ -250,8 +250,12 @@ PDF_PARSERS = {
 }
 
 
+def parse_domain(url: str) -> str:
+    return url and urlparse(url).netloc.lstrip('www.')
+
+
 def item_metadata(url) -> Dict[str, str]:
-    domain = urlparse(url).netloc.lstrip('www.')
+    domain = parse_domain(url)
     try:
         res = fetch(url, 'head')
     except (MissingSchema, InvalidSchema, ConnectionError) as e:
@@ -265,7 +269,7 @@ def item_metadata(url) -> Dict[str, str]:
         if parser := HTML_PARSERS.get(domain):
             if res := parser(url):
                 # Proper contents were found on the page, so use them
-                return {'source_url': url, 'data_source': 'html', 'text': res}
+                return {'source_url': url, 'source_type': 'html', 'text': res}
 
         if parser := PDF_PARSERS.get(domain):
             if res := parser(url):
@@ -286,6 +290,6 @@ def item_metadata(url) -> Dict[str, str]:
     elif content_type & {"application/epub+zip", "application/epub"}:
         # it looks like an ebook. Assume it's fine.
         # TODO: validate that the ebook is readable
-        return {"source_url": url, "data_source": "ebook"}
+        return {"source_url": url, "source_type": "ebook"}
     else:
         return {"error": f"Unhandled content type: {content_type}"}

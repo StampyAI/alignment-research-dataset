@@ -200,3 +200,37 @@ def test_process_entry(dataset):
         "votes": 12,
         "words": 123,
     }
+
+
+def test_process_entry_no_authors(dataset):
+    entry = {
+        "coauthors": [],
+        "user": {},
+        "title": "The title",
+        "pageUrl": "http://example.com/bla",
+        "modifiedAt": "2001-02-10",
+        "postedAt": "2012/02/01 12:23:34",
+        "htmlBody": '\n\n bla bla <a href="bla.com">a link</a>    ',
+        "voteCount": 12,
+        "baseScore": 32,
+        "tags": [{"name": "tag1"}, {"name": "tag2"}],
+        "wordCount": 123,
+        "commentCount": 423,
+    }
+    assert dataset.process_entry(entry).to_dict() == {
+        "authors": ["anonymous"],
+        "comment_count": 423,
+        "date_published": "2012-02-01T12:23:34Z",
+        "id": None,
+        "karma": 32,
+        "modified_at": "2001-02-10",
+        "source": "bla",
+        "source_type": "GreaterWrong",
+        "summaries": [],
+        "tags": ["tag1", "tag2"],
+        "text": "bla bla [a link](bla.com)",
+        "title": "The title",
+        "url": "http://example.com/bla",
+        "votes": 12,
+        "words": 123,
+    }
