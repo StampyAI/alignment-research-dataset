@@ -9,7 +9,7 @@ from align_data.sources.blogs import (
     ColdTakes,
     GenerativeInk,
     GwernBlog,
-    MediumBlog,
+    MediumParser,
     SubstackBlog,
     WordpressBlog,
     OpenAIResearch,
@@ -401,7 +401,7 @@ MEDIUM_HTML = f"""
 
 
 def test_medium_get_published_date():
-    dataset = MediumBlog(
+    dataset = MediumParser(
         name="deepmind_blog", url="https://bla.medium.com/", authors=["mr Blobby"]
     )
 
@@ -410,7 +410,7 @@ def test_medium_get_published_date():
 
 
 def test_medium_get_text():
-    dataset = MediumBlog(
+    dataset = MediumParser(
         name="deepmind_blog", url="https://bla.medium.com/", authors=["mr Blobby"]
     )
 
@@ -420,7 +420,7 @@ def test_medium_get_text():
 
 
 def test_medium_process_entry():
-    dataset = MediumBlog(
+    dataset = MediumParser(
         name="deepmind_blog", url="https://bla.medium.com/", authors=["mr Blobby"]
     )
 

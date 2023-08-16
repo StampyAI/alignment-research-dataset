@@ -1,6 +1,8 @@
 from unittest.mock import patch, Mock
+from dateutil.parser import parse
+import pytz
 
-from align_data.sources.articles.parsers import medium_blog
+from align_data.sources.articles.parsers import MediumParser
 
 SAMPLE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <TEI xml:space="preserve" xmlns="http://www.tei-c.org/ns/1.0"
@@ -58,10 +60,14 @@ def test_medium_blog():
     </article>
     """
     with patch("requests.get", return_value=Mock(content=html)):
-        assert medium_blog("bla.com") == {
-            'text': "bla bla bla [a link](http://ble.com) bla bla",
-            'source_url': 'bla.com',
-            'source_type': 'html',
+        assert MediumParser('html', 'ble')("bla.com") == {
+            'authors': [],
+            'date_published': parse('Oct 7, 2023').replace(tzinfo=pytz.UTC),
+            'source': 'html',
+            'source_type': 'blog',
+            'text': 'bla bla bla [a link](http://ble.com) bla bla',
+            'title': 'This is the title',
+            'url': 'bla.com',
         }
 
 
@@ -77,10 +83,14 @@ def test_medium_blog_no_title():
     </article>
     """
     with patch("requests.get", return_value=Mock(content=html)):
-        assert medium_blog("bla.com") == {
-            'text': "Some random thing\n\n\n bla bla bla [a link](http://ble.com) bla bla",
-            'source_url': 'bla.com',
-            'source_type': 'html',
+        assert MediumParser(name='html', url='')("bla.com") == {
+            'authors': [],
+            'date_published': None,
+            'source': 'html',
+            'source_type': 'blog',
+            'text': 'bla bla bla [a link](http://ble.com) bla bla',
+            'title': None,
+            'url': 'bla.com',
         }
 
 
@@ -96,4 +106,12 @@ def test_medium_blog_no_contents():
     </div>
     """
     with patch('requests.get', return_value=Mock(content=html)):
-        assert medium_blog('bla.com') == {}
+        assert MediumParser(name='html', url='')('bla.com') == {
+            'authors': [],
+            'date_published': None,
+            'source': 'html',
+            'source_type': 'blog',
+            'text': None,
+            'title': None,
+            'url': 'bla.com',
+        }

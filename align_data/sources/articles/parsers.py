@@ -2,13 +2,14 @@ import logging
 from urllib.parse import urlparse, urljoin
 from typing import Dict
 
-from markdownify import MarkdownConverter
 from requests.exceptions import ConnectionError, InvalidSchema, MissingSchema
 
 from align_data.sources.articles.html import element_extractor, fetch, fetch_element
 from align_data.sources.articles.pdf import doi_getter, fetch_pdf, parse_vanity
 from align_data.sources.articles.google_cloud import google_doc, extract_gdrive_contents
 from align_data.sources.arxiv_papers import fetch as get_arxiv_pdf
+from align_data.common.html_dataset import HTMLDataset
+
 
 logger = logging.getLogger(__name__)
 
@@ -47,23 +48,31 @@ def get_pdf_from_page(*link_selectors: str):
     return getter
 
 
-def medium_blog(url):
-    """Return the contents of the medium article at the given URL as markdown."""
-    # Medium does some magic redirects if it detects that the request is from firefox
-    article = fetch_element(url, "article", headers=None)
-    if not article:
-        return {}
+class MediumParser(HTMLDataset):
+    """
+    Fetches articles from a Medium blog.
 
-    # remove the header
-    title = article.find('h1')
-    if title and title.parent:
-        title.parent.extract()
+    Pulls Medium articles by walking the archive. Depending on the activity of the blog
+    during a particular year, the archive for the year may consist of a single page only, or
+    may have daily pages. A single blog can use different layouts for different years.
 
-    return {
-        'text': MarkdownConverter().convert_soup(article).strip(),
-        'source_url': url,
-        'source_type': 'html',
-    }
+    Also, if the blog had few posts overall, an archive may not exist at all. In that case,
+    the main page is used to fetch the articles. The entries are assumed to fit onto
+    a single page, which seems to be the case for blogs without an archive.
+
+    It is possible that there is additional variation in the layout that hasn't been represented
+    in the blogs tested so far. In that case, additional fixes to this code may be needed.
+    """
+
+    source_type = "MediumParser(name='html', url='')"
+    ignored_selectors = ["div:first-child span"]
+
+    def _get_published_date(self, contents):
+        possible_date_elements = contents.select("article div:first-child span")
+        return self._find_date(possible_date_elements)
+
+    def __call__(self, url):
+        return self.get_contents(url)
 
 
 def error(error_msg):
@@ -120,7 +129,7 @@ HTML_PARSERS = {
     "mediangroup.org": element_extractor("div.entry-content"),
     "www.alexirpan.com": element_extractor("article"),
     "www.incompleteideas.net": element_extractor("body"),
-    "ai-alignment.com": medium_blog,
+    "ai-alignment.com": MediumParser(name='html', url='ai-alignment.com'),
     "aisrp.org": element_extractor("article"),
     "bounded-regret.ghost.io": element_extractor("div.post-content"),
     "carnegieendowment.org": element_extractor(
@@ -130,7 +139,7 @@ HTML_PARSERS = {
         ".entry-content", remove=["div.sharedaddy"]
     ),
     "cullenokeefe.com": element_extractor("div.sqs-block-content"),
-    "deepmindsafetyresearch.medium.com": medium_blog,
+    "deepmindsafetyresearch.medium.com": MediumParser(name='html', url='deepmindsafetyresearch.medium.com'),
     "docs.google.com": google_doc,
     "docs.microsoft.com": element_extractor("div.content"),
     "digichina.stanford.edu": element_extractor("div.h_editor-content"),
@@ -145,7 +154,7 @@ HTML_PARSERS = {
     "link.springer.com": element_extractor("article.c-article-body"),
     "longtermrisk.org": element_extractor("div.entry-content"),
     "lukemuehlhauser.com": element_extractor("div.entry-content"),
-    "medium.com": medium_blog,
+    "medium.com": MediumParser(name='html', url='medium.com'),
     "openai.com": element_extractor("#content"),
     "ought.org": element_extractor("div.BlogPostBodyContainer"),
     "sideways-view.com": element_extractor("article", remove=["header"]),
@@ -160,7 +169,7 @@ HTML_PARSERS = {
     ),
     "theconversation.com": element_extractor("div.content-body"),
     "thegradient.pub": element_extractor("div.c-content"),
-    "towardsdatascience.com": medium_blog,
+    "towardsdatascience.com": MediumParser(name='html', url='towardsdatascience.com'),
     "unstableontology.com": element_extractor(
         ".entry-content", remove=["div.sharedaddy"]
     ),
