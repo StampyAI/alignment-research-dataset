@@ -8,6 +8,7 @@ import requests
 from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset
+
 logger = logging.getLogger(__name__)
 
 

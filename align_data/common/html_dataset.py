@@ -4,7 +4,7 @@ from datetime import datetime
 from dataclasses import dataclass, field, KW_ONLY
 from urllib.parse import urljoin
 from typing import List
-import re 
+import re
 
 import requests
 import feedparser

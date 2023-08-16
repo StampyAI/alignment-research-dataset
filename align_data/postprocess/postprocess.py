@@ -10,7 +10,6 @@ import pylab as plt
 # import seaborn as sns #TODO: install seaborn or fix this file
 import pandas as pd
 
-import logging
 logger = logging.getLogger(__name__)
 
 

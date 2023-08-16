@@ -101,6 +101,10 @@ class AlignmentDataset:
     def _query_items(self):
         return select(Article).where(Article.source == self.name)
 
+    @property
+    def _query_items(self):
+        return select(Article).where(Article.source == self.name)
+
     def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
         with make_session() as session:
