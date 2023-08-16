@@ -65,7 +65,7 @@ def upload_data_file(api, name, id, repo_name):
         # Check that the dowloaded file really contains json lines
         with jsonlines.open(filename) as reader:
             reader.read()
-    except InvalidLineError as e:
+    except (jsonlines.InvalidLineError, EOFError) as e:
         print(e)
     else:
         upload(api, filename, repo_name)
