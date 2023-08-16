@@ -1,12 +1,9 @@
-name: Synch uploaded jsonl files to HuggingFace
+name: Update Alignment Research Dataset embeddings in Pinecone
 
 on:
   workflow_call:
     inputs:
       datasource:
-        type: string
-        required: true
-      coda_token:
         type: string
         required: true
       db_user:
@@ -18,13 +15,22 @@ on:
       db_host:
         type: string
         required: true
+      pinecone_api_key:
+        type: string
+        required: true
+      pinecone_environment:
+        type: string
+        required: true
+      openai_api_key:
+        type: string
+        required: true
   workflow_dispatch: # allow manual triggering
     inputs:
       datasource:
         description: 'The datasource to process'
         type: choice
-        default: all
         options:
+          - all
           - agentmodels
           - aiimpacts
           - aisafety.camp
@@ -43,6 +49,7 @@ on:
           - deepmind_technical_blog
           - distill
           - eaforum
+          - ebooks
           - eleuther.ai
           - gdocs
           - generative.ink
@@ -64,7 +71,7 @@ on:
           - xmls
 
 jobs:
-  generate-dataset:
+  build-dataset:
     runs-on: ubuntu-latest
 
     steps:
@@ -79,41 +86,18 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Generate dataset file
+    - name: Process dataset
       env:
-        CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
-        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}
         ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
         ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
         ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
         ARD_DB_NAME: alignment_research_dataset
-      run: python main.py generate_jsonl_files ${{ inputs.datasource }}
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: ${{ inputs.datasource }}
-        path: data/${{ inputs.datasource }}.jsonl
-        retention-days: 1
-
-  upload:
-    runs-on: ubuntu-latest
-    needs: generate-dataset
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Setup Python environment
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
-
-    - name: Install dependencies
-      run: pip install -r requirements.txt
-
-    - name: Setup Huggingface client
-      run: pip install huggingface_hub gdown jsonlines datasets
-
-    - name: Upload files
-      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY || inputs.pinecone_api_key }}
+        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT || inputs.pinecone_environment }}
+      run: |
+        if [ "${{ inputs.datasource }}" = "all" ]; then
+          python main.py pinecone_update_all
+        else
+          python main.py pinecone_update ${{ inputs.datasource }}
+        fi

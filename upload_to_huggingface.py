@@ -10,17 +10,19 @@ from huggingface_hub import login
 from huggingface_hub import HfApi
 
 
-GDOCS_FOLDER = 'https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8'
-PRIVATE_FILES = ['ebooks.jsonl']
+GDOCS_FOLDER = (
+    "https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8"
+)
+PRIVATE_FILES = ["ebooks.jsonl"]
 
 
 def upload(api, filename, repo_name):
-    print(f'Uploading {filename} as {repo_name}/{filename.name}')
+    print(f"Uploading {filename} as {repo_name}/{filename.name}")
     api.upload_file(
         path_or_fileobj=filename,
         path_in_repo=filename.name,
-        repo_id=f'StampyAI/{repo_name}',
-        repo_type='dataset'
+        repo_id=f"StampyAI/{repo_name}",
+        repo_type="dataset",
     )
 
 
@@ -36,7 +38,11 @@ def get_gdoc_names(url):
         return None
 
     _, id_name_type_iter = _parse_google_drive_file(url=url, content=res.text)
-    return [(id, name) for id, name, filetype in id_name_type_iter if name.endswith('.jsonl')]
+    return [
+        (id, name)
+        for id, name, filetype in id_name_type_iter
+        if name.endswith(".jsonl")
+    ]
 
 
 def upload_data_file(api, name, id, repo_name):
@@ -44,14 +50,16 @@ def upload_data_file(api, name, id, repo_name):
 
     If the file already exists locally, it will be used. Otherwise it will first be fetched from the GDrive.
     """
-    data = Path('data/')
+    data = Path("data/")
     filename = data / name
 
     # Don't download it if it exists locally
     if not filename.exists():
-        gdown.download(f'https://drive.google.com/uc?id={id}', str(filename), quiet=False)
+        gdown.download(
+            f"https://drive.google.com/uc?id={id}", str(filename), quiet=False
+        )
     else:
-        print(f'Using local file at {filename}')
+        print(f"Using local file at {filename}")
 
     try:
         # Check that the dowloaded file really contains json lines
@@ -64,12 +72,14 @@ def upload_data_file(api, name, id, repo_name):
 
 
 def download_file(repo_name, filename, api):
-    headers = {'Authorization': f'Bearer {api.token}'}
-    url = f'https://huggingface.co/datasets/StampyAI/{repo_name}/raw/main/{filename.name}'
+    headers = {"Authorization": f"Bearer {api.token}"}
+    url = (
+        f"https://huggingface.co/datasets/StampyAI/{repo_name}/raw/main/{filename.name}"
+    )
     response = requests.get(url, headers=headers)
 
     if response.status_code == 200:
-        with open(filename, 'wb') as file:
+        with open(filename, "wb") as file:
             file.write(response.content)
 
 
@@ -84,25 +94,25 @@ def update_readme(api, files, repo_name):
     repo.mkdir(exist_ok=True)
 
     # Fetch the current README and dataset script
-    for filename in ['README.md', f'{repo_name}.py']:
+    for filename in ["README.md", f"{repo_name}.py"]:
         download_file(repo_name, repo / filename, api)
 
     # Copy over all jsonl files that have been updated, and update the README to have the
     # current metadata
     for filename in files:
-        target = Path('data') / filename
+        target = Path("data") / filename
         (repo / filename).write_text(target.read_text())
-        output = subprocess.check_output([
-            'datasets-cli', 'test', repo_name, '--save_info', f'--name={target.stem}'
-        ])
+        output = subprocess.check_output(
+            ["datasets-cli", "test", repo_name, "--save_info", f"--name={target.stem}"]
+        )
 
     # Now upload the updated README
-    upload(api, repo / 'README.md', repo_name)
+    upload(api, repo / "README.md", repo_name)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or not sys.argv[1]:
-        print('Usage: python upload_to_huggingface <token> <datasource name | all>')
+        print("Usage: python upload_to_huggingface <token> <datasource name | all>")
         sys.exit(2)
 
     token = sys.argv[1]
@@ -110,19 +120,20 @@ if __name__ == "__main__":
     api = HfApi(token=token)
 
     files = get_gdoc_names(GDOCS_FOLDER)
-    if len(sys.argv) > 2 and sys.argv[2] != 'all':
-        files = [item for item in files if item[1] == sys.argv[2] + '.jsonl']
+    if len(sys.argv) > 2 and sys.argv[2] != "all":
+        files = [item for item in files if item[1] == sys.argv[2] + ".jsonl"]
 
-    data = Path('data/')
+    data = Path("data/")
     for id, name in files:
-        upload_data_file(api, name, id, 'ard-private')
+        upload_data_file(api, name, id, "ard-private")
         if name not in PRIVATE_FILES:
-            upload_data_file(api, name, id, 'alignment-research-dataset')
+            upload_data_file(api, name, id, "alignment-research-dataset")
 
     update_readme(
-        api, [name for _, name in files if name not in PRIVATE_FILES],
-        'alignment-research-dataset'
+        api,
+        [name for _, name in files if name not in PRIVATE_FILES],
+        "alignment-research-dataset",
     )
-    update_readme(api, [name for _, name in files], 'ard-private')
+    update_readme(api, [name for _, name in files], "ard-private")
 
-    print('done')
+    print("done")

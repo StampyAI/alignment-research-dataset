@@ -7,7 +7,7 @@ from align_data.sources.distill import Distill
 
 
 def test_extract_authors():
-    dataset = Distill(name='distill', url='bla.bla')
+    dataset = Distill(name="distill", url="bla.bla")
 
     contents = """
     <div class="authors-affiliations grid">
@@ -23,22 +23,36 @@ def test_extract_authors():
     </div>
     """
     soup = BeautifulSoup(contents, "html.parser")
-    assert dataset.extract_authors({'soup': soup}) == ['Ameya Daigavane', 'Balaraman Ravindran', 'Gaurav Aggarwal']
+    assert dataset.extract_authors({"soup": soup}) == [
+        "Ameya Daigavane",
+        "Balaraman Ravindran",
+        "Gaurav Aggarwal",
+    ]
 
 
-@pytest.mark.parametrize('text', (
-    '<d-article> bla bla <a href="bla.com">a link</a> ble \n\n</d-article>',
-    '<dt-article> bla bla <a href="bla.com">a link</a> ble \n\n</dt-article>',
-))
+def test_extract_authors_none():
+    dataset = Distill(name="distill", url="bla.bla")
+
+    soup = BeautifulSoup("", "html.parser")
+    assert dataset.extract_authors({"soup": soup}) == ["Distill"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        '<d-article> bla bla <a href="bla.com">a link</a> ble \n\n</d-article>',
+        '<dt-article> bla bla <a href="bla.com">a link</a> ble \n\n</dt-article>',
+    ),
+)
 def test_get_text(text):
-    dataset = Distill(name='distill', url='bla.bla')
+    dataset = Distill(name="distill", url="bla.bla")
 
     soup = BeautifulSoup(text, "html.parser")
-    assert dataset._get_text({'soup': soup}) == "bla bla [a link](bla.com) ble"
+    assert dataset._get_text({"soup": soup}) == "bla bla [a link](bla.com) ble"
 
 
 def test_extra_values():
-    dataset = Distill(name='distill', url='bla.bla')
+    dataset = Distill(name="distill", url="bla.bla")
 
     contents = """
     <div>
@@ -62,24 +76,27 @@ def test_extra_values():
     """
 
     soup = BeautifulSoup(contents, "html.parser")
-    assert dataset._extra_values({'soup': soup, 'summary': 'A wild summary has appeared!'}) == {
-        'bibliography': [
+    assert dataset._extra_values(
+        {"soup": soup, "summary": "A wild summary has appeared!"}
+    ) == {
+        "bibliography": [
             {
-                'link': 'https://doi.org/10.23915/distill.00033',
-                'title': 'A Gentle Introduction to Graph Neural Networks'
-            }, {
-                'link': 'http://jmlr.org/papers/v11/vishwanathan10a.html',
-                'title': 'Graph Kernels'
-            }
+                "link": "https://doi.org/10.23915/distill.00033",
+                "title": "A Gentle Introduction to Graph Neural Networks",
+            },
+            {
+                "link": "http://jmlr.org/papers/v11/vishwanathan10a.html",
+                "title": "Graph Kernels",
+            },
         ],
-        'doi': '10.23915/distill.00032',
-        'journal_ref': 'distill-pub',
-        'summary': 'A wild summary has appeared!',
+        "doi": "10.23915/distill.00032",
+        "journal_ref": "distill-pub",
+        "summary": "A wild summary has appeared!",
     }
 
 
 def test_process_entry():
-    dataset = Distill(name='distill', url='bla.bla')
+    dataset = Distill(name="distill", url="bla.bla")
     contents = """
     <div>
       <div class="authors-affiliations grid">
@@ -114,39 +131,40 @@ def test_process_entry():
     """
 
     items = {
-        'entries': [
+        "entries": [
             {
-                'link': 'http://example.org/bla',
-                'title': 'the article title',
-                'pubDate': 'Mon, 26 Jun 2023 13:40:01 GMT',
-                'summary': 'A wild summary has appeared!',
+                "link": "http://example.org/bla",
+                "title": "the article title",
+                "pubDate": "Mon, 26 Jun 2023 13:40:01 GMT",
+                "summary": "A wild summary has appeared!",
             }
         ]
     }
     # Setup the items list contents
-    with patch('feedparser.parse', return_value=items):
+    with patch("feedparser.parse", return_value=items):
         dataset.items_list
 
-    with patch('requests.get', return_value=Mock(content=contents)):
-        assert dataset.process_entry('http://example.org/bla').to_dict() == {
-            'authors': ['Ameya Daigavane', 'Balaraman Ravindran', 'Gaurav Aggarwal'],
-            'bibliography': [
+    with patch("requests.get", return_value=Mock(content=contents)):
+        assert dataset.process_entry("http://example.org/bla").to_dict() == {
+            "authors": ["Ameya Daigavane", "Balaraman Ravindran", "Gaurav Aggarwal"],
+            "bibliography": [
                 {
-                    'link': 'https://doi.org/10.23915/distill.00033',
-                    'title': 'A Gentle Introduction to Graph Neural Networks'
-                }, {
-                    'link': 'http://jmlr.org/papers/v11/vishwanathan10a.html',
-                    'title': 'Graph Kernels'
-                }
+                    "link": "https://doi.org/10.23915/distill.00033",
+                    "title": "A Gentle Introduction to Graph Neural Networks",
+                },
+                {
+                    "link": "http://jmlr.org/papers/v11/vishwanathan10a.html",
+                    "title": "Graph Kernels",
+                },
             ],
-            'date_published': '2023-06-26T13:40:01Z',
-            'doi': '10.23915/distill.00032',
-            'id': None,
-            'journal_ref': 'distill-pub',
-            'source': 'distill',
-            'source_type': 'blog',
-            'summaries': ['A wild summary has appeared!'],
-            'text': 'bla bla [a link](bla.com) ble',
-            'title': 'the article title',
-            'url': 'http://example.org/bla',
+            "date_published": "2023-06-26T13:40:01Z",
+            "doi": "10.23915/distill.00032",
+            "id": None,
+            "journal_ref": "distill-pub",
+            "source": "distill",
+            "source_type": "blog",
+            "summaries": ["A wild summary has appeared!"],
+            "text": "bla bla [a link](bla.com) ble",
+            "title": "the article title",
+            "url": "http://example.org/bla",
         }

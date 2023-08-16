@@ -146,9 +146,34 @@ There are Datasets defined for various types of data sources - first check if an
 
 When wishing to update the whole dataset, run `python main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python main.py fetch aisafety.info`.
 
+## Configuration
+
+Various subcomponents use various external services, so need credentials set. This is done via environment variables, the easiest way of setting which is by copying `~/.env.example` to `~/.env` and changing the appropriate values.
+
+### Logging
+
+The log level can be configured with the `LOG_LEVEL` environment variable. The default level is 'WARNING'.
+
 ### Coda
 
 To update the stampy portion of the dataset, you will need a Coda token. go to coda.io, log in, and generate an API token in your account settings. Add restrictions: Doc or table, Read only, for the doc with url https://coda.io/d/_dfau7sl2hmG. Then, create a .env file at the root of the alignment research dataset, and write CODA_TOKEN="<coda_token>". It will be accessible in align_data/stampy/stampy.py
+
+### MySQL
+
+The datasets are stored in MySQL. The connection string can be configured via the `ARD_DB_USER`,
+`ARD_DB_PASSWORD`, `ARD_DB_HOST`, `ARD_DB_PORT` and `ARD_DB_NAME` environment variables. A local
+database can be started in Docker by running
+
+    ./local_db.sh
+
+### Pinecone
+
+For Pinecone updates to work, you'll need to configure the API key:
+
+1. Get an API key, as described [here](https://docs.pinecone.io/docs/quickstart#2-get-and-verify-your-pinecone-api-key)
+2. Create a Pinecone index named "stampy-chat-ard" (or whatever is set as `PINECONE_INDEX_NAME`) with the `dotproduct` metric and 1536 dimensions
+3. Set the `PINECONE_API_KEY` to the key from step 1
+4. Set the `PINECONE_ENVIRONMENT` to whatever is the environment of your index
 
 ### Metadata updates
 
