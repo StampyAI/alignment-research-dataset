@@ -1,0 +1,53 @@
+name: Upload datasets to Huggingface
+on:
+  workflow_dispatch: # allow manual triggering
+  schedule:
+    - cron: "0 3 * * 0"  # Every Sunday at 3 AM
+
+jobs:
+  update_dateset:
+    strategy:
+      matrix:
+        datasource:
+          - agentmodels
+          - aiimpacts
+          - aisafety.camp
+          - aisafety.info
+          - ai_alignment_playlist
+          - ai_explained
+          - ai_safety_talks
+          - ai_safety_reading_group
+          - ai_tech_tu_delft
+          - alignmentforum
+          - arbital
+          - arxiv
+          - carado.moe
+          - cold_takes
+          - deepmind_blog
+          - deepmind_technical_blog
+          - distill
+          - eaforum
+          - eleuther.ai
+          - generative.ink
+          - gwern_blog
+          - html_articles
+          - importai
+          - jsteinhardt_blog
+          - lesswrong
+          - miri
+          - ml_safety_newsletter
+          - openai.research
+          - rob_miles_ai_safety
+          - special_docs
+          - vkrakovna_blog
+          - yudkowsky_blog
+
+    uses: ./.github/workflows/push-dataset.yml
+    with:
+      datasource: ${{ matrix.datasource }}
+      coda_token: ${{ inputs.coda_token }}
+      youtube_api_key: ${{ inputs.youtube_api_key }}
+      db_user: ${{ inputs.db_user }}
+      db_password: ${{ inputs.db_password }}
+      db_host: ${{ inputs.db_host }}
+    secrets: inherit

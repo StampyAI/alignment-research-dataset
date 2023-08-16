@@ -1,21 +1,22 @@
-import hashlib
+from datetime import datetime
+from itertools import islice
+import logging
 import time
-import zipfile
-from collections import UserDict
-from contextlib import contextmanager
 from dataclasses import dataclass, field, KW_ONLY
-from functools import partial
 from pathlib import Path
-from typing import Optional, List
+from typing import Iterable, List, Optional, Set
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
-import gdown
 import jsonlines
 import pytz
 from dateutil.parser import parse, ParserError
 from tqdm import tqdm
+from align_data.db.models import Article, Summary
+from align_data.db.session import make_session
 
-from logger_config import logger
-
+logger = logging.getLogger(__name__)
 
 INIT_DICT = {
     "source": None,
@@ -24,8 +25,10 @@ INIT_DICT = {
     "date_published": None,
     "title": None,
     "url": None,
-    "summary": lambda: [],
     "authors": lambda: [],
+    "source_type": None,
+    "status": None,
+    "comments": None,
 }
 
 
@@ -38,28 +41,19 @@ class AlignmentDataset:
 
     _: KW_ONLY
 
-    files_path = Path('')
+    files_path = Path("")
     """The path where data can be found. Usually a folder"""
 
-    done_key = 'id'
-
+    done_key = "id"
     """The key of the entry to use as the id when checking if already processed."""
-    # Used to extract summaries - if `source_key` is set, the class will be deemed to collect summaries of other
-    # articles.
-    source_key = None
-    """The key of the entry to use as an identifier of the article which it's summarizing - should be an URL"""
-    summary_key = None
-    """The key of the entry containing the summary contents. This is used both to get the summary, but also where
-    it should be put in the target entry."""
-
-    glob = '*.md'
-    """How to identify files to be processed when going through a folder for files"""
 
     COOLDOWN = 0
     """An optional cool down between processing entries"""
 
     lazy_eval = False
     """Whether to lazy fetch items. This is nice in that it will start processing, but messes up the progress bar."""
+    batch_size = 20
+    """The number of items to collect before flushing to the database."""
 
     # Internal housekeeping variables
     _entry_idx = 0
@@ -67,95 +61,97 @@ class AlignmentDataset:
     _outputted_items = set()
     """A set of the ids of all previously processed items"""
     _: KW_ONLY
-    id_fields: List[str] = field(default_factory=lambda: ['url', 'title'])
+    id_fields: List[str] = field(default_factory=lambda: ["url", "title"])
     """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
     def __str__(self) -> str:
-        return f"{self.name} dataset will be written to {self.jsonl_path}"
+        return self.name
 
-    def __post_init__(self, data_path=Path(__file__).parent / '../../data/'):
+    def __post_init__(self, data_path=Path(__file__).parent / "../../data/"):
         self.data_path = data_path
-        self.raw_data_path = self.data_path / 'raw'
+        self.raw_data_path = self.data_path / "raw"
 
         # set the default place to look for data
         self.files_path = self.raw_data_path / self.name
 
-        # and the default place to write data
-        self._set_output_paths(self.data_path)
+    def _add_authors(self, article: Article, authors: List[str]) -> Article:
+        # TODO: Don't keep adding the same authors - come up with some way to reuse them
+        article.authors = ",".join(authors)
+        if len(article.authors) > 1024:
+            article.authors = ",".join(article.authors[:1024].split(",")[:-1])
+        return article
 
-    def _set_output_paths(self, out_path):
-        self.jsonl_path = Path(out_path) / f"{self.name}.jsonl"
-        self.txt_path = Path(out_path) / f"{self.name}.txt"
+    def make_data_entry(self, data, **kwargs) -> Article:
+        data = dict(data, **kwargs)
+        summary = data.pop("summary", None)
+        authors = data.pop("authors", [])
 
-    def write_entry(self, entry, jsonl_writer, text_writer):
-        jsonl_writer.write(entry.to_dict())
+        article = Article(
+            id_fields=self.id_fields,
+            meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
+            **{k: v for k, v in data.items() if k in INIT_DICT},
+        )
+        self._add_authors(article, authors)
+        if summary:
+            article.summaries.append(Summary(text=summary, source=self.name))
+        return article
 
-        # Save the entry in plain text, mainly for debugging
-        text = entry["text"].lstrip().replace('\n', '\n    ')
-        text_writer.write(f'[ENTRY {self._entry_idx}]\n    {text}\n\n')
+    def to_jsonl(self, out_path=None, filename=None) -> Path:
+        if not out_path:
+            out_path = Path(__file__).parent / "../../data/"
 
-        self._entry_idx += 1
-        self._outputted_items.add(entry[self.done_key])
-    
-    def make_data_entry(self, data, **kwargs):
-        return DataEntry(dict(data, **kwargs), id_fields=self.id_fields)
+        if not filename:
+            filename = f"{self.name}.jsonl"
+        filename = Path(out_path) / filename
 
-    @contextmanager
-    def writer(self, out_path=None, overwrite=False):
-        """Returns a function that can be used to write entries to the output file.
+        with jsonlines.open(filename, "w") as jsonl_writer:
+            for article in self.read_entries():
+                jsonl_writer.write(article.to_dict())
+        return filename.resolve()
 
-        The resulting function expects to only get a single `DataEntry`, which will then
-        be written as a json object.
-        """
-        if overwrite:
-            write_mode = 'w'
-            self._entry_idx = 0
-        else:
-            write_mode = 'a'
+    @property
+    def _query_items(self):
+        return select(Article).where(Article.source == self.name)
 
-        if out_path:
-            self._set_output_paths(out_path)
-
-        with jsonlines.open(self.jsonl_path, mode=write_mode) as jsonl_writer:
-            with open(self.txt_path, mode=write_mode, errors="backslashreplace") as text_writer:
-                yield partial(self.write_entry, jsonl_writer=jsonl_writer, text_writer=text_writer)
-
-    def read_entries(self):
+    def read_entries(self, sort_by=None):
         """Iterate through all the saved entries."""
-        if not self.jsonl_path.exists():
-            return []
+        with make_session() as session:
+            query = self._query_items.options(joinedload(Article.summaries))
+            if sort_by is not None:
+                query = query.order_by(sort_by)
+            for item in session.scalars(query).unique():
+                yield item
 
-        with jsonlines.open(self.jsonl_path) as f:
-            for line in f:
-                yield line
+    def _add_batch(self, session, batch):
+        session.add_all(batch)
 
-    def merge_summaries(self, summaries):
-        if not self.summary_key or not self.jsonl_path.exists():
-            return
+    def add_entries(self, entries):
+        def commit():
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
 
-        updated = 0
-        tmp_file = self.jsonl_path.parent / f'{self.jsonl_path.name}-tmp'
-        with jsonlines.open(tmp_file, 'w') as writer:
-            for line in self.read_entries():
-                url = line.get('url')
-                summary = summaries.get(url, {})
-                line[self.summary_key] += list(summary.values())
-                updated += bool(summary)
-                writer.write(line)
-
-        logger.info('Updated %s summaries for %s', updated, self.name)
-        tmp_file.rename(self.jsonl_path)
+        with make_session() as session:
+            items = iter(entries)
+            while batch := tuple(islice(items, self.batch_size)):
+                self._add_batch(session, batch)
+                # there might be duplicates in the batch, so if they cause
+                # an exception, try to commit them one by one
+                if not commit():
+                    for entry in batch:
+                        session.add(entry)
+                        if not commit():
+                            logger.error(f"found duplicate of {entry}")
 
     def setup(self):
-        # make sure the path to the raw data exists
-        self.files_path.mkdir(parents=True, exist_ok=True)
-
         self._outputted_items = self._load_outputted_items()
 
     @property
-    def items_list(self):
-        """Returns a generator of items to be processed."""
-        return self.files_path.glob(self.glob)
+    def items_list(self) -> Iterable:
+        """Returns a collection of items to be processed."""
+        return []
 
     def get_item_key(self, item):
         """Get the identifier of the given `item` so it can be checked to see whether it's been output.
@@ -164,16 +160,23 @@ class AlignmentDataset:
         """
         return item.name
 
-    def _load_outputted_items(self):
+    def _load_outputted_items(self) -> Set[str]:
         """Load the output file (if it exists) in order to know which items have already been output."""
-        if not self.jsonl_path.exists():
-            logger.info(f"No previous data found at {self.jsonl_path}")
-            return set()
+        with make_session() as session:
+            if hasattr(Article, self.done_key):
+                # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
+                # duplicates. The bad thing is that this could potentially return a massive amount of data if there
+                # are lots of items.
+                return set(
+                    session.scalars(select(getattr(Article, self.done_key))).all()
+                )
+            # TODO: Properly handle this - it should create a proper SQL JSON select
+            return {
+                item.get(self.done_key)
+                for item in session.scalars(select(Article.meta)).all()
+            }
 
-        with jsonlines.open(self.jsonl_path, mode='r') as reader:
-            return {entry.get(self.done_key) for entry in reader}
-
-    def unprocessed_items(self, items=None):
+    def unprocessed_items(self, items=None) -> Iterable:
         """Return a list of all items to be processed.
 
         This will automatically remove any items that have already been processed,
@@ -183,6 +186,10 @@ class AlignmentDataset:
         items = items or self.items_list
 
         def not_processed(item):
+            # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
+            # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
+            # this function runs a query to check if the item is in the database rather than first getting all done_keys.
+            # If it get's to that level, consider batching it somehow
             return self.get_item_key(item) not in self._outputted_items
         
         items_to_process = filter(not_processed, items)
@@ -191,117 +198,65 @@ class AlignmentDataset:
         if not self.lazy_eval:
             items_to_process = list(items_to_process)
 
-        return tqdm(items_to_process, desc=f"Processing {self.name}")
+        return filtered
 
     def fetch_entries(self):
         """Get all entries to be written to the file."""
-        for item in self.unprocessed_items():
+        for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)
             if not entry:
                 continue
 
-            entry.add_id()
             yield entry
 
             if self.COOLDOWN:
                 time.sleep(self.COOLDOWN)
 
-    def process_entry(self, entry):
+    def process_entry(self, entry) -> Optional[Article]:
         """Process a single entry."""
         raise NotImplementedError
 
     @staticmethod
-    def _format_datetime(date):
-        # Totally ignore any timezone info, forcing everything to UTC
-        dt = date.replace(tzinfo=pytz.UTC)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    def _format_datetime(date) -> str:
+        return date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    def _get_published_date(self, date):
+    @staticmethod
+    def _get_published_date(date) -> Optional[datetime]:
         try:
-            return self._format_datetime(parse(str(date)))
+            # Totally ignore any timezone info, forcing everything to UTC
+            return parse(str(date)).replace(tzinfo=pytz.UTC)
         except ParserError:
             pass
-        return ''
+        return None
 
 
-@dataclass
-class GdocDataset(AlignmentDataset):
-    """A base Dataset handler for files that are saved on Gdrive,"""
+class SummaryDataset(AlignmentDataset):
+    def unprocessed_items(self, items=None) -> Iterable:
+        # This breaks the possible lazy loading of the items. Should be fine...
+        items = list(super().unprocessed_items(items))
 
-    gdrive_address: str
-    """The full URL to the gdrive file"""
+        urls = map(self.get_item_key, items)
+        with make_session() as session:
+            articles = session.query(Article).options(joinedload(Article.summaries)).filter(Article.url.in_(urls))
+            self.articles = {a.url: a for a in articles if a.url}
 
-    @property
-    def zip_file(self):
-        """The name of the downloaded data, if a zip file."""
-        return self.raw_data_path / f"{self.name}.zip"
+        return items
 
-    def zip_from_gdrive(self, url=None, filename=None, path=None):
-        """Fetch the data a zip file from Gdrive.
+    def _load_outputted_items(self) -> Set[str]:
+        """Load the output file (if it exists) in order to know which items have already been output."""
+        with make_session() as session:
+            return set(
+                session.scalars(
+                    select(Article.url)
+                    .join(Article.summaries)
+                    .filter(Summary.source == self.name)
+                )
+            )
 
-        :param str url: the url to the file. Will use `self.gdrive_address` if empty
-        :param str filename: the name of the zip file. Will use `self.zip_file` if empty
-        :param str path: the path where the zip file should be extracted to. Will use `self.files_path` if empty
-        """
-        filename = filename or self.zip_file
+    def _add_batch(self, session, batch):
+        def merge(item):
+            if prev := self.articles.get(item.url):
+                return session.merge(item.update(prev))
+            return item
 
-        with open(filename, 'wb') as output:
-            gdown.download(url=url or self.gdrive_address,
-                           output=output,
-                           quiet=False)
-
-        logger.info("Unzipping")
-        with zipfile.ZipFile(filename, 'r') as zip_ref:
-            zip_ref.extractall(path or self.files_path)
-
-    def folder_from_gdrive(self, url=None, output=None):
-        """Download a folder from gdrive.
-
-        :param str url: the url to the file. Will use `self.gdrive_address` if empty
-        :param str output: the path where the folder should be downloaded to. Will use `self.files_path` if empty
-        """
-        gdown.download_folder(
-            url=url or self.gdrive_address,
-            output=str(output or self.files_path),
-            quiet=False
-        )
-
-
-class DataEntry(UserDict):
-    def __init__(self, *args, id_fields,  **kwargs):
-        super().__init__(*args, **kwargs)
-        for k, default in INIT_DICT.items():
-            if k not in self:
-                self[k] = default and default()
-        # Store id_fields in a way that does not interfere with UserDict's functionality
-        assert isinstance(id_fields, list), "id_fields must be a list"
-        assert id_fields, "id_fields must not be empty"
-        assert all(isinstance(field, str) for field in id_fields), "id_fields must be a list of strings"
-        self.__id_fields = id_fields
-
-    def generate_id_string(self):
-        return ''.join(str(self[field]) for field in self.__id_fields).encode("utf-8")
-
-    def verify_fields(self):
-        missing = [field for field in self.__id_fields if not self.get(field)]
-        assert not missing, f'Entry is missing the following fields: {missing}'
-        
-    def add_id(self):
-        self.verify_fields()
-
-        id_string = self.generate_id_string()
-        self["id"] = hashlib.md5(id_string).hexdigest()
-
-    def _verify_id(self):
-        assert self["id"] is not None, "Entry is missing id"
-        self.verify_fields()
-
-        id_string = self.generate_id_string()
-        id_from_fields = hashlib.md5(id_string).hexdigest()
-        assert self["id"] == id_from_fields, f"Entry id {self['id']} does not match id from id_fields, {id_from_fields}"
-
-    def to_dict(self):
-        for k, _ in INIT_DICT.items():
-            assert self[k] is not None, f"Entry is missing key {k}"
-        self._verify_id()
-        return dict(self.data)
+        session.add_all(map(merge, batch))

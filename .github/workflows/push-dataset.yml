@@ -1,0 +1,119 @@
+name: Synch uploaded jsonl files to HuggingFace
+
+on:
+  workflow_call:
+    inputs:
+      datasource:
+        type: string
+        required: true
+      coda_token:
+        type: string
+        required: true
+      db_user:
+        type: string
+        required: true
+      db_password:
+        type: string
+        required: true
+      db_host:
+        type: string
+        required: true
+  workflow_dispatch: # allow manual triggering
+    inputs:
+      datasource:
+        description: 'The datasource to process'
+        type: choice
+        default: all
+        options:
+          - agentmodels
+          - aiimpacts
+          - aisafety.camp
+          - aisafety.info
+          - ai_alignment_playlist
+          - ai_explained
+          - ai_safety_talks
+          - ai_safety_reading_group
+          - ai_tech_tu_delft
+          - alignmentforum
+          - arbital
+          - arxiv
+          - carado.moe
+          - cold_takes
+          - deepmind_blog
+          - deepmind_technical_blog
+          - distill
+          - eaforum
+          - eleuther.ai
+          - gdocs
+          - generative.ink
+          - gwern_blog
+          - html_articles
+          - importai
+          - indices
+          - jsteinhardt_blog
+          - lesswrong
+          - markdown
+          - miri
+          - ml_safety_newsletter
+          - openai.research
+          - pdfs
+          - rob_miles_ai_safety
+          - special_docs
+          - vkrakovna_blog
+          - yudkowsky_blog
+          - xmls
+
+jobs:
+  generate-dataset:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Generate dataset file
+      env:
+        CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
+        ARD_DB_NAME: alignment_research_dataset
+      run: python main.py generate_jsonl_files ${{ inputs.datasource }}
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ inputs.datasource }}
+        path: data/${{ inputs.datasource }}.jsonl
+        retention-days: 1
+
+  upload:
+    runs-on: ubuntu-latest
+    needs: generate-dataset
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Setup Huggingface client
+      run: pip install huggingface_hub gdown jsonlines datasets
+
+    - name: Upload files
+      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}

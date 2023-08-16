@@ -10,32 +10,40 @@ The following list of sources may change and items may be renamed:
 - [aiimpacts](https://aiimpacts.org/)
 - [aisafety.camp](https://aisafety.camp/)
 - [aisafety.info](https://aisafety.info/)
+- [ai_alignment_playlist]()
+- [ai_explained](https://www.youtube.com/@ai-explained-)
+- [ai_safety_talks](https://www.youtube.com/@aisafetytalks)
+- [ai_safety_reading_group](https://www.youtube.com/@aisafetyreadinggroup/videos)
+- [ai_tech_tu_delft](https://www.youtube.com/@AiTechTUDelft/)
 - [alignmentforum](https://www.alignmentforum.org)
 - [alignment_newsletter](https://rohinshah.com/alignment-newsletter/)
 - [arbital](https://arbital.com/)
 - arxiv - alignment research papers from [arxiv](https://arxiv.org/)
-- audio_transcripts - transcripts from interviews with various researchers and other audio recordings
 - [carado.moe](https://carado.moe/)
 - [cold_takes](https://www.cold-takes.com/)
 - [deepmind_blog](https://deepmindsafetyresearch.medium.com/)
+- [deepmind_technical_blog](https://www.deepmind.com/blog-categories/technical-blogs)
 - [distill](https://distill.pub/)
 - [eaforum](https://forum.effectivealtruism.org/) - selected posts
-- gdocs
-- gdrive_ebooks - books include [Superintelligence](https://www.goodreads.com/book/show/20527133-superintelligence), [Human Compatible](https://www.goodreads.com/book/show/44767248-human-compatible), [Life 3.0](https://www.goodreads.com/book/show/34272565-life-3-0), [The Precipice](https://www.goodreads.com/book/show/50485582-the-precipice), and others
+- [eleuther.ai](https://blog.eleuther.ai/)
 - [generative.ink](https://generative.ink/posts/)
 - [gwern_blog](https://gwern.net/)
+- gdocs - various doc files stored on Google drive
+- html_articles - various articles on websites
 - [import.ai](https://importai.substack.com)
 - [jsteinhardt_blog](https://jsteinhardt.wordpress.com/)
 - [lesswrong](https://www.lesswrong.com/) - selected posts
-- markdown.ebooks
+- markdown
 - [miri](https://intelligence.org/) - MIRI
 - [ml_safety_newsletter](https://newsletter.mlsafety.org)
-- nonarxiv_papers - other alignment research papers
-- [qualiacomputing](https://qualiacomputing.com/)
-- reports
+- [openai.research](https://openai.com/research)
+- pdfs - various pdfs from different places
+- [rob_miles_ai_safety](https://www.youtube.com/@RobertMilesAI)
 - [vkrakovna_blog](https://vkrakovna.wordpress.com)
 - [waitbutwhy](https://waitbutwhy.com/)
 - [yudkowsky_blog](https://www.yudkowsky.net/)
+- xmls - various articles stored as XML files
+
 
 ## Keys
 
@@ -52,13 +60,20 @@ The values of the keys are still being cleaned up for consistency. Additional ke
 
 ## Development Environment
 
-To set up the development environment, run the following steps:
+To set up the development environment, run the following steps. You'll have to also set up [mysqlclient](https://pypi.org/project/mysqlclient/):
 
 ```bash
 git clone https://github.com/StampyAI/alignment-research-dataset
 cd alignment-research-dataset
 pip install -r requirements.txt
 ```
+
+### Database
+
+You'll also have to set up a MySQL database. To do so with Docker, you can run `./local_db.sh` which should spin up a container
+with the database initialised.
+
+### CLI options
 
 The available CLI options are list, fetch, fetch-all, and count-tokens.
 
@@ -131,9 +146,34 @@ There are Datasets defined for various types of data sources - first check if an
 
 When wishing to update the whole dataset, run `python main.py fetch_all`. You can also fetch a specific subsection of a dataset by its name, for example `python main.py fetch aisafety.info`.
 
+## Configuration
+
+Various subcomponents use various external services, so need credentials set. This is done via environment variables, the easiest way of setting which is by copying `~/.env.example` to `~/.env` and changing the appropriate values.
+
+### Logging
+
+The log level can be configured with the `LOG_LEVEL` environment variable. The default level is 'WARNING'.
+
 ### Coda
 
 To update the stampy portion of the dataset, you will need a Coda token. go to coda.io, log in, and generate an API token in your account settings. Add restrictions: Doc or table, Read only, for the doc with url https://coda.io/d/_dfau7sl2hmG. Then, create a .env file at the root of the alignment research dataset, and write CODA_TOKEN="<coda_token>". It will be accessible in align_data/stampy/stampy.py
+
+### MySQL
+
+The datasets are stored in MySQL. The connection string can be configured via the `ARD_DB_USER`,
+`ARD_DB_PASSWORD`, `ARD_DB_HOST`, `ARD_DB_PORT` and `ARD_DB_NAME` environment variables. A local
+database can be started in Docker by running
+
+    ./local_db.sh
+
+### Pinecone
+
+For Pinecone updates to work, you'll need to configure the API key:
+
+1. Get an API key, as described [here](https://docs.pinecone.io/docs/quickstart#2-get-and-verify-your-pinecone-api-key)
+2. Create a Pinecone index named "stampy-chat-ard" (or whatever is set as `PINECONE_INDEX_NAME`) with the `dotproduct` metric and 1536 dimensions
+3. Set the `PINECONE_API_KEY` to the key from step 1
+4. Set the `PINECONE_ENVIRONMENT` to whatever is the environment of your index
 
 ### Metadata updates
 

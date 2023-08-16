@@ -4,13 +4,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='align_data',
-    version='0.0.1',
+    name="align_data",
+    version="0.0.1",
     description="A framework for constructing a dataset for alignment research",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
-    python_requires='>=3.6',
+    python_requires=">=3.6",
     install_requires=[
         "bs4==0.0.1",
         "python-dateutil==2.8.2",
@@ -21,5 +21,5 @@ setuptools.setup(
         "GitPython",
         "gdown",
         "pypandoc",
-    ]
+    ],
 )

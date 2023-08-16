@@ -1,48 +1,38 @@
 name: Weekly dataset updates
 on:
+  workflow_dispatch: # allow manual triggering
   schedule:
     - cron: "0 0 * * 0"  # Every Sunday at midnight
 
 jobs:
-  update_dateset:
+  update_dataset:
     strategy:
       matrix:
-        datasource:
-          - agentmodels
-          - aiimpacts
-          - aipulse
-          - aisafety.camp
-          - alignment_newsletter
-          - arbital
-          - arxiv
-          - audio_transcripts
-          - carado.moe
-          - cold_takes
-          - deepmind_blog
-          - deepmind_technical_blog
-          - distill
-          - eaforum
-          - ebooks
-          - eleuther.ai
-          - gdocs
-          - gdrive_ebooks
-          - generative.ink
-          - gwern_blog
-          - html_articles
-          - importai
-          - jsteinhardt_blog
-          - markdown.ebooks
-          - miri
-          - ml_safety_newsletter
-          - nonarxiv_papers
-          - qualiacomputing
-          - openai.research
-          - pdfs
-          - reports
-          - vkrakovna_blog
-          - yudkowsky_blog
+        datasource: ${{ fromJson(vars.WEEKLY_DATASOURCES) }}
 
     uses: ./.github/workflows/fetch-dataset.yml
     with:
       datasource: ${{ matrix.datasource }}
+      coda_token: ${{ inputs.coda_token }}
+      youtube_api_key: ${{ inputs.youtube_api_key }}
+      db_user: ${{ inputs.db_user }}
+      db_password: ${{ inputs.db_password }}
+      db_host: ${{ inputs.db_host }}
+    secrets: inherit
+
+  update_indexes:
+    needs: update_dataset
+    strategy:
+      matrix:
+        datasource: ${{ fromJson(vars.WEEKLY_DATASOURCES) }}
+
+    uses: ./.github/workflows/update-pinecone.yml
+    with:
+      datasource: ${{ matrix.datasource }}
+      db_user: ${{ inputs.db_user }}
+      db_password: ${{ inputs.db_password }}
+      db_host: ${{ inputs.db_host }}
+      openai_api_key: ${{ inputs.openai_api_key }}
+      pinecone_api_key: ${{ inputs.pinecone_api_key }}
+      pinecone_environment: ${{ inputs.pinecone_environment }}
     secrets: inherit
