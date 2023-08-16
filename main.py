@@ -124,6 +124,14 @@ class AlignmentDataset:
         names = [name for name in ALL_DATASETS if name not in skip]
         PineconeUpdater().update(names)
 
+    def finetune_embeddings_tests(self) -> None:
+        """
+        This function tests the finetune_embeddings function
+        """
+        from align_data.finetuning.finetune_model import finetune_embeddings
+        
+        finetune_embeddings()
+        
 
 if __name__ == "__main__":
     fire.Fire(AlignmentDataset)
