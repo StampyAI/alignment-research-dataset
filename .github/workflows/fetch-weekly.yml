@@ -22,13 +22,10 @@ jobs:
 
   update_indexes:
     needs: update_dataset
-    strategy:
-      matrix:
-        datasource: ${{ fromJson(vars.WEEKLY_DATASOURCES) }}
 
     uses: ./.github/workflows/update-pinecone.yml
     with:
-      datasource: ${{ matrix.datasource }}
+      datasource: "all"
       db_user: ${{ inputs.db_user }}
       db_password: ${{ inputs.db_password }}
       db_host: ${{ inputs.db_host }}
