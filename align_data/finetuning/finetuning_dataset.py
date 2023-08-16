@@ -2,9 +2,7 @@ import math
 import random
 from typing import List, Tuple, Generator
 
-import torch
-from sqlalchemy import func
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, get_worker_info
 
 from align_data.pinecone.pinecone_db_handler import PineconeDB
 from align_data.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
@@ -39,7 +37,7 @@ class FinetuningDataset(IterableDataset):
             self.total_articles = session.query(Article).count()
 
     def __iter__(self):
-        worker_info = torch.utils.data.get_worker_info()
+        worker_info = get_worker_info()
         if worker_info is None:  # Single-process loading
             return self._generate_pairs()
         else:  # Multi-process loading
