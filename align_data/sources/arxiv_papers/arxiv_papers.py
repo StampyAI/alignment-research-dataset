@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 import arxiv
 
@@ -25,6 +25,7 @@ def get_arxiv_metadata(paper_id) -> arxiv.Result:
 def get_id(url: str) -> Optional[str]:
     if res := re.search(r"https?://arxiv.org/(?:abs|pdf)/(.*?)(?:v\d+)?(?:/|\.pdf)?$", url):
         return res.group(1)
+    return None
 
 
 def canonical_url(url: str) -> str:
@@ -46,6 +47,7 @@ def get_contents(paper_id: str) -> dict:
 def get_version(id: str) -> Optional[str]:
     if res := re.search(r'.*v(\d+)$', id):
         return res.group(1)
+    return None
 
 
 def is_withdrawn(url: str):
@@ -54,7 +56,7 @@ def is_withdrawn(url: str):
     return None
 
 
-def add_metadata(data, paper_id):
+def add_metadata(data, paper_id) -> Dict[str, Any]:
     metadata = get_arxiv_metadata(paper_id)
     if not metadata:
         return {}

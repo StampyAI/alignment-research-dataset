@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -49,7 +49,7 @@ class SpreadsheetDataset(AlignmentDataset):
         return (
             item 
             for item in df.itertuples() 
-            if not pd.isna(self.get_item_key(item))
+            if self.get_item_key(item) is not None
             )
 
     @staticmethod
@@ -147,8 +147,7 @@ class HTMLArticles(SpreadsheetDataset):
 
     @staticmethod
     def _get_text(item):
-        netloc = urlparse(item.source_url).netloc
-        domain = netloc[4:] if netloc.startswith('www.') else netloc
+        domain = parse_domain(item.source_url)
         if parser := HTML_PARSERS.get(domain):
             return parser(item.source_url)
 

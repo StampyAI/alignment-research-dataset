@@ -1,6 +1,6 @@
 import logging
 from urllib.parse import urlparse, urljoin
-from typing import Dict
+from typing import Dict, Optional
 
 from markdownify import MarkdownConverter
 from requests.exceptions import ConnectionError, InvalidSchema, MissingSchema
@@ -263,7 +263,7 @@ PDF_PARSERS = {
 }
 
 
-def parse_domain(url: str) -> str:
+def parse_domain(url: str) -> Optional[str]:
     remove_www = lambda net_loc: net_loc[4:] if net_loc.startswith("www.") else net_loc
     return url and remove_www(urlparse(url).netloc)
 

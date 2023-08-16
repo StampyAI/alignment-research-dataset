@@ -86,9 +86,13 @@ class Article(Base):
             for key in PINECONE_METADATA_KEYS
         )
 
-    def generate_id_string(self) -> str:
-        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode(
-            "utf-8"
+    def generate_id_string(self) -> bytes:
+        return (
+            "".join(
+                str(getattr(self, field))
+                for field in self.__id_fields
+            )
+            .encode("utf-8")
         )
 
     @property

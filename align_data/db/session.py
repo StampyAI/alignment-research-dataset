@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Generator
 import logging
 
 from contextlib import contextmanager, AbstractContextManager
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def make_session(auto_commit: bool = False) -> AbstractContextManager[Session]:
+def make_session(auto_commit: bool = False) -> Generator[Session, None, None]:
     engine = create_engine(DB_CONNECTION_URI, echo=False)
     with Session(engine).no_autoflush as session:
         yield session
@@ -20,7 +20,7 @@ def make_session(auto_commit: bool = False) -> AbstractContextManager[Session]:
             session.commit()
 
 
-def stream_pinecone_updates(session, custom_sources: List[str]):
+def stream_pinecone_updates(session, custom_sources: List[str]) -> Generator[Article, None, None]:
     """Yield Pinecone entries that require an update."""
     yield from (
         session

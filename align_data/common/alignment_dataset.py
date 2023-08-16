@@ -10,7 +10,7 @@ from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Query, joinedload
+from sqlalchemy.orm import Query, joinedload, Session
 from sqlalchemy.engine import Result
 import jsonlines
 from dateutil.parser import parse, ParserError
@@ -112,7 +112,7 @@ class AlignmentDataset:
             for item in result.unique():
                 yield item
 
-    def _add_batch(self, session, batch):
+    def _add_batch(self, session: Session, batch):
         session.add_all(batch)
 
     def add_entries(self, entries):
