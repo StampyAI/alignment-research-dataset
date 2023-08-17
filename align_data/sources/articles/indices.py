@@ -282,7 +282,7 @@ class IndicesDataset(AlignmentDataset):
 
     def process_entry(self, item):
         metadata = {}
-        if url := item.get('source_url') or item.get('url'):
+        if url := (item.get('source_url') or item.get('url')):
             metadata = item_metadata(url)
 
         text = metadata.get('text')

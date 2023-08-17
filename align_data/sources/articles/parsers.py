@@ -1,6 +1,6 @@
 import logging
 from urllib.parse import urlparse, urljoin
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable, Any
 
 from markdownify import MarkdownConverter
 from requests.exceptions import ConnectionError, InvalidSchema, MissingSchema
@@ -11,6 +11,10 @@ from align_data.sources.articles.google_cloud import google_doc, extract_gdrive_
 
 logger = logging.getLogger(__name__)
 
+HtmlParserFunc = Callable[[str], str | None]
+PdfParserFunc = Callable[[str], Dict[str, Any]]
+UnimplementedParserFunc = Callable[[str], Optional[str | None]]
+
 
 def get_pdf_from_page(*link_selectors: str):
     """Get a function that receives an `url` to a page containing a pdf link and returns the pdf's contents as text.
@@ -19,32 +23,42 @@ def get_pdf_from_page(*link_selectors: str):
      * if there are more selectors left, fetch the contents at the extracted link and continue
      * otherwise return the pdf contents at the last URL
 
-    :param List[str] link_selectors: CSS selector used to find the final download link
+    :param str *link_selectors: CSS selectors used to find the final download link
     :returns: the contents of the pdf file as a string
     """
-    def getter(url: str):
-        link: str = url
+    def getter(url: str) -> Dict[str, Any]:
+        current_url: str = url
+
         for selector in link_selectors:
-            elem = fetch_element(link, selector)
+            elem = fetch_element(current_url, selector)
             if not elem:
-                return {"error": f"Could not find pdf download link for {link} using '{selector}'"}
+                return {"error": f"Could not find pdf download link for {current_url} using '{selector}'"}
 
-            link = elem.get("href")
-            if not link.startswith("http") or not link.startswith("//"):
-                link = urljoin(url, link)
+            # Extracting href, considering it can be a string or a list of strings
+            href = elem.get("href")
+            if isinstance(href, list):
+                href = href[0] if href else None
 
+            if not href:
+                return {"error": f"Could not extract href for {current_url} using '{selector}'"}
+
+            # Making sure the link is absolute
+            if not href.startswith(("http", "//")):
+                href = urljoin(url, href)
+
+            current_url = href
         # Some pages keep link to google drive previews of pdf files, which need to be
         # mangled to get the URL of the actual pdf file
-        if "drive.google.com" in link and "/view" in link:
-            return extract_gdrive_contents(link)
+        if "drive.google.com" in current_url and "/view" in current_url:
+            return extract_gdrive_contents(current_url)
 
-        if pdf := fetch_pdf(link):
+        if pdf := fetch_pdf(current_url):
             return pdf
-        return {"error": f"Could not fetch pdf from {link}"}
+        return {"error": f"Could not fetch pdf from {current_url}"}
     return getter
 
 
-def medium_blog(url):
+def medium_blog(url: str) -> str | None:
     """Return the contents of the medium article at the given URL as markdown."""
     # Medium does some magic redirects if it detects that the request is from firefox
     article = fetch_element(url, "article", headers=None)
@@ -59,9 +73,9 @@ def medium_blog(url):
     return MarkdownConverter().convert_soup(article).strip()
 
 
-def error(error_msg):
+def error(error_msg: str) -> UnimplementedParserFunc:
     """Returns a url handler function that just logs the provided `error` string."""
-    def func(_url):
+    def func(_url) -> str | None:
         if error_msg:
             logger.error(error_msg)
         return error_msg
@@ -71,8 +85,9 @@ def error(error_msg):
 
 def multistrategy(*funcs):
     """Merges multiple getter functions, returning the result of the first function call to succeed."""
+    """This works for HtmlParsersFuncs or PdfParserFuncs."""
 
-    def getter(url):
+    def getter(url: str):
         for func in funcs:
             res = func(url)
             if res and "error" not in res:
@@ -81,7 +96,7 @@ def multistrategy(*funcs):
     return getter
 
 
-UNIMPLEMENTED_PARSERS = {
+UNIMPLEMENTED_PARSERS: Dict[str, UnimplementedParserFunc] = {
     # Unhandled items that will be caught later. Though it would be good for them also to be done properly
     "oxford.universitypressscholarship.com": error(""),
     # Paywalled journal
@@ -114,14 +129,18 @@ UNIMPLEMENTED_PARSERS = {
     "iopscience.iop.org": error("iopscience.iop.org is not yet handled"),
     "journals.aom.org": error("journals.aom.org is not yet handled"),
     "cambridge.org": error("cambridge.org is not yet handled"),
+    "transformer-circuits.pub": error("not handled yet - same codebase as distill"),
+
 }
 
 
-HTML_PARSERS = {
+HTML_PARSERS: Dict[str, HtmlParserFunc] = {
     "academic.oup.com": element_extractor("#ContentTab"),
     "ai.googleblog.com": element_extractor("div.post-body.entry-content"),
-    "arxiv-vanity.com": parse_vanity,
-    "ar5iv.labs.arxiv.org": parse_vanity,
+    # TODO: arxiv-vanity.com does not output the same type as the other parsers: Dict[str, str] instead of str
+    # ar5iv.labs.arxiv.org too. Are these pdf parsers? not rly, but they don't output the same type as the other html parsers
+    #"arxiv-vanity.com": parse_vanity,
+    #"ar5iv.labs.arxiv.org": parse_vanity,
     "bair.berkeley.edu": element_extractor("article"),
     "mediangroup.org": element_extractor("div.entry-content"),
     "www.alexirpan.com": element_extractor("article"),
@@ -216,7 +235,6 @@ HTML_PARSERS = {
             ".Publication",
         ],
     ),
-    "transformer-circuits.pub": error("not handled yet - same codebase as distill"),
     "vox.com": element_extractor("did.c-entry-content", remove=["c-article-footer"]),
     "weforum.org": element_extractor("div.wef-0"),
     "www6.inrae.fr": element_extractor("div.ArticleContent"),
@@ -224,7 +242,7 @@ HTML_PARSERS = {
     "yoshuabengio.org": element_extractor("div.post-content"),
 }
 
-PDF_PARSERS = {
+PDF_PARSERS: Dict[str, PdfParserFunc] = {
     # Domain sepecific handlers
     "apcz.umk.pl": get_pdf_from_page(".galleys_links a.pdf", "a.download"),
     "arxiv.org": get_arxiv_pdf,
@@ -263,12 +281,15 @@ PDF_PARSERS = {
 }
 
 
-def parse_domain(url: str) -> Optional[str]:
-    remove_www = lambda net_loc: net_loc[4:] if net_loc.startswith("www.") else net_loc
-    return url and remove_www(urlparse(url).netloc)
+def parse_domain(url: str) -> str:
+    def remove_www(net_loc: str) -> str:
+        return net_loc[4:] if net_loc.startswith("www.") else net_loc
+    return remove_www(urlparse(url).netloc)
 
 
-def item_metadata(url) -> Dict[str, str]:
+def item_metadata(url: str) -> Dict[str, Any]: 
+    if not url:
+        return {"error": "No url was given to item_metadata"}
     domain = parse_domain(url)
     try:
         res = fetch(url, "head")
@@ -284,14 +305,17 @@ def item_metadata(url) -> Dict[str, str]:
         # If the url points to a html webpage, then it either contains the text as html, or
         # there is a link to a pdf on it
         if parser := HTML_PARSERS.get(domain):
-            if res := parser(url):
+            if parsed_html := parser(url):
+                #TODO: For some HTML_PARSERS like parse_vanity, it outputs 
+                # a dict of metadata instead of a string. This should be fixed or changed
+                
                 # Proper contents were found on the page, so use them
-                return {"source_url": url, "source_type": "html", "text": res}
+                return {"source_url": url, "source_type": "html", "text": parsed_html}
 
         if parser := PDF_PARSERS.get(domain):
-            if res := parser(url):
+            if content := parser(url):
                 # A pdf was found - use it, though it might not be useable
-                return res
+                return content
 
         if parser := UNIMPLEMENTED_PARSERS.get(domain):
             return {"error": parser(url)}

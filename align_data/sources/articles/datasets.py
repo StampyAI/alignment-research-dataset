@@ -2,14 +2,14 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Tuple, Any
 from urllib.parse import urlparse
 
 import pandas as pd
 from gdown.download import download
 from markdownify import markdownify
 from pypandoc import convert_file
-from sqlalchemy import select
+from sqlalchemy import select, Select
 
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.db.models import Article
@@ -28,7 +28,7 @@ class SpreadsheetDataset(AlignmentDataset):
     spreadsheet_id: str
     sheet_id: str
     done_key = "url"
-    source_filetype = None
+    source_filetype = None # type: str
     batch_size = 1
 
     @staticmethod
@@ -90,7 +90,7 @@ class SpreadsheetDataset(AlignmentDataset):
 class SpecialDocs(SpreadsheetDataset):
 
     @property
-    def _query_items(self):
+    def _query_items(self) -> Select[Tuple[Article]]:
         special_docs_types = ["pdf", "html", "xml", "markdown", "docx"]
         return select(Article).where(Article.source.in_(special_docs_types))
 
@@ -134,7 +134,7 @@ class PDFArticles(SpreadsheetDataset):
         super().setup()
         self.files_path.mkdir(exist_ok=True, parents=True)
 
-    def _get_text(self, item):
+    def _get_text(self, item) -> str | None:
         url = f"https://drive.google.com/uc?id={item.file_id}"
 
         filename = self.files_path / f"{item.title}.pdf"

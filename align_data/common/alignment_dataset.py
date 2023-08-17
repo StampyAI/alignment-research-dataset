@@ -4,14 +4,13 @@ import logging
 import time
 from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Set, Generator, Iterable
+from typing import List, Optional, Dict, Any, Set, Iterable, Tuple
 import pytz
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, Select, JSON
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Query, joinedload, Session
-from sqlalchemy.engine import Result
+from sqlalchemy.orm import joinedload, Session
 import jsonlines
 from dateutil.parser import parse, ParserError
 from tqdm import tqdm
@@ -85,10 +84,8 @@ class AlignmentDataset:
             article.summaries.append(Summary(text=summary, source=self.name))
         return article
 
-    def to_jsonl(self, out_path: Path = None, filename: str = None):
-        if not out_path:
-            out_path = self.data_path
-
+    def to_jsonl(self, out_path: Path | None = None, filename: str | None = None) -> Path:
+        out_path = out_path or self.data_path
         filename = filename or f"{self.name}.jsonl"
         filepath = out_path / filename
 
@@ -98,19 +95,19 @@ class AlignmentDataset:
         return filepath.resolve()
 
     @property
-    def _query_items(self):
+    def _query_items(self) -> Select[Tuple[Article]]:
         return select(Article).where(Article.source == self.name)
 
-    def read_entries(self, sort_by=None):
+    def read_entries(self, sort_by=None) -> Iterable[Article]:
         """Iterate through all the saved entries."""
         with make_session() as session:
             query = self._query_items.options(joinedload(Article.summaries))
             if sort_by is not None:
                 query = query.order_by(sort_by)
             
-            result: Result = session.scalars(query)
-            for item in result.unique():
-                yield item
+            result = session.scalars(query)
+            for article in result.unique(): # removes duplicates
+                yield article
 
     def _add_batch(self, session: Session, batch):
         session.add_all(batch)
@@ -152,7 +149,11 @@ class AlignmentDataset:
         return item.name
 
     def _load_outputted_items(self) -> Set[str]:
-        """Load the output file (if it exists) in order to know which items have already been output."""
+        """
+        Loads the outputted items from the database and returns them as a set.
+        
+        if the done_key is not an attribute of Article, it will try to load it from the meta field.
+        """
         with make_session() as session:
             if hasattr(Article, self.done_key):
                 # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
@@ -161,10 +162,10 @@ class AlignmentDataset:
                 return set(
                     session.scalars(select(getattr(Article, self.done_key))).all()
                 )
-            # TODO: Properly handle this - it should create a proper SQL JSON select
             return {
-                item.get(self.done_key)
-                for item in session.scalars(select(Article.meta)).all()
+                meta[self.done_key]
+                for meta in session.scalars(select(Article.meta)).all()
+                if isinstance(meta, JSON) and meta.get(self.done_key)
             }
 
     def unprocessed_items(self, items=None) -> Iterable:

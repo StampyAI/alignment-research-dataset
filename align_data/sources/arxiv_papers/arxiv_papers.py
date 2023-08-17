@@ -10,7 +10,7 @@ from align_data.sources.articles.html import fetch_element
 logger = logging.getLogger(__name__)
 
 
-def get_arxiv_metadata(paper_id) -> arxiv.Result:
+def get_arxiv_metadata(paper_id: str) -> arxiv.Result | None:
     """
     Get metadata from arxiv
     """
@@ -34,13 +34,11 @@ def canonical_url(url: str) -> str:
     return url
 
 
-def get_contents(paper_id: str) -> dict:
-    for link in [
-        f"https://www.arxiv-vanity.com/papers/{paper_id}",
-        f"https://ar5iv.org/abs/{paper_id}",
-    ]:
-        if contents := parse_vanity(link):
-            return contents
+def get_contents(paper_id: str) -> Dict[str, Any]:
+    if contents := parse_vanity(f"https://www.arxiv-vanity.com/papers/{paper_id}"):
+        return contents
+    if contents := parse_vanity(f"https://ar5iv.org/abs/{paper_id}"):
+        return contents
     return fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
 
 
@@ -50,13 +48,13 @@ def get_version(id: str) -> Optional[str]:
     return None
 
 
-def is_withdrawn(url: str):
+def is_withdrawn(url: str) -> bool:
     if elem := fetch_element(canonical_url(url), '.extra-services .full-text ul'):
         return elem.text.strip().lower() == 'withdrawn'
-    return None
+    return False
 
 
-def add_metadata(data, paper_id) -> Dict[str, Any]:
+def add_metadata(data: Dict[str, Any], paper_id: str) -> Dict[str, Any]:
     metadata = get_arxiv_metadata(paper_id)
     if not metadata:
         return {}
@@ -75,21 +73,23 @@ def add_metadata(data, paper_id) -> Dict[str, Any]:
     }, **data)
 
 
-def fetch(url) -> Dict:
+def fetch(url: str) -> Dict[str, Any]:
     paper_id = get_id(url)
     if not paper_id:
         return {'error': 'Could not extract arxiv id'}
 
-    if is_withdrawn(url):
-        paper = {'status': 'Withdrawn'}
-    else:
-        paper = get_contents(paper_id)
+    if is_withdrawn(url): paper = {'status': 'Withdrawn'}
+    else: paper = get_contents(paper_id)
 
     data = add_metadata({
         "url": canonical_url(url),
         "source_type": paper.get('data_source'),
     }, paper_id)
-    authors = data.get('authors') or paper.get("authors") or []
-    data['authors'] = [str(a).strip() for a in authors]
+
+    authors = data.get('authors') or paper.get("authors")
+    if not authors: data['authors'] = []
+    elif not isinstance(authors, list): data['authors'] = [str(authors).strip()]
+    else:
+        data['authors'] = [str(author).strip() for author in authors]
 
     return dict(data, **paper)

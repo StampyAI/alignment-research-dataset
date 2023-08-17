@@ -1,26 +1,30 @@
 import logging
 from collections import namedtuple
 from dataclasses import dataclass
+from typing import List, Optional, Union, Tuple, NamedTuple
+from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, Select
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.db.models import Article
 from align_data.sources.articles.parsers import item_metadata
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-Item = namedtuple('Item', ['updates', 'article'])
-
+class Item(NamedTuple):
+    updates: NamedTuple
+    article: Article
 
 @dataclass
 class ReplacerDataset(AlignmentDataset):
-    csv_path: str
+    csv_path: str | Path
     delimiter: str
     done_key = "url"
 
     def get_item_key(self, item):
-        return None
+        raise NotImplementedError
 
     @staticmethod
     def maybe(item, key):
@@ -30,27 +34,30 @@ class ReplacerDataset(AlignmentDataset):
         return val
 
     @property
-    def items_list(self):
+    def items_list(self) -> List[Item]:
         df = pd.read_csv(self.csv_path, delimiter=self.delimiter)
         self.csv_items = [
             item for item in df.itertuples()
             if self.maybe(item, 'id') or self.maybe(item, 'hash_id')
         ]
-        by_id = {i.id: i for i in self.csv_items if self.maybe(i, 'id')}
-        by_hash_id = {i.hash_id: i for i in self.csv_items if self.maybe(i, 'hash_id')}
+        by_id = {id: item for item in self.csv_items if (id := self.maybe(item, 'id'))}
+        by_hash_id = {hash_id: item for item in self.csv_items if (hash_id := self.maybe(item, 'hash_id'))}
 
         return [
-            Item(by_id.get(a._id) or by_hash_id.get(a.id), a)
-            for a in self.read_entries()
+            Item(
+                updates=by_id.get(article._id) or by_hash_id.get(article.id),
+                article=article
+            )
+            for article in self.read_entries()
         ]
 
     @property
-    def _query_items(self):
+    def _query_items(self) -> Select[Tuple[Article]]:
         ids = [i.id for i in self.csv_items if self.maybe(i, 'id')]
         hash_ids = [i.hash_id for i in self.csv_items if self.maybe(i, 'hash_id')]
         return select(Article).where(or_(Article.id.in_(hash_ids), Article._id.in_(ids)))
 
-    def update_text(self, updates, article):
+    def update_text(self, updates: NamedTuple, article: Article):
         # If the url is the same as it was before, and there isn't a source url provided, assume that the
         # previous text is still valid
         if article.url == self.maybe(updates, 'url') and not self.maybe(updates, 'source_url'):
@@ -67,10 +74,10 @@ class ReplacerDataset(AlignmentDataset):
         metadata = item_metadata(url)
         # Only change the text if it could be fetched - better to have outdated values than none
         if metadata.get('text'):
-            article.text = metadata.get('text')
+            article.text = metadata['text']
         article.status = metadata.get('error')
 
-    def process_entry(self, item):
+    def process_entry(self, item: Item) -> Article:
         updates, article = item
 
         for key in ['url', 'title', 'source', 'authors', 'comment', 'confidence']:
@@ -86,5 +93,5 @@ class ReplacerDataset(AlignmentDataset):
 
         return article
 
-    def _add_batch(self, session, batch):
+    def _add_batch(self, session: Session, batch):
         session.add_all(map(session.merge, batch))

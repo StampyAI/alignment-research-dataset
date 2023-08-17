@@ -3,7 +3,7 @@ import logging
 import pytz
 import hashlib
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import (
     JSON,
     DateTime,
@@ -80,19 +80,17 @@ class Article(Base):
             raise TypeError(
                 f"Expected an instance of Article, got {type(other).__name__}"
             )
-        return not any(
-            getattr(self, key, None)
-            != getattr(other, key, None)  # entry_id is implicitly ignored
+        return all(
+            getattr(self, key, None) == getattr(other, key, None)
             for key in PINECONE_METADATA_KEYS
-        )
+        ) # entry_id is implicitly ignored
 
     def generate_id_string(self) -> bytes:
         return (
             "".join(
                 str(getattr(self, field))
                 for field in self.__id_fields
-            )
-            .encode("utf-8")
+            ).encode("utf-8")
         )
 
     @property
@@ -113,11 +111,16 @@ class Article(Base):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
         assert not missing, f"Entry is missing the following fields: {missing}"
 
-    def update(self, other):
+    def update(self, other: "Article"):
+        """
+        Update this article with the values from another article.
+        """
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
                 setattr(self, field, getattr(other, field))
         self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
+        # TODO: verify that this actually updates the meta column; 
+        # https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 
         if other._id:
             self._id = other._id
@@ -128,13 +131,15 @@ class Article(Base):
         id_string = self.generate_id_string()
         self.id = hashlib.md5(id_string).hexdigest()
 
-    def add_meta(self, key, val):
+    def add_meta(self, key: str, val):
         if self.meta is None:
             self.meta = {}
         self.meta[key] = val
+        # TODO: verify that this actually updates the meta column; 
+        # https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 
     @classmethod
-    def before_write(cls, mapper, connection, target):
+    def before_write(cls, mapper, connection, target: "Article"):
         target.verify_id_fields()
 
         if not target.status and target.missing_fields:
@@ -152,9 +157,10 @@ class Article(Base):
         if not target.status:
             target.pinecone_update_required = True
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         if date := self.date_published:
             date = date.replace(tzinfo=pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # TODO: isinstance(self.meta, str)? when would this ever happen
         meta = json.loads(self.meta) if isinstance(self.meta, str) else self.meta
 
         authors = []

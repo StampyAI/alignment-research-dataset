@@ -1,7 +1,7 @@
 # %%
 from collections import defaultdict, Counter
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, DefaultDict
 import logging
 import jsonlines
 from tqdm import tqdm
@@ -14,7 +14,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-
+#TODO: fix this file
 @dataclass
 class PostProcesser:
     """
@@ -31,7 +31,7 @@ class PostProcesser:
 
         self.jsonl_list: List[Path] = sorted(self.jsonl_path.glob("*.jsonl"))
         self.source_list: List[str] = [path.stem for path in self.jsonl_list]
-        self.all_stats = defaultdict(Counter)
+        self.all_stats: DefaultDict[str, Counter] = defaultdict(Counter)
 
     def compute_statistics(self) -> None:
         for source_name, path in tqdm(zip(self.source_list, self.jsonl_list)):

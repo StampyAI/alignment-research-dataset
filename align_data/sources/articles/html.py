@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Optional
+from typing import Optional, Dict, Literal, Optional, Callable, List
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -33,7 +33,11 @@ def with_retry(times=3, exceptions=requests.exceptions.RequestException):
     return wrapper
 
 
-def fetch(url, method="get", headers=DEFAULT_HEADERS):
+def fetch(
+    url: str, 
+    method: Literal["get", "post", "put", "delete", "patch", "options", "head"] = "get", 
+    headers: Dict[str, str] = DEFAULT_HEADERS
+) -> requests.Response:
     """Fetch the given `url`.
 
     This function is to have a single place to manage headers etc.
@@ -41,7 +45,7 @@ def fetch(url, method="get", headers=DEFAULT_HEADERS):
     return getattr(requests, method)(url, allow_redirects=True, headers=headers)
 
 
-def fetch_element(url: str, selector: str, headers=DEFAULT_HEADERS) -> Optional[Tag]:
+def fetch_element(url: str, selector: str, headers: Dict[str, str] = DEFAULT_HEADERS) -> Tag | None:
     """Fetch the first HTML element that matches the given CSS `selector` on the page found at `url`."""
     try:
         resp = fetch(url, headers=headers)
@@ -53,15 +57,16 @@ def fetch_element(url: str, selector: str, headers=DEFAULT_HEADERS) -> Optional[
     return soup.select_one(selector)
 
 
-def element_extractor(selector, remove=[]):
+def element_extractor(selector: str, remove: Optional[List[str]] = None):
     """Returns a function that will extract the first element that matches the given CSS selector.
 
     :params str selector: a CSS selector to run on the HTML of the page provided as the parameter of the function
     :param List[str] remove: An optional list of selectors to be removed from the resulting HTML. Useful for removing footers etc.
     :returns: A function that expects to get an URL, and which will then return the contents of the selected HTML element as markdown.
     """
+    remove = remove or []
 
-    def getter(url):
+    def getter(url: str) -> str | None:
         elem = fetch_element(url, selector)
         if not elem:
             return None
