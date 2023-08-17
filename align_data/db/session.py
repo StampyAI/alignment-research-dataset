@@ -26,6 +26,7 @@ def stream_pinecone_updates(session, custom_sources: List[str]) -> Generator[Art
         session
         .query(Article)
         .filter(Article.pinecone_update_required.is_(True))
+        .filter(Article.is_valid)
         .filter(Article.source.in_(custom_sources))
         .yield_per(1000)
         )
