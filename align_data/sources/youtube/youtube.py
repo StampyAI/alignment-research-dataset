@@ -1,9 +1,9 @@
 import collections
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Iterable
 
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build, Resource
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
     NoTranscriptFound,
@@ -30,9 +30,9 @@ class YouTubeDataset(AlignmentDataset):
         super().setup()
         if not YOUTUBE_API_KEY:
             raise ValueError("No YOUTUBE_API_KEY provided!")
-        self.youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+        self.youtube: Resource = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
-    def next_page(self, collection_id, next_page_token):
+    def next_page(self, collection_id: str, next_page_token: list) -> dict:
         return {"items": []}
 
     @staticmethod
@@ -47,7 +47,7 @@ class YouTubeDataset(AlignmentDataset):
         if resource["kind"] == "youtube#video":
             return resource["videoId"]
 
-    def fetch_videos(self, collection_id):
+    def fetch_videos(self, collection_id: str) -> Iterable[dict]:
         next_page_token = None
         while True:
             videos_response = self.next_page(collection_id, next_page_token)
@@ -149,7 +149,7 @@ class YouTubePlaylistDataset(YouTubeDataset):
     def collection_ids(self):
         return self.playlist_ids
 
-    def next_page(self, collection_id, next_page_token):
+    def next_page(self, collection_id: str, next_page_token: list):
         return (
             self.youtube.playlistItems()
             .list(

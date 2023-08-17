@@ -35,11 +35,11 @@ def canonical_url(url: str) -> str:
 
 
 def get_contents(paper_id: str) -> Dict[str, Any]:
-    if contents := parse_vanity(f"https://www.arxiv-vanity.com/papers/{paper_id}"):
-        return contents
-    if contents := parse_vanity(f"https://ar5iv.org/abs/{paper_id}"):
-        return contents
-    return fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
+    return (
+        parse_vanity(f"https://www.arxiv-vanity.com/papers/{paper_id}") or
+        parse_vanity(f"https://ar5iv.org/abs/{paper_id}") or
+        fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
+    )
 
 
 def get_version(id: str) -> Optional[str]:
@@ -87,8 +87,10 @@ def fetch(url: str) -> Dict[str, Any]:
     }, paper_id)
 
     authors = data.get('authors') or paper.get("authors")
-    if not authors: data['authors'] = []
-    elif not isinstance(authors, list): data['authors'] = [str(authors).strip()]
+    if not authors: 
+        data['authors'] = []
+    elif not isinstance(authors, list): 
+        data['authors'] = [str(authors).strip()]
     else:
         data['authors'] = [str(author).strip() for author in authors]
 

@@ -282,9 +282,8 @@ PDF_PARSERS: Dict[str, PdfParserFunc] = {
 
 
 def parse_domain(url: str) -> str:
-    def remove_www(net_loc: str) -> str:
-        return net_loc[4:] if net_loc.startswith("www.") else net_loc
-    return remove_www(urlparse(url).netloc)
+    net_loc = urlparse(url).netloc
+    return net_loc[4:] if net_loc.startswith("www.") else net_loc
 
 
 def item_metadata(url: str) -> Dict[str, Any]: 
