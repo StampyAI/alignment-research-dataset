@@ -272,15 +272,17 @@ class IndicesDataset(AlignmentDataset):
         return []
 
     def process_entry(self, item):
-        metadata = {}
+        contents = {}
         if url := item.get('source_url') or item.get('url'):
-            metadata = item_metadata(url)
+            contents= item_metadata(url)
 
-        if not metadata.get('text'):
-            logger.error('Could not get text for %s (%s) - %s - skipping for now', item.get('title'), url, metadata.get('error'))
+        if not contents.get('text'):
+            logger.error('Could not get text for %s (%s) - %s - skipping for now', item.get('title'), url, contents.get('error'))
             return None
 
-        if parse_domain(metadata.get('source_url') or '') != 'arxiv.org':
+        # If the article is not an arxiv paper, just mark it as ignored - if in the future editors
+        # decide it's worth adding, it can be fetched then
+        if parse_domain(contents.get('source_url') or '') != 'arxiv.org':
             return self.make_data_entry({
                 'source': self.name,
                 'url': self.get_item_key(item),
@@ -297,4 +299,4 @@ class IndicesDataset(AlignmentDataset):
             'title': item.get('title'),
             'date_published': self._get_published_date(item.get('date_published')),
             'authors': self.extract_authors(item),
-        }, **metadata)
+        }, **contents)

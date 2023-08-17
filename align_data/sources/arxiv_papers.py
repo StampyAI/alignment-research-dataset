@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 import arxiv
 from align_data.sources.articles.pdf import fetch_pdf, parse_vanity
@@ -32,13 +32,15 @@ def canonical_url(url: str) -> str:
     return url
 
 
-def get_contents(paper_id: str) -> dict:
-    for link in [
-        f"https://www.arxiv-vanity.com/papers/{paper_id}",
-        f"https://ar5iv.org/abs/{paper_id}",
-    ]:
-        if contents := parse_vanity(link):
-            return contents
+def get_contents(paper_id: str) -> Dict[str, Any]:
+    arxiv_vanity = parse_vanity(f"https://www.arxiv-vanity.com/papers/{paper_id}")
+    if 'error' not in arxiv_vanity:
+        return arxiv_vanity
+
+    ar5iv = parse_vanity(f"https://ar5iv.org/abs/{paper_id}")
+    if 'error' not in ar5iv:
+        return ar5iv
+
     return fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
 
 
@@ -72,7 +74,7 @@ def add_metadata(data, paper_id):
     }, **data)
 
 
-def fetch(url) -> Dict:
+def fetch_arxiv(url) -> Dict:
     paper_id = get_id(url)
     if not paper_id:
         return {'error': 'Could not extract arxiv id'}

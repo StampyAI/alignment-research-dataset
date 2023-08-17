@@ -18,7 +18,7 @@ from align_data.sources.articles.parsers import (
     HTML_PARSERS, extract_gdrive_contents, item_metadata, parse_domain
 )
 from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.arxiv_papers import fetch as fetch_arxiv
+from align_data.sources.arxiv_papers import fetch_arxiv
 
 logger = logging.getLogger(__name__)
 

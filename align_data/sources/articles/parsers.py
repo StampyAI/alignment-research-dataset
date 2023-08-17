@@ -7,7 +7,7 @@ from requests.exceptions import ConnectionError, InvalidSchema, MissingSchema
 from align_data.sources.articles.html import element_extractor, fetch, fetch_element
 from align_data.sources.articles.pdf import doi_getter, fetch_pdf, parse_vanity
 from align_data.sources.articles.google_cloud import google_doc, extract_gdrive_contents
-from align_data.sources.arxiv_papers import fetch as get_arxiv_pdf
+from align_data.sources.arxiv_papers import fetch_arxiv
 from align_data.common.html_dataset import HTMLDataset
 
 
@@ -41,7 +41,7 @@ def get_pdf_from_page(*link_selectors: str):
             return extract_gdrive_contents(link)
 
         if parse_domain(link) == "arxiv.org":
-            return get_arxiv_pdf(link)
+            return fetch_arxiv(link)
         if pdf := fetch_pdf(link):
             return pdf
         return {'error': f'Could not fetch pdf from {link}'}
@@ -230,7 +230,7 @@ HTML_PARSERS = {
 PDF_PARSERS = {
     # Domain sepecific handlers
     "apcz.umk.pl": get_pdf_from_page(".galleys_links a.pdf", "a.download"),
-    "arxiv.org": get_arxiv_pdf,
+    "arxiv.org": fetch_arxiv,
     "academic.oup.com": get_pdf_from_page("a.article-pdfLink"),
     "cset.georgetown.edu": get_pdf_from_page('a:-soup-contains("Download Full")'),
     "drive.google.com": extract_gdrive_contents,
