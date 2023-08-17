@@ -2,8 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Tuple, Any
-from urllib.parse import urlparse
+from typing import Dict, Tuple
 
 import pandas as pd
 from gdown.download import download
@@ -18,7 +17,7 @@ from align_data.sources.articles.parsers import (
     HTML_PARSERS, extract_gdrive_contents, item_metadata, parse_domain
 )
 from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.arxiv_papers.arxiv_papers import fetch as fetch_arxiv
+from align_data.sources.articles.arxiv_papers import fetch_arxiv
 
 logger = logging.getLogger(__name__)
 
@@ -95,22 +94,22 @@ class SpecialDocs(SpreadsheetDataset):
         return select(Article).where(Article.source.in_(special_docs_types))
 
     def get_contents(self, item) -> Dict:
-        metadata = {}
+        contents = {}
         if url := self.maybe(item, "source_url") or self.maybe(item, "url"):
-            metadata = item_metadata(url)
+            contents = item_metadata(url)
 
-        return {
+        return dict(contents, **{
             'url': self.maybe(item, "url"),
-            'title': self.maybe(item, "title") or metadata.get('title'),
-            'source': metadata.get('source_type') or self.name,
+            'title': self.maybe(item, "title") or contents.get('title'),
+            'source': contents.get('source_type') or self.name,
             'source_url': self.maybe(item, "source_url"),
-            'source_type': metadata.get('source_type') or self.maybe(item, "source_type"),
-            'date_published': self._get_published_date(item.date_published) or metadata.get('date_published'),
-            'authors': self.extract_authors(item) or metadata.get('authors', []),
-            'text': metadata.get('text'),
-            'status': 'Invalid' if metadata.get('error') else None,
-            'comments': metadata.get('error'),
-        }
+            'source_type': contents.get('source_type') or self.maybe(item, "source_type"),
+            'date_published': self._get_published_date(self.maybe(item, 'date_published')) or contents.get('date_published'),
+            'authors': self.extract_authors(item) or contents.get('authors', []),
+            'text': contents.get('text'),
+            'status': 'Invalid' if contents.get('error') else None,
+            'comments': contents.get('error'),
+        })
 
     def process_entry(self, item):
         if parse_domain(item.url) == "arxiv.org":
@@ -134,9 +133,7 @@ class PDFArticles(SpreadsheetDataset):
         super().setup()
         self.files_path.mkdir(exist_ok=True, parents=True)
 
-    def _get_text(self, item) -> str | None:
-        url = f"https://drive.google.com/uc?id={item.file_id}"
-
+    def _get_text(self, item):
         filename = self.files_path / f"{item.title}.pdf"
         if download(output=str(filename), id=item.file_id):
             return read_pdf(filename)
@@ -149,7 +146,8 @@ class HTMLArticles(SpreadsheetDataset):
     def _get_text(item):
         domain = parse_domain(item.source_url)
         if parser := HTML_PARSERS.get(domain):
-            return parser(item.source_url)
+            res = parser(item.source_url)
+            return res and res.get('text')
 
 
 class EbookArticles(SpreadsheetDataset):

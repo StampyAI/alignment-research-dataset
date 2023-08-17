@@ -144,10 +144,10 @@ def doi_getter(url: str) -> Dict[str, Any]:
     return get_doi(urlparse(url).path.lstrip("/"))
 
 
-def parse_vanity(url: str) -> Dict[str, Any] | None:
+def parse_vanity(url: str) -> Dict[str, Any]:
     contents = fetch_element(url, "article")
     if not contents:
-        return None
+        return {"error": "Could not find article contents"}
 
     selected_title = contents.select_one("h1.ltx_title")
     title = selected_title.text if selected_title else None

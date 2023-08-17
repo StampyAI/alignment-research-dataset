@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Optional, Dict, Literal, Optional, Callable, List
+from typing import Optional, Dict, Literal, Optional, Any, List
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -66,14 +66,18 @@ def element_extractor(selector: str, remove: Optional[List[str]] = None):
     """
     remove = remove or []
 
-    def getter(url: str) -> str | None:
+    def getter(url: str) -> Dict[str, Any]:
         elem = fetch_element(url, selector)
         if not elem:
-            return None
+            return {}
 
         for sel in remove:
             for e in elem.select(sel):
                 e.extract()
-        return MarkdownConverter().convert_soup(elem).strip()
+        return {
+            'text': MarkdownConverter().convert_soup(elem).strip(),
+            'source_url': url,
+            'source_type': 'html',
+        }
 
     return getter

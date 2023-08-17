@@ -2,7 +2,7 @@ import logging
 import time
 from collections import UserDict
 from pathlib import Path
-from typing import Optional, Dict, Any, Iterator, Union, List, Set
+from typing import Dict, Any, Iterator, Union, List, Set
 import re
 
 import requests
@@ -16,8 +16,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from markdownify import MarkdownConverter
-
-from align_data.sources.articles.html import fetch, fetch_element, element_extractor
+from align_data.sources.articles.html import fetch, fetch_element
 from align_data.sources.articles.pdf import fetch_pdf
 
 logger = logging.getLogger(__name__)
@@ -245,13 +244,15 @@ def extract_gdrive_contents(link: str) -> Dict[str, Any]:
     return result
 
 
-def google_doc(url: str) -> str | None:
+def google_doc(url: str) -> Dict[str, Any]:
     """Fetch the contents of the given gdoc url as markdown."""
     res = re.search(r'https://docs.google.com/document/(?:u/)?(?:0/)?d/(.*?)/', url)
     if not res:
-        return None
+        return {}
 
     doc_id = res.group(1)
     body = fetch_element(f'https://docs.google.com/document/d/{doc_id}/export?format=html', 'body')
-    
-    return body and MarkdownConverter().convert_soup(body).strip()
+
+    if body:
+        return {'text': MarkdownConverter().convert_soup(body).strip(), 'source_url': url}
+    return {}

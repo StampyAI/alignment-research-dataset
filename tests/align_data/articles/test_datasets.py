@@ -51,7 +51,7 @@ def mock_arxiv():
     arxiv = Mock()
     arxiv.Search.return_value.results.return_value = iter([metadata])
 
-    with patch("align_data.sources.arxiv_papers.arxiv_papers.arxiv", arxiv):
+    with patch("align_data.sources.articles.arxiv_papers.arxiv", arxiv):
         yield
 
 
@@ -130,7 +130,7 @@ def test_pdf_articles_process_item(articles):
 def test_html_articles_get_text():
     def parser(url):
         assert url == "http://example.org/bla.bla"
-        return "html contents"
+        return {'text': "html contents"}
 
     with patch(
         "align_data.sources.articles.datasets.HTML_PARSERS", {"example.org": parser}
@@ -155,7 +155,7 @@ def test_html_articles_process_entry(articles):
         item = list(dataset.items_list)[0]
 
     parsers = {
-        "example.com": lambda _: '   html contents with <a href="bla.com">proper elements</a> ble ble   '
+        "example.com": lambda _: {'text': '   html contents with <a href="bla.com">proper elements</a> ble ble   '}
     }
     with patch("align_data.sources.articles.datasets.HTML_PARSERS", parsers):
         assert dataset.process_entry(item).to_dict() == {
@@ -335,7 +335,7 @@ def test_arxiv_process_entry(_, mock_arxiv):
         "source_type": "html",
     }
     with patch(
-        "align_data.sources.arxiv_papers.arxiv_papers.parse_vanity", return_value=contents
+        "align_data.sources.articles.arxiv_papers.parse_vanity", return_value=contents
     ):
         assert dataset.process_entry(item).to_dict() == {
             "comment": "no comment",
@@ -450,7 +450,7 @@ def test_special_docs_process_entry_arxiv(_, mock_arxiv):
     }
 
     with patch(
-        "align_data.sources.arxiv_papers.arxiv_papers.parse_vanity", return_value=contents
+        "align_data.sources.articles.arxiv_papers.parse_vanity", return_value=contents
     ):
         assert dataset.process_entry(item).to_dict() == {
             "comment": "no comment",

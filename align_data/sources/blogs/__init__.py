@@ -1,5 +1,4 @@
 from align_data.sources.blogs.wp_blog import WordpressBlog
-from align_data.sources.blogs.medium_blog import MediumBlog
 from align_data.sources.blogs.gwern_blog import GwernBlog
 from align_data.sources.blogs.blogs import (
     ColdTakes,
@@ -10,6 +9,7 @@ from align_data.sources.blogs.blogs import (
     DeepMindTechnicalBlog,
 )
 from align_data.sources.blogs.substack_blog import SubstackBlog
+from align_data.sources.articles.parsers import MediumParser
 
 
 BLOG_REGISTRY = [
@@ -19,7 +19,7 @@ BLOG_REGISTRY = [
     WordpressBlog(name="jsteinhardt_blog", url="https://jsteinhardt.wordpress.com"),
     WordpressBlog(name="vkrakovna_blog", url="https://vkrakovna.wordpress.com"),
     WordpressBlog(name="yudkowsky_blog", url="https://yudkowsky.net"),
-    MediumBlog(
+    MediumParser(
         name="deepmind_blog",
         url="https://deepmindsafetyresearch.medium.com/",
         authors=["DeepMind Safety Research"],
