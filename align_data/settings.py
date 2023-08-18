@@ -1,5 +1,7 @@
 import os
 import logging
+import openai
+import torch
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,7 +26,7 @@ METADATA_OUTPUT_SPREADSHEET = os.environ.get(
     "METADATA_OUTPUT_SPREADSHEET", "1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4"
 )
 
-### YouTube ###
+### YOUTUBE ###
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
 ### MYSQL ###
@@ -44,6 +46,8 @@ EMBEDDING_LENGTH_BIAS = {
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 OPENAI_EMBEDDINGS_DIMS = 1536
 OPENAI_EMBEDDINGS_RATE_LIMIT = 3500
+openai.api_key = os.environ["OPENAI_API_KEY"]
+openai.organization = os.environ["OPENAI_ORGANIZATION"]
 
 SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL = "sentence-transformers/multi-qa-mpnet-base-cos-v1"
 SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS = 768
@@ -60,6 +64,11 @@ PINECONE_VALUES_DIMS = (
 PINECONE_METRIC = "dotproduct"
 PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "authors", "text", "url"]
 
+### FINE-TUNING ###
+OPENAI_FINETUNED_LAYER_PATH = os.environ.get("OPENAI_FINETUNED_LAYER_PATH", "align_data/finetuning/data/finetuned_model.pth")
+OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH = os.environ.get("OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH", "align_data/finetuning/data/best_finetuned_model.pth")
+
 ### MISCELLANEOUS ###
 CHUNK_SIZE = 1750
 MAX_NUM_AUTHORS_IN_SIGNATURE = 3
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
