@@ -1,7 +1,7 @@
 # dataset/pinecone_db_handler.py
 
 import logging
-from typing import Dict
+from typing import Dict, List, Tuple, Union
 
 import pinecone
 
@@ -89,3 +89,25 @@ class PineconeDB:
         if self.index_name in pinecone.list_indexes():
             logger.info(f"Deleting index '{self.index_name}'.")
             pinecone.delete_index(self.index_name)
+
+    def get_embeddings_by_ids(self, ids: List[str]) -> List[Tuple[str, Union[List[float], None]]]:
+        """
+        Fetch the embedding for a given entry ID from Pinecone.
+
+        Args:
+        - entry_id (str): The ID of the entry for which the embedding is to be fetched.
+
+        Returns:
+        - np.array: The embedding vector for the given entry ID.
+        """
+        vectors = self.index.fetch(ids=ids)['vectors']
+
+        embeddings = []
+        for id in ids:
+            if id in vectors:
+                embedding = vectors[id].values
+            else:
+                embedding = None
+            embeddings.append((id, embedding))
+        
+        return embeddings
