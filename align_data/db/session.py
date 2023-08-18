@@ -10,11 +10,12 @@ from align_data.db.models import Article
 
 logger = logging.getLogger(__name__)
 
+ENGINE = create_engine(DB_CONNECTION_URI, echo=False)
+
 
 @contextmanager
 def make_session(auto_commit=False):
-    engine = create_engine(DB_CONNECTION_URI, echo=False)
-    with Session(engine).no_autoflush as session:
+    with Session(ENGINE).no_autoflush as session:
         yield session
         if auto_commit:
             session.commit()
