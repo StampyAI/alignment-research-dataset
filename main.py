@@ -9,10 +9,12 @@ from align_data import ALL_DATASETS, get_dataset
 from align_data.analysis.count_tokens import count_token
 from align_data.sources.articles.articles import update_new_items, check_new_articles, update_articles
 from align_data.pinecone.update_pinecone import PineconeUpdater
+from align_data.finetuning.model import finetune_embeddings
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,
     METADATA_SOURCE_SPREADSHEET,
+    USE_OPENAI_EMBEDDINGS
 )
 
 
@@ -134,14 +136,12 @@ class AlignmentDataset:
         names = [name for name in ALL_DATASETS if name not in skip]
         PineconeUpdater().update(names)
 
-    def finetune_embeddings_tests(self) -> None:
+    def train_finetuning_layer(self) -> None:
         """
-        This function tests the finetune_embeddings function
+        This function trains a finetuning layer on top of the OpenAI embeddings.
         """
-        from align_data.finetuning.finetune_model import finetune_embeddings
-        
         finetune_embeddings()
-        
+
 
 if __name__ == "__main__":
     fire.Fire(AlignmentDataset)
