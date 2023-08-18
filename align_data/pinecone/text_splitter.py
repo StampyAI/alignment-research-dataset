@@ -49,6 +49,11 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
 
     def split_text(self, text: str) -> List[str]:
         """Split text into chunks of length between min_chunk_size and max_chunk_size."""
+        if not text:
+            return []
+        if not isinstance(text, str):
+            raise TypeError(f"Expected str, got {type(text)}")
+        
         blocks: List[str] = []
         current_block: str = ""
 
