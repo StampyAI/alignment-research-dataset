@@ -1,5 +1,5 @@
 import pytest
-from align_data.sources.arxiv_papers.arxiv_papers import get_id, canonical_url, get_version
+from align_data.sources.arxiv_papers import get_id, canonical_url, get_version
 
 
 @pytest.mark.parametrize(

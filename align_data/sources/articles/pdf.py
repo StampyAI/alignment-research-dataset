@@ -1,6 +1,7 @@
 import io
 import logging
 from urllib.parse import urlparse
+from typing import Dict, Any
 
 import requests
 from PyPDF2 import PdfReader
@@ -105,10 +106,6 @@ def get_arxiv_link(doi):
     return vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
 
 
-def get_arxiv_pdf(link):
-    return fetch_pdf(link.replace("/abs/", "/pdf/"))
-
-
 def get_doi(doi):
     """Get the article with the given `doi`.
 
@@ -134,10 +131,10 @@ def doi_getter(url):
     return get_doi(urlparse(url).path.lstrip("/"))
 
 
-def parse_vanity(url):
+def parse_vanity(url) -> Dict[str, Any]:
     contents = fetch_element(url, "article")
     if not contents:
-        return None
+        return {'error': 'Could not fetch from arxiv vanity'}
 
     if title := contents.select_one("h1.ltx_title"):
         title = title.text

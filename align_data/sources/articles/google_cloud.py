@@ -2,7 +2,7 @@ import logging
 import time
 from collections import UserDict
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 import regex as re
 
 import gdown
@@ -13,7 +13,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from markdownify import MarkdownConverter
-from align_data.sources.articles.html import element_extractor, fetch, fetch_element
+from align_data.sources.articles.html import fetch, fetch_element
 from align_data.sources.articles.pdf import fetch_pdf
 
 logger = logging.getLogger(__name__)
@@ -202,7 +202,6 @@ def extract_gdrive_contents(link):
     elif content_type & {'text/html'}:
         res = fetch(url)
         if 'Google Drive - Virus scan warning' in res.text:
-            element_extractor('form')
             soup = BeautifulSoup(res.content, "html.parser")
             res = fetch(soup.select_one('form').get('action'))
 
@@ -223,13 +222,14 @@ def extract_gdrive_contents(link):
     return result
 
 
-def google_doc(url: str) -> Optional[str]:
+def google_doc(url: str) -> Dict:
     """Fetch the contents of the given gdoc url as markdown."""
     res = re.search(r'https://docs.google.com/document/(?:u/)?(?:0/)?d/(.*?)/', url)
     if not res:
-        return None
+        return {}
 
     doc_id = res.group(1)
     body = fetch_element(f'https://docs.google.com/document/d/{doc_id}/export?format=html', 'body')
     if body:
-        return MarkdownConverter().convert_soup(body).strip()
+        return {'text': MarkdownConverter().convert_soup(body).strip(), 'source_url': url}
+    return {}
