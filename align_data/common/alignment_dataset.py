@@ -2,7 +2,7 @@ from datetime import datetime
 from itertools import islice
 import logging
 import time
-from dataclasses import dataclass, field, KW_ONLY
+from dataclasses import dataclass, KW_ONLY
 from pathlib import Path
 from typing import Iterable, List, Optional, Set
 from sqlalchemy import select
@@ -60,9 +60,6 @@ class AlignmentDataset:
     """Used internally for writing debugging info - each file write will increment it"""
     _outputted_items = set()
     """A set of the ids of all previously processed items"""
-    _: KW_ONLY
-    id_fields: List[str] = field(default_factory=lambda: ["url", "title"])
-    """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
 
     def __str__(self) -> str:
         return self.name
@@ -87,7 +84,7 @@ class AlignmentDataset:
         authors = data.pop("authors", [])
 
         article = Article(
-            id_fields=self.id_fields,
+            pinecone_update_required=True,
             meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )
@@ -176,6 +173,13 @@ class AlignmentDataset:
                 for item in session.scalars(select(Article.meta)).all()
             }
 
+    def not_processed(self, item):
+        # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
+        # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
+        # this function runs a query to check if the item is in the database rather than first getting all done_keys.
+        # If it get's to that level, consider batching it somehow
+        return self.get_item_key(item) not in self._outputted_items
+
     def unprocessed_items(self, items=None) -> Iterable:
         """Return a list of all items to be processed.
 
@@ -184,14 +188,7 @@ class AlignmentDataset:
         """
         self.setup()
 
-        def not_processed(item):
-            # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
-            # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
-            # this function runs a query to check if the item is in the database rather than first getting all done_keys.
-            # If it get's to that level, consider batching it somehow
-            return self.get_item_key(item) not in self._outputted_items
-
-        filtered = filter(not_processed, items or self.items_list)
+        filtered = filter(self.not_processed, items or self.items_list)
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice
         if not self.lazy_eval:
@@ -204,6 +201,12 @@ class AlignmentDataset:
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)
             if not entry:
+                continue
+
+            try:
+                entry.verify_id_fields()
+            except AssertionError as e:
+                logger.error(e)
                 continue
 
             yield entry

@@ -16,10 +16,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
+from sqlalchemy.ext.hybrid import hybrid_property
 from align_data.settings import PINECONE_METADATA_KEYS
 
 
 logger = logging.getLogger(__name__)
+OK_STATUS = None
 
 
 class Base(DeclarativeBase):
@@ -66,12 +68,6 @@ class Article(Base):
         back_populates="article", cascade="all, delete-orphan"
     )
 
-    __id_fields = ["url", "title"]
-
-    def __init__(self, *args, id_fields, **kwargs):
-        self.__id_fields = id_fields
-        super().__init__(*args, **kwargs)
-
     def __repr__(self) -> str:
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
 
@@ -86,10 +82,18 @@ class Article(Base):
             for key in PINECONE_METADATA_KEYS
         )
 
-    def generate_id_string(self) -> str:
+    def generate_id_string(self) -> bytes:
         return "".join(str(getattr(self, field)) for field in self.__id_fields).encode(
             "utf-8"
         )
+
+    @property
+    def __id_fields(self):
+        if self.source == 'aisafety.info':
+            return ['url']
+        if self.source in ['importai', 'ml_safety_newsletter', 'alignment_newsletter']:
+            return ['url', 'title', 'source']
+        return ["url", "title"]
 
     @property
     def missing_fields(self):
@@ -129,8 +133,27 @@ class Article(Base):
             self.meta = {}
         self.meta[key] = val
 
+    @hybrid_property
+    def is_valid(self):
+        return (
+            self.text and self.text.strip() and
+            self.url and self.title and
+            self.authors is not None and
+            self.status == OK_STATUS
+        )
+
+    @is_valid.expression
+    def is_valid(cls):
+        return (
+            (cls.status == OK_STATUS)
+            & (cls.text != None)
+            & (cls.url != None)
+            & (cls.title != None)
+            & (cls.authors != None)
+        )
+
     @classmethod
-    def before_write(cls, mapper, connection, target):
+    def before_write(cls, _mapper, _connection, target):
         target.verify_id_fields()
 
         if not target.status and target.missing_fields:
@@ -141,12 +164,6 @@ class Article(Base):
             target.verify_id()
         else:
             target._set_id()
-
-        # This assumes that status pretty much just notes down that an entry is invalid. If it has
-        # all fields set and is being written to the database, then it must have been modified, ergo
-        # should be also updated in pinecone
-        if not target.status:
-            target.pinecone_update_required = True
 
     def to_dict(self):
         if date := self.date_published:

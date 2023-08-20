@@ -13,7 +13,39 @@ from huggingface_hub import HfApi
 GDOCS_FOLDER = (
     "https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8"
 )
-PRIVATE_FILES = ["ebooks.jsonl"]
+DATASOURCES = [
+    'agentmodels',
+    'aiimpacts',
+    'aisafety.camp',
+    'aisafety.info',
+    'ai_alignment_playlist',
+    'ai_explained',
+    'ai_safety_talks',
+    'ai_safety_reading_group',
+    'ai_tech_tu_delft',
+    'alignmentforum',
+    'arbital',
+    'arxiv',
+    'carado.moe',
+    'cold_takes',
+    'deepmind_blog',
+    'deepmind_technical_blog',
+    'distill',
+    'eaforum',
+    'eleuther.ai',
+    'generative.ink',
+    'gwern_blog',
+    'importai',
+    'jsteinhardt_blog',
+    'lesswrong',
+    'miri',
+    'ml_safety_newsletter',
+    'openai.research',
+    'rob_miles_ai_safety',
+    'special_docs',
+    'vkrakovna_blog',
+    'yudkowsky_blog'
+]
 
 
 def upload(api, filename, repo_name):
@@ -45,27 +77,21 @@ def get_gdoc_names(url):
     ]
 
 
-def upload_data_file(api, name, id, repo_name):
-    """Upload the file with the given `name` to HF.
-
-    If the file already exists locally, it will be used. Otherwise it will first be fetched from the GDrive.
-    """
+def upload_data_file(api, name, repo_name):
+    """Upload the file with the given `name` to HF."""
     data = Path("data/")
     filename = data / name
 
     # Don't download it if it exists locally
     if not filename.exists():
-        gdown.download(
-            f"https://drive.google.com/uc?id={id}", str(filename), quiet=False
-        )
-    else:
-        print(f"Using local file at {filename}")
+        print(f'{filename} not found!')
+        return
 
     try:
         # Check that the dowloaded file really contains json lines
         with jsonlines.open(filename) as reader:
             reader.read()
-    except InvalidLineError as e:
+    except (jsonlines.InvalidLineError, EOFError) as e:
         print(e)
     else:
         upload(api, filename, repo_name)
@@ -119,19 +145,17 @@ if __name__ == "__main__":
     # login(sys.argv[1])
     api = HfApi(token=token)
 
-    files = get_gdoc_names(GDOCS_FOLDER)
+    files = DATASOURCES
     if len(sys.argv) > 2 and sys.argv[2] != "all":
-        files = [item for item in files if item[1] == sys.argv[2] + ".jsonl"]
+        files = [item for item in files if item == sys.argv[2]]
 
     data = Path("data/")
-    for id, name in files:
-        upload_data_file(api, name, id, "ard-private")
-        if name not in PRIVATE_FILES:
-            upload_data_file(api, name, id, "alignment-research-dataset")
+    for name in files:
+        upload_data_file(api, name + ".jsonl", "alignment-research-dataset")
 
     update_readme(
         api,
-        [name for _, name in files if name not in PRIVATE_FILES],
+        [name for _, name in files if name in DATASOURCES],
         "alignment-research-dataset",
     )
     update_readme(api, [name for _, name in files], "ard-private")

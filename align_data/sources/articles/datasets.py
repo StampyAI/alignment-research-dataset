@@ -6,6 +6,7 @@ from typing import Dict
 from urllib.parse import urlparse
 
 import pandas as pd
+from align_data.sources.articles import articles
 from gdown.download import download
 from markdownify import markdownify
 from pypandoc import convert_file
@@ -18,7 +19,7 @@ from align_data.sources.articles.parsers import (
     HTML_PARSERS, extract_gdrive_contents, item_metadata, parse_domain
 )
 from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.arxiv_papers import fetch_arxiv
+from align_data.sources.arxiv_papers import fetch_arxiv, canonical_url as arxiv_cannonical_url
 
 logger = logging.getLogger(__name__)
 
@@ -108,16 +109,24 @@ class SpecialDocs(SpreadsheetDataset):
             'comments': contents.get('error'),
         })
 
+    def not_processed(self, item):
+        url = self.maybe(item, 'url')
+        source_url = self.maybe(item, 'source_url')
+
+        return (
+            self.get_item_key(item) not in self._outputted_items and
+            url not in self._outputted_items and
+            source_url not in self._outputted_items and
+            (not url or arxiv_cannonical_url(url) not in self._outputted_items) and
+            (not source_url or arxiv_cannonical_url(source_url) not in self._outputted_items)
+        )
+
     def process_entry(self, item):
-        if parse_domain(item.url) == "arxiv.org":
+        if ArxivPapers.is_arxiv(item.url):
             contents = ArxivPapers.get_contents(item)
             contents['source'] = 'arxiv'
         else:
             contents = self.get_contents(item)
-
-        # Skip items that can't be saved because missing fields
-        if not all(contents.get(key) for key in self.id_fields):
-            return None
 
         return self.make_data_entry(contents)
 
@@ -202,6 +211,10 @@ class DocArticles(SpreadsheetDataset):
 
 class ArxivPapers(SpreadsheetDataset):
     COOLDOWN: int = 1
+
+    @staticmethod
+    def is_arxiv(url):
+        return parse_domain(url) == "arxiv.org"
 
     @classmethod
     def get_contents(cls, item) -> Dict:

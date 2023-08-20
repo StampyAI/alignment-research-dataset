@@ -45,12 +45,10 @@ BLOG_REGISTRY = [
     SubstackBlog(
         name="importai",
         url="https://importai.substack.com",
-        id_fields=["url", "title", "source"],
     ),
     SubstackBlog(
         name="ml_safety_newsletter",
         url="https://newsletter.mlsafety.org",
-        id_fields=["url", "title", "source"],
     ),
     EleutherAI(name="eleuther.ai", url="https://blog.eleuther.ai/"),
     OpenAIResearch(name="openai.research", url="https://openai.com/research"),
