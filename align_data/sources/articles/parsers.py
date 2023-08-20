@@ -302,7 +302,9 @@ def item_metadata(url) -> Dict[str, any]:
             return {"error": "No domain handler defined"}
         return {"error": "could not parse url"}
     elif content_type & {"application/octet-stream", "application/pdf"}:
-        # this looks like it could be a pdf - try to download it as one
+        if domain == 'arxiv.org':
+            return fetch_arxiv(url)
+        # just download it as a pdf
         return fetch_pdf(url)
     elif content_type & {"application/epub+zip", "application/epub"}:
         # it looks like an ebook. Assume it's fine.
