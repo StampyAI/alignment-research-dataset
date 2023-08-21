@@ -1,6 +1,7 @@
-import requests
-import logging
 from dataclasses import dataclass
+import logging
+
+import requests
 
 from align_data.common.html_dataset import HTMLDataset
 

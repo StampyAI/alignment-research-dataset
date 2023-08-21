@@ -6,7 +6,6 @@ from typing import Dict, Tuple
 from urllib.parse import urlparse
 
 import pandas as pd
-from align_data.sources.articles import articles
 from gdown.download import download
 from markdownify import markdownify
 from pypandoc import convert_file

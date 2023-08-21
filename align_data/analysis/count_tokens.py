@@ -1,9 +1,8 @@
 from typing import Tuple
+import logging
 
 from transformers import AutoTokenizer
 import jsonlines
-import logging
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,10 @@
-from align_data.common.alignment_dataset import AlignmentDataset
 from dataclasses import dataclass
-from git import Repo
 import logging
 from datetime import timezone
+
+from git import Repo
+
+from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
 

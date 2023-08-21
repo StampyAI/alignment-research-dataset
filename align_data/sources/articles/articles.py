@@ -21,7 +21,6 @@ from align_data.sources.articles.html import with_retry
 from align_data.sources.articles.updater import ReplacerDataset
 from align_data.settings import PDFS_FOLDER_ID
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -48,8 +47,6 @@ def save_pdf(filename, link):
         parent_id=PDFS_FOLDER_ID,
     )
 
-# Sometimes the api takes 2-3 minutes before it starts working again
-# During those times you can set times=10
 @with_retry(times=3, exceptions=gspread.exceptions.APIError)
 def process_row(row: SheetRow, sheets: Dict[str, Worksheet]):
     """Check the given `row` and fetch its metadata + optional extra stuff."""

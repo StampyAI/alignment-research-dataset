@@ -5,9 +5,8 @@ import time
 from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Set, Iterable, Tuple, Generator
-import pytz
-from datetime import datetime
 
+import pytz
 from sqlalchemy import select, Select, JSON
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, Session
