@@ -4,7 +4,6 @@ import numpy as np
 from itertools import islice
 from typing import Callable, List, Tuple, Generator
 
-import openai
 from pydantic import BaseModel, ValidationError, validator
 
 from align_data.common.utils import get_embeddings

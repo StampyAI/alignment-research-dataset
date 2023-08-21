@@ -2,12 +2,14 @@ import logging
 from urllib.parse import urlparse, urljoin
 from typing import Dict
 
-from markdownify import MarkdownConverter
 from requests.exceptions import ConnectionError, InvalidSchema, MissingSchema
 
 from align_data.sources.articles.html import element_extractor, fetch, fetch_element
-from align_data.sources.articles.pdf import doi_getter, fetch_pdf, get_arxiv_pdf, parse_vanity
+from align_data.sources.articles.pdf import doi_getter, fetch_pdf, parse_vanity
 from align_data.sources.articles.google_cloud import google_doc, extract_gdrive_contents
+from align_data.sources.arxiv_papers import fetch_arxiv
+from align_data.common.html_dataset import HTMLDataset
+
 
 logger = logging.getLogger(__name__)
 
@@ -38,33 +40,47 @@ def get_pdf_from_page(*link_selectors: str):
         if 'drive.google.com' in link and '/view' in link:
             return extract_gdrive_contents(link)
 
+        if parse_domain(link) == "arxiv.org":
+            return fetch_arxiv(link)
         if pdf := fetch_pdf(link):
             return pdf
         return {'error': f'Could not fetch pdf from {link}'}
     return getter
 
 
-def medium_blog(url):
-    """Return the contents of the medium article at the given URL as markdown."""
-    # Medium does some magic redirects if it detects that the request is from firefox
-    article = fetch_element(url, "article", headers=None)
-    if not article:
-        return None
+class MediumParser(HTMLDataset):
+    """
+    Fetches articles from a Medium blog.
 
-    # remove the header
-    title = article.find('h1')
-    if title and title.parent:
-        title.parent.extract()
+    Pulls Medium articles by walking the archive. Depending on the activity of the blog
+    during a particular year, the archive for the year may consist of a single page only, or
+    may have daily pages. A single blog can use different layouts for different years.
 
-    return MarkdownConverter().convert_soup(article).strip()
+    Also, if the blog had few posts overall, an archive may not exist at all. In that case,
+    the main page is used to fetch the articles. The entries are assumed to fit onto
+    a single page, which seems to be the case for blogs without an archive.
+
+    It is possible that there is additional variation in the layout that hasn't been represented
+    in the blogs tested so far. In that case, additional fixes to this code may be needed.
+    """
+
+    source_type = "MediumParser(name='html', url='')"
+    ignored_selectors = ["div:first-child span"]
+
+    def _get_published_date(self, contents):
+        possible_date_elements = contents.select("article div:first-child span")
+        return self._find_date(possible_date_elements)
+
+    def __call__(self, url):
+        return self.get_contents(url)
 
 
 def error(error_msg):
     """Returns a url handler function that just logs the provided `error` string."""
-    def func(_url):
+    def func(url):
         if error_msg:
             logger.error(error_msg)
-        return error_msg
+        return {'error': error_msg, 'source_url': url}
 
     return func
 
@@ -113,7 +129,7 @@ HTML_PARSERS = {
     "mediangroup.org": element_extractor("div.entry-content"),
     "www.alexirpan.com": element_extractor("article"),
     "www.incompleteideas.net": element_extractor("body"),
-    "ai-alignment.com": medium_blog,
+    "ai-alignment.com": MediumParser(name='html', url='ai-alignment.com'),
     "aisrp.org": element_extractor("article"),
     "bounded-regret.ghost.io": element_extractor("div.post-content"),
     "carnegieendowment.org": element_extractor(
@@ -123,7 +139,7 @@ HTML_PARSERS = {
         ".entry-content", remove=["div.sharedaddy"]
     ),
     "cullenokeefe.com": element_extractor("div.sqs-block-content"),
-    "deepmindsafetyresearch.medium.com": medium_blog,
+    "deepmindsafetyresearch.medium.com": MediumParser(name='html', url='deepmindsafetyresearch.medium.com'),
     "docs.google.com": google_doc,
     "docs.microsoft.com": element_extractor("div.content"),
     "digichina.stanford.edu": element_extractor("div.h_editor-content"),
@@ -138,7 +154,7 @@ HTML_PARSERS = {
     "link.springer.com": element_extractor("article.c-article-body"),
     "longtermrisk.org": element_extractor("div.entry-content"),
     "lukemuehlhauser.com": element_extractor("div.entry-content"),
-    "medium.com": medium_blog,
+    "medium.com": MediumParser(name='html', url='medium.com'),
     "openai.com": element_extractor("#content"),
     "ought.org": element_extractor("div.BlogPostBodyContainer"),
     "sideways-view.com": element_extractor("article", remove=["header"]),
@@ -153,7 +169,7 @@ HTML_PARSERS = {
     ),
     "theconversation.com": element_extractor("div.content-body"),
     "thegradient.pub": element_extractor("div.c-content"),
-    "towardsdatascience.com": medium_blog,
+    "towardsdatascience.com": MediumParser(name='html', url='towardsdatascience.com'),
     "unstableontology.com": element_extractor(
         ".entry-content", remove=["div.sharedaddy"]
     ),
@@ -214,7 +230,7 @@ HTML_PARSERS = {
 PDF_PARSERS = {
     # Domain sepecific handlers
     "apcz.umk.pl": get_pdf_from_page(".galleys_links a.pdf", "a.download"),
-    "arxiv.org": get_arxiv_pdf,
+    "arxiv.org": fetch_arxiv,
     "academic.oup.com": get_pdf_from_page("a.article-pdfLink"),
     "cset.georgetown.edu": get_pdf_from_page('a:-soup-contains("Download Full")'),
     "drive.google.com": extract_gdrive_contents,
@@ -254,7 +270,7 @@ def parse_domain(url: str) -> str:
     return url and urlparse(url).netloc.lstrip('www.')
 
 
-def item_metadata(url) -> Dict[str, str]:
+def item_metadata(url) -> Dict[str, any]:
     domain = parse_domain(url)
     try:
         res = fetch(url, 'head')
@@ -267,9 +283,10 @@ def item_metadata(url) -> Dict[str, str]:
         # If the url points to a html webpage, then it either contains the text as html, or
         # there is a link to a pdf on it
         if parser := HTML_PARSERS.get(domain):
-            if res := parser(url):
+            res = parser(url)
+            if res and 'error' not in res:
                 # Proper contents were found on the page, so use them
-                return {'source_url': url, 'source_type': 'html', 'text': res}
+                return res
 
         if parser := PDF_PARSERS.get(domain):
             if res := parser(url):
@@ -277,7 +294,7 @@ def item_metadata(url) -> Dict[str, str]:
                 return res
 
         if parser := UNIMPLEMENTED_PARSERS.get(domain):
-            return {"error": parser(url)}
+            return parser(url)
 
         if domain not in (
             HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()
@@ -285,7 +302,9 @@ def item_metadata(url) -> Dict[str, str]:
             return {"error": "No domain handler defined"}
         return {"error": "could not parse url"}
     elif content_type & {"application/octet-stream", "application/pdf"}:
-        # this looks like it could be a pdf - try to download it as one
+        if domain == 'arxiv.org':
+            return fetch_arxiv(url)
+        # just download it as a pdf
         return fetch_pdf(url)
     elif content_type & {"application/epub+zip", "application/epub"}:
         # it looks like an ebook. Assume it's fine.

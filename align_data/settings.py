@@ -70,4 +70,5 @@ OPENAI_FINETUNED_LAYER_PATH = os.environ.get("OPENAI_FINETUNED_LAYER_PATH", "ali
 OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH = os.environ.get("OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH", "align_data/finetuning/data/best_finetuned_model.pth")
 
 ### MISCELLANEOUS ###
+MIN_CONFIDENCE = 50
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
