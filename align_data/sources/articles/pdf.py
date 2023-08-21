@@ -2,6 +2,7 @@ import io
 import logging
 from urllib.parse import urlparse
 from typing import Dict, Any
+from dateutil.parser import ParserError, parse
 
 import requests
 from PyPDF2 import PdfReader
@@ -149,7 +150,10 @@ def parse_vanity(url) -> Dict[str, Any]:
     ]
 
     if date_published := contents.select_one("div.ltx_dates"):
-        date_published = date_published.text.strip("()")
+        try:
+            date_published = parse(date_published.text.strip("()"))
+        except ParserError:
+            "If the date couldn't be parsed, hope that later phases will be more successful"
 
     text = "\n\n".join(
         MarkdownConverter().convert_soup(elem).strip()
