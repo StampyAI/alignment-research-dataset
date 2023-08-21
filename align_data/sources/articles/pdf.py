@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Any, List
 from urllib.parse import urlparse
 from pathlib import Path
+from typing import Dict, Any
 
 import requests
 from PyPDF2 import PdfReader
@@ -118,24 +119,21 @@ def get_arxiv_link(doi: str) -> str | None:
     return vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
 
 
-def get_arxiv_pdf(link: str) -> Dict[str, Any]:
-    return fetch_pdf(link.replace("/abs/", "/pdf/"))
-
-
 def get_doi(doi: str) -> Dict[str, Any]:
     """Get the article with the given `doi`.
 
     This will look for it in sci-hub and arxiv (if applicable), as those are likely the most
     comprehensive sources of pdfs.
     """
-    if "arXiv" in doi and (link := get_arxiv_pdf(doi)):
-        pdf_contents = fetch_pdf(link)
-        if pdf_contents and "text" in pdf_contents:
-            return {**pdf_contents, "downloaded_from": "arxiv"}
+    if "arXiv" in doi:
+        link = get_arxiv_link(doi)
+        pdf = link and fetch_pdf(link)
+        if pdf and "text" in pdf:
+            return {**pdf, "downloaded_from": "arxiv"}
 
     if link := sci_hub_pdf(doi):
-        if pdf_contents := fetch_pdf(link):
-            return {**pdf_contents, "downloaded_from": "scihub"}
+        if pdf := fetch_pdf(link):
+            return {**pdf, "downloaded_from": "scihub"}
     return {"error": "Could not find pdf of article by DOI"}
 
 
@@ -144,10 +142,10 @@ def doi_getter(url: str) -> Dict[str, Any]:
     return get_doi(urlparse(url).path.lstrip("/"))
 
 
-def parse_vanity(url: str) -> Dict[str, Any] | None:
+def parse_vanity(url: str) -> Dict[str, Any]:
     contents = fetch_element(url, "article")
     if not contents:
-        return None
+        return {'error': 'Could not fetch from arxiv vanity'}
 
     selected_title = contents.select_one("h1.ltx_title")
     title = selected_title.text if selected_title else None

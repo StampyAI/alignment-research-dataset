@@ -89,9 +89,9 @@ def test_html_dataset_items_list(html_dataset):
         ]
 
 
-def test_html_dataset_get_contents(html_dataset):
+def test_html_datasetfetch_contents(html_dataset):
     with patch("requests.get", return_value=Mock(content=SAMPLE_HTML)):
-        assert html_dataset._get_contents("url") == BeautifulSoup(
+        assert html_dataset.fetch_contents("url") == BeautifulSoup(
             SAMPLE_HTML, "html.parser"
         )
 
@@ -232,20 +232,20 @@ def test_rss_dataset_get_text():
     )
 
 
-def test_rss_dataset_get_contents_with_contents():
+def test_rss_datasetfetch_contents_with_contents():
     dataset = RSSDataset(name="bla", url="http://example.org")
     dataset.items = {"http://bla.bla": {"content": "contents"}}
 
-    assert dataset._get_contents("http://bla.bla") == {"content": "contents"}
+    assert dataset.fetch_contents("http://bla.bla") == {"content": "contents"}
 
 
-def test_rss_dataset_get_contents_no_contents():
+def test_rss_datasetfetch_contents_no_contents():
     dataset = RSSDataset(name="bla", url="http://example.org")
     dataset.items = {"http://bla.bla": {}}
 
     contents = "<div>bla</div>"
     with patch("requests.get", return_value=Mock(content=contents)):
-        assert dataset._get_contents("http://bla.bla") == {
+        assert dataset.fetch_contents("http://bla.bla") == {
             "soup": BeautifulSoup(contents, "html.parser")
         }
 

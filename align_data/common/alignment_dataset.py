@@ -31,9 +31,6 @@ class AlignmentDataset:
 
     _: KW_ONLY
 
-    id_fields: List[str] = field(default_factory=lambda: ["url", "title"])
-    """A list of fields to use as the id of the entry. If not set, will use ['url', 'title']"""
-
     # Internal housekeeping variables
     _outputted_items: Set[str] = field(default_factory=set)
     """A set of the ids of all previously processed items"""
@@ -75,7 +72,6 @@ class AlignmentDataset:
         authors = data.pop("authors", [])
 
         article = Article(
-            id_fields=self.id_fields,
             meta={k: v for k, v in data.items() if k not in ARTICLE_MAIN_KEYS and v is not None},
             **{k: v for k, v in data.items() if k in ARTICLE_MAIN_KEYS},
         )
@@ -168,6 +164,13 @@ class AlignmentDataset:
                 if isinstance(meta, JSON) and meta.get(self.done_key)
             }
 
+    def not_processed(self, item):
+        # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
+        # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
+        # this function runs a query to check if the item is in the database rather than first getting all done_keys.
+        # If it get's to that level, consider batching it somehow
+        return self.get_item_key(item) not in self._outputted_items
+
     def unprocessed_items(self, items=None) -> Iterable:
         """Return a list of all items to be processed.
 
@@ -177,14 +180,7 @@ class AlignmentDataset:
         self.setup()
         items = items or self.items_list
 
-        def not_processed(item):
-            # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
-            # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
-            # this function runs a query to check if the item is in the database rather than first getting all done_keys.
-            # If it get's to that level, consider batching it somehow
-            return self.get_item_key(item) not in self._outputted_items
-
-        items_to_process = filter(not_processed, items)
+        items_to_process = filter(self.not_processed, items)
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice
         if not self.lazy_eval:
@@ -197,6 +193,12 @@ class AlignmentDataset:
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)
             if not entry:
+                continue
+
+            try:
+                entry.verify_id_fields()
+            except AssertionError as e:
+                logger.error(e)
                 continue
 
             yield entry

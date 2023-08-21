@@ -134,7 +134,6 @@ def test_process_entry(csv_file):
         text='this should be changed',
         authors='this should be changed',
         date_published='this should be changed',
-        id_fields=['url', 'title'],
     )
 
     updates = Mock(
@@ -175,7 +174,6 @@ def test_process_entry_empty(csv_file):
 
         text='this should be changed',
         date_published='this should be changed',
-        id_fields=['url', 'title'],
     )
 
     updates = Mock(

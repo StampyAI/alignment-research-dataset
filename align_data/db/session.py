@@ -1,8 +1,8 @@
 from typing import List, Generator
 import logging
 
-from contextlib import contextmanager, AbstractContextManager
-from sqlalchemy import create_engine, Engine
+from contextlib import contextmanager
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from align_data.settings import DB_CONNECTION_URI
@@ -20,12 +20,13 @@ def make_session(auto_commit: bool = False) -> Generator[Session, None, None]:
             session.commit()
 
 
-def stream_pinecone_updates(session, custom_sources: List[str]) -> Generator[Article, None, None]:
+def stream_pinecone_updates(session: Session, custom_sources: List[str]) -> Generator[Article, None, None]:
     """Yield Pinecone entries that require an update."""
     yield from (
         session
         .query(Article)
         .filter(Article.pinecone_update_required.is_(True))
+        .filter(Article.is_valid)
         .filter(Article.source.in_(custom_sources))
         .yield_per(1000)
-        )
+    )

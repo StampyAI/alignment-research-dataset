@@ -54,30 +54,32 @@ class HTMLDataset(AlignmentDataset):
     def _extra_values(self, contents: BeautifulSoup):
         return {}
 
-    def process_entry(self, article: Tag):
-        article_url = self.get_item_key(article)
-        contents = self._get_contents(article_url)
+    def get_contents(self, article_url: str):
+        contents = self.fetch_contents(article_url)
 
         title = self._get_title(contents)
         date_published = self._get_published_date(contents)
-        text = self._get_text(contents)
-        if not text:
+
+        return {
+            "text": self._get_text(contents),
+            "url": article_url,
+            "title": title,
+            "source": self.name,
+            "source_type": "blog",
+            "date_published": date_published,
+            "authors": self.extract_authors(contents),
+            **self._extra_values(contents),
+        }
+
+    def process_entry(self, article):
+        article_url = self.get_item_key(article)
+        contents = self.get_contents(article_url)
+        if not contents.get('text'):
             return None
 
-        return self.make_data_entry(
-            {
-                "text": text,
-                "url": article_url,
-                "title": title,
-                "source": self.name,
-                "source_type": "blog",
-                "date_published": date_published,
-                "authors": self.extract_authors(contents),
-                **self._extra_values(contents),
-            }
-        )
+        return self.make_data_entry(contents)
 
-    def _get_contents(self, url: str):
+    def fetch_contents(self, url: str):
         logger.info("Fetching {}".format(url))
         resp = requests.get(url, allow_redirects=True)
         return BeautifulSoup(resp.content, "html.parser")
@@ -88,6 +90,9 @@ class HTMLDataset(AlignmentDataset):
 
     def _get_text(self, contents):
         article = contents.select_one(self.text_selector)
+        if not article:
+            return None
+
         for selector in self.ignored_selectors:
             for elem in article.select(selector):
                 elem.extract()
@@ -130,7 +135,7 @@ class RSSDataset(HTMLDataset):
         text = item.get("content") and item["content"][0].get("value")
         return self._extract_markdown(text)
 
-    def _get_contents(self, url: str):
+    def fetch_contents(self, url: str):
         item = self.items[url]
         if "content" in item:
             return item

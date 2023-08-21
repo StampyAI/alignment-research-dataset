@@ -69,11 +69,15 @@ def element_extractor(selector: str, remove: Optional[List[str]] = None):
     def getter(url: str) -> str | None:
         elem = fetch_element(url, selector)
         if not elem:
-            return None
+            return {}
 
         for sel in remove:
             for e in elem.select(sel):
                 e.extract()
-        return MarkdownConverter().convert_soup(elem).strip()
+        return {
+            'text': MarkdownConverter().convert_soup(elem).strip(),
+            'source_url': url,
+            'source_type': 'html',
+        }
 
     return getter

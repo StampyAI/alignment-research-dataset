@@ -35,11 +35,15 @@ def canonical_url(url: str) -> str:
 
 
 def get_contents(paper_id: str) -> Dict[str, Any]:
-    return (
-        parse_vanity(f"https://www.arxiv-vanity.com/papers/{paper_id}") or
-        parse_vanity(f"https://ar5iv.org/abs/{paper_id}") or
-        fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
-    )
+    arxiv_vanity = parse_vanity(f"https://www.arxiv-vanity.com/papers/{paper_id}")
+    if 'error' not in arxiv_vanity:
+        return arxiv_vanity
+
+    ar5iv = parse_vanity(f"https://ar5iv.org/abs/{paper_id}")
+    if 'error' not in ar5iv:
+        return ar5iv
+
+    return fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
 
 
 def get_version(id: str) -> Optional[str]:
@@ -73,7 +77,7 @@ def add_metadata(data: Dict[str, Any], paper_id: str) -> Dict[str, Any]:
     }, **data)
 
 
-def fetch(url: str) -> Dict[str, Any]:
+def fetch_arxiv(url: str) -> Dict[str, Any]:
     paper_id = get_id(url)
     if not paper_id:
         return {'error': 'Could not extract arxiv id'}
