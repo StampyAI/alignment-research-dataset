@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
-from typing import List
+from typing import List, Dict, Any
 import re
 
 import requests
@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from bs4.element import ResultSet, Tag
 from markdownify import markdownify
 
+from align_data.db.models import Article
 from align_data.common.alignment_dataset import AlignmentDataset
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class HTMLDataset(AlignmentDataset):
     def _extra_values(self, contents: BeautifulSoup):
         return {}
 
-    def get_contents(self, article_url: str):
+    def get_contents(self, article_url: str) -> Dict[str, Any]:
         contents = self.fetch_contents(article_url)
 
         title = self._get_title(contents)
@@ -71,7 +72,7 @@ class HTMLDataset(AlignmentDataset):
             **self._extra_values(contents),
         }
 
-    def process_entry(self, article):
+    def process_entry(self, article: Tag) -> Article:
         article_url = self.get_item_key(article)
         contents = self.get_contents(article_url)
         if not contents.get('text'):
@@ -80,7 +81,7 @@ class HTMLDataset(AlignmentDataset):
         return self.make_data_entry(contents)
 
     def fetch_contents(self, url: str):
-        logger.info("Fetching {}".format(url))
+        logger.info(f"Fetching {url}")
         resp = requests.get(url, allow_redirects=True)
         return BeautifulSoup(resp.content, "html.parser")
 

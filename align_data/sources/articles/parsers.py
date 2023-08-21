@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 ParserFunc = Callable[[str], Dict[str, Any]]
 
 
-
 def get_pdf_from_page(*link_selectors: str):
     """Get a function that receives an `url` to a page containing a pdf link and returns the pdf's contents as text.
 
@@ -75,6 +74,7 @@ class MediumParser(HTMLDataset):
 
     It is possible that there is additional variation in the layout that hasn't been represented
     in the blogs tested so far. In that case, additional fixes to this code may be needed.
+    #TODO: investigate this
     """
 
     source_type = "MediumParser(name='html', url='')"
@@ -84,11 +84,11 @@ class MediumParser(HTMLDataset):
         possible_date_elements = contents.select("article div:first-child span")
         return self._find_date(possible_date_elements)
 
-    def __call__(self, url):
+    def __call__(self, url: str) -> Dict[str, Any]:
         return self.get_contents(url)
 
 
-def error(error_msg: str) -> ParserFunc:
+def error(error_msg: str):
     """Returns a url handler function that just logs the provided `error` string."""
     def func(url: str) -> Dict[str, Any]:
         if error_msg:
@@ -98,11 +98,13 @@ def error(error_msg: str) -> ParserFunc:
     return func
 
 
-def multistrategy(*funcs):
-    """Merges multiple getter functions, returning the result of the first function call to succeed."""
-    """This works for HtmlParsersFuncs or PdfParserFuncs."""
+def multistrategy(*funcs: ParserFunc):
+    """
+    Merges multiple getter functions, returning the result 
+    of the first function call to succeed.
+    """
 
-    def getter(url: str):
+    def getter(url: str) -> Dict[str, Any]:
         for func in funcs:
             res = func(url)
             if res and "error" not in res:
@@ -152,10 +154,8 @@ UNIMPLEMENTED_PARSERS: Dict[str, ParserFunc] = {
 HTML_PARSERS: Dict[str, ParserFunc] = {
     "academic.oup.com": element_extractor("#ContentTab"),
     "ai.googleblog.com": element_extractor("div.post-body.entry-content"),
-    # TODO: arxiv-vanity.com does not output the same type as the other parsers: Dict[str, str] instead of str
-    # ar5iv.labs.arxiv.org too. Are these pdf parsers? not rly, but they don't output the same type as the other html parsers
-    #"arxiv-vanity.com": parse_vanity,
-    #"ar5iv.labs.arxiv.org": parse_vanity,
+    "arxiv-vanity.com": parse_vanity,
+    "ar5iv.labs.arxiv.org": parse_vanity,
     "bair.berkeley.edu": element_extractor("article"),
     "mediangroup.org": element_extractor("div.entry-content"),
     "www.alexirpan.com": element_extractor("article"),

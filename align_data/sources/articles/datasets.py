@@ -19,7 +19,7 @@ from align_data.sources.articles.parsers import (
     HTML_PARSERS, extract_gdrive_contents, item_metadata, parse_domain
 )
 from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.arxiv_papers import fetch_arxiv, canonical_url as arxiv_cannonical_url
+from align_data.sources.arxiv_papers import fetch_arxiv, canonical_url as arxiv_canonical_url
 
 logger = logging.getLogger(__name__)
 
@@ -121,8 +121,8 @@ class SpecialDocs(SpreadsheetDataset):
             self.get_item_key(item) not in self._outputted_items and
             url not in self._outputted_items and
             source_url not in self._outputted_items and
-            (not url or arxiv_cannonical_url(url) not in self._outputted_items) and
-            (not source_url or arxiv_cannonical_url(source_url) not in self._outputted_items)
+            (not url or arxiv_canonical_url(url) not in self._outputted_items) and
+            (not source_url or arxiv_canonical_url(source_url) not in self._outputted_items)
         )
 
     def process_entry(self, item):

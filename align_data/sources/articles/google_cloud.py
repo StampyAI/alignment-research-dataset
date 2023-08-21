@@ -245,7 +245,7 @@ def extract_gdrive_contents(link: str) -> Dict[str, Any]:
     return result
 
 
-def google_doc(url: str) -> str | None:
+def google_doc(url: str) -> Dict[str, Any]:
     """Fetch the contents of the given gdoc url as markdown."""
     res = re.search(r'https://docs.google.com/document/(?:u/)?(?:0/)?d/(.*?)/', url)
     if not res:
