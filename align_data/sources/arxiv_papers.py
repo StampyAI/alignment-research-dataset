@@ -9,6 +9,13 @@ from align_data.sources.articles.html import fetch_element
 logger = logging.getLogger(__name__)
 
 
+def merge_dicts(*dicts):
+    final = {}
+    for d in dicts:
+        final = dict(final, **{k: v for k, v in d.items() if v})
+    return final
+
+
 def get_arxiv_metadata(paper_id) -> arxiv.Result:
     """
     Get metadata from arxiv
@@ -59,7 +66,7 @@ def add_metadata(data, paper_id):
     metadata = get_arxiv_metadata(paper_id)
     if not metadata:
         return {}
-    return dict({
+    return merge_dicts({
         "authors": metadata.authors,
         "title": metadata.title,
         "date_published": metadata.published,
@@ -71,7 +78,7 @@ def add_metadata(data, paper_id):
         "primary_category": metadata.primary_category,
         "categories": metadata.categories,
         "version": get_version(metadata.get_short_id()),
-    }, **data)
+    }, data)
 
 
 def fetch_arxiv(url) -> Dict:
@@ -91,4 +98,4 @@ def fetch_arxiv(url) -> Dict:
     authors = data.get('authors') or paper.get("authors") or []
     data['authors'] = [str(a).strip() for a in authors]
 
-    return dict(data, **paper)
+    return merge_dicts(data, paper)
