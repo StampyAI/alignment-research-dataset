@@ -7,7 +7,7 @@ import gspread
 from gspread.worksheet import Worksheet
 
 from align_data.sources.articles.google_cloud import (
-    Row,
+    SheetRow,
     iterate_rows,
     get_spreadsheet,
     get_sheet,
@@ -51,7 +51,7 @@ def save_pdf(filename, link):
 # Sometimes the api takes 2-3 minutes before it starts working again
 # During those times you can set times=10
 @with_retry(times=3, exceptions=gspread.exceptions.APIError)
-def process_row(row: Row, sheets: Dict[str, Worksheet]):
+def process_row(row: SheetRow, sheets: Dict[str, Worksheet]):
     """Check the given `row` and fetch its metadata + optional extra stuff."""
     logger.info('Checking "%s" at "%s', row["title"], row["url"])
 
@@ -134,7 +134,7 @@ def update_new_items(source_spreadsheet_id: str, source_sheet_name: str, output_
 def check_new_articles(source_spreadsheet_id: str, source_sheet_name: str):
     """Goes through the special indices looking for unseen articles."""
     source_sheet = get_sheet(source_spreadsheet_id, source_sheet_name)
-    current: Dict[str, Row] = {row.get("title"): row for row in iterate_rows(source_sheet)}
+    current: Dict[str, SheetRow] = {row.get("title"): row for row in iterate_rows(source_sheet)}
     logger.info('Found %s articles in the sheet', len(current))
 
     seen_urls = {

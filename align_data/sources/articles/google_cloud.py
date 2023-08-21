@@ -48,7 +48,7 @@ def get_sheet(spreadsheet_id: str, sheet_name: str, credentials: Credentials = N
     return spreadsheet.worksheet(title=sheet_name)
 
 
-class Row(UserDict):
+class SheetRow(UserDict):
     """A row in a Google Sheet."""
     sheet = None # type: Worksheet
     columns = None # type: List[str | None]
@@ -90,13 +90,13 @@ class Row(UserDict):
         self.update_colour(status_col, colour)
 
 
-def iterate_rows(sheet: Worksheet) -> Iterator[Row]:
+def iterate_rows(sheet: Worksheet) -> Iterator[SheetRow]:
     """Iterate over all the rows of the given `sheet`."""
-    Row.set_sheet(sheet)
+    SheetRow.set_sheet(sheet)
 
     # we start the enumeration at 2 to avoid the header row
     for i, row_data in enumerate(sheet.get_all_records(), 2):
-        yield Row(i, row_data)
+        yield SheetRow(i, row_data)
 
 
 def upload_file(filename, bytes_contents, mimetype, parent_id=None):

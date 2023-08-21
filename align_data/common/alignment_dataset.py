@@ -4,7 +4,7 @@ import logging
 import time
 from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Set, Iterable, Tuple
+from typing import List, Optional, Dict, Any, Set, Iterable, Tuple, Union
 import pytz
 from datetime import datetime
 
@@ -27,37 +27,43 @@ class AlignmentDataset:
     """The base dataset class."""
 
     name: str
-    """The name of the dataset"""
+    """The name of the dataset."""
 
     _: KW_ONLY
 
-    # Internal housekeeping variables
-    _outputted_items: Set[str] = field(default_factory=set)
-    """A set of the ids of all previously processed items"""
+    data_path: Union[str, Path] = Path(__file__).parent / "../../data/"
+    """The path where data can be found. Usually a folder."""
 
-    data_path: Path = field(init=False)
+    # Derived paths
     raw_data_path: Path = field(init=False)
     files_path: Path = field(init=False)
-    """The path where data can be found. Usually a folder"""
+
+    # Internal housekeeping variables
+    _outputted_items: Set[str] = field(default_factory=set, init=False)
+    """A set of the ids of all previously processed items."""
 
     done_key = "id"
     """The key of the entry to use as the id when checking if already processed."""
 
     COOLDOWN = 0
-    """An optional cool down between processing entries"""
+    """An optional cool down between processing entries."""
 
     lazy_eval = False
     """Whether to lazy fetch items. This is nice in that it will start processing, but messes up the progress bar."""
+
     batch_size = 20
     """The number of items to collect before flushing to the database."""
 
-    def __str__(self) -> str:
-        return self.name
+    def __post_init__(self):
+        if isinstance(self.data_path, str):
+            self.data_path = Path(self.data_path)
+        self.data_path = self.data_path.resolve()
 
-    def __post_init__(self, data_path: Optional[Path] = None):
-        self.data_path = data_path or (Path(__file__).parent / "../../data/").resolve()
         self.raw_data_path = self.data_path / "raw"
         self.files_path = self.raw_data_path / self.name
+
+    def __str__(self) -> str:
+        return self.name
 
     def _add_authors(self, article: Article, authors: List[str]) -> Article:
         # TODO: Don't keep adding the same authors - come up with some way to reuse them
