@@ -63,3 +63,5 @@ PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "authors", "text", "url
 ### MISCELLANEOUS ###
 CHUNK_SIZE = 1750
 MAX_NUM_AUTHORS_IN_SIGNATURE = 3
+
+MIN_CONFIDENCE = 50
