@@ -93,5 +93,5 @@ class ReplacerDataset(AlignmentDataset):
 
         return article
 
-    def _add_batch(self, session: Session, batch):
+    def _add_batch(self, session: Session, batch: tuple):
         session.add_all(map(session.merge, batch))

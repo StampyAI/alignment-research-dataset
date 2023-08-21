@@ -111,7 +111,7 @@ class AlignmentDataset:
             for article in result.unique(): # removes duplicates
                 yield article
 
-    def _add_batch(self, session: Session, batch):
+    def _add_batch(self, session: Session, batch: tuple):
         session.add_all(batch)
 
     def add_entries(self, entries):
@@ -253,7 +253,7 @@ class SummaryDataset(AlignmentDataset):
                 )
             )
 
-    def _add_batch(self, session, batch):
+    def _add_batch(self, session: Session, batch: tuple):
         def merge(item):
             if prev := self.articles.get(item.url):
                 return session.merge(item.update(prev))
