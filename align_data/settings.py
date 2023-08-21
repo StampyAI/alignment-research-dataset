@@ -39,8 +39,8 @@ DB_CONNECTION_URI = f"mysql+mysqldb://{user}:{password}@{host}:{port}/{db_name}"
 
 ### EMBEDDINGS ###
 USE_OPENAI_EMBEDDINGS = True  # If false, SentenceTransformer embeddings will be used.
-EMBEDDING_LENGTH_BIAS = {
-    "aisafety.info": 1.05,  # In search, favor AISafety.info entries.
+EMBEDDING_LENGTH_BIAS = {  # TODO: Experiement with these values. For now, let's remove the bias.
+    # "aisafety.info": 1.05,  # In search, favor AISafety.info entries.
 }
 
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
@@ -62,13 +62,12 @@ PINECONE_VALUES_DIMS = (
     else SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS
 )
 PINECONE_METRIC = "dotproduct"
-PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "authors", "text", "url"]
+PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "author", "text", "url", "date"]
+PINECONE_NAMESPACE = os.environ.get("PINECONE_NAMESPACE", "normal")  # If the finetuned layer is used, this should be "finetuned"
 
 ### FINE-TUNING ###
 OPENAI_FINETUNED_LAYER_PATH = os.environ.get("OPENAI_FINETUNED_LAYER_PATH", "align_data/finetuning/data/finetuned_model.pth")
 OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH = os.environ.get("OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH", "align_data/finetuning/data/best_finetuned_model.pth")
 
 ### MISCELLANEOUS ###
-CHUNK_SIZE = 1750
-MAX_NUM_AUTHORS_IN_SIGNATURE = 3
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

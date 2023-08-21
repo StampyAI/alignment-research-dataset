@@ -50,11 +50,11 @@ def get_embeddings(
     list_of_text = [text.replace("\n", " ") for text in list_of_text]
 
     try:
-        if not USE_OPENAI_EMBEDDINGS:
-            embeddings = hf_embeddings.embed_documents(list_of_text)
-        else:
+        if USE_OPENAI_EMBEDDINGS:
             data = openai.Embedding.create(input=list_of_text, engine=engine, **kwargs).data
             embeddings = [d["embedding"] for d in data]
+        else:
+            embeddings = hf_embeddings.embed_documents(list_of_text)
 
         bias = EMBEDDING_LENGTH_BIAS.get(source, 1.0)
         embeddings = bias * np.array(embeddings)
