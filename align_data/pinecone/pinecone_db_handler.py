@@ -92,22 +92,13 @@ class PineconeDB:
 
     def get_embeddings_by_ids(self, ids: List[str]) -> List[Tuple[str, Union[List[float], None]]]:
         """
-        Fetch the embedding for a given entry ID from Pinecone.
+        Fetch embeddings for given entry IDs from Pinecone.
 
         Args:
-        - entry_id (str): The ID of the entry for which the embedding is to be fetched.
+        - ids (List[str]): List of entry IDs for which embeddings are to be fetched.
 
         Returns:
-        - np.array: The embedding vector for the given entry ID.
+        - List[Tuple[str, Union[List[float], None]]]: List of tuples containing ID and its corresponding embedding.
         """
         vectors = self.index.fetch(ids=ids)['vectors']
-
-        embeddings = []
-        for id in ids:
-            if id in vectors:
-                embedding = vectors[id].values
-            else:
-                embedding = None
-            embeddings.append((id, embedding))
-        
-        return embeddings
+        return [(id, vectors.get(id, None)) for id in ids]
