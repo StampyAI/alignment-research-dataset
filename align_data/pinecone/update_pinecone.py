@@ -12,7 +12,6 @@ from align_data.db.models import Article
 from align_data.db.session import make_session, stream_pinecone_updates
 from align_data.pinecone.pinecone_db_handler import PineconeDB
 from align_data.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
-from align_data.settings import MAX_NUM_AUTHORS_IN_SIGNATURE
 
 
 logger = logging.getLogger(__name__)
@@ -61,14 +60,14 @@ class PineconeUpdater:
         self.text_splitter = ParagraphSentenceUnitTextSplitter()
         self.pinecone_db = PineconeDB()
 
-    def update(self, custom_sources: List[str]):
+    def update(self, custom_sources: List[str], force_update: bool = False):
         """
         Update the given sources. If no sources are provided, updates all sources.
 
         :param custom_sources: List of sources to update.
         """
         with make_session() as session:
-            entries_stream = stream_pinecone_updates(session, custom_sources)
+            entries_stream = stream_pinecone_updates(session, custom_sources, force_update)
             for batch in self.batch_entries(entries_stream):
                 self.save_batch(session, batch)
 
@@ -114,6 +113,7 @@ class PineconeUpdater:
 
 def get_text_chunks(article: Article, text_splitter: ParagraphSentenceUnitTextSplitter) -> List[str]:
     if isinstance(article.authors, str):
+        
         authors_lst = [author.strip() for author in article.authors.split(",")]
         authors = get_authors_str(authors_lst)
     elif isinstance(article.authors, list):
@@ -133,6 +133,6 @@ def get_authors_str(authors_lst: List[str]) -> str:
     if len(authors_lst) == 1:
         return authors_lst[0]
     else:
-        authors_lst = authors_lst[:MAX_NUM_AUTHORS_IN_SIGNATURE]
+        authors_lst = authors_lst[:3]
         authors_str = f"{', '.join(authors_lst[:-1])} and {authors_lst[-1]}"
     return authors_str

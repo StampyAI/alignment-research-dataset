@@ -13,8 +13,7 @@ from align_data.finetuning.model import finetune_embeddings
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,
-    METADATA_SOURCE_SPREADSHEET,
-    USE_OPENAI_EMBEDDINGS
+    METADATA_SOURCE_SPREADSHEET
 )
 
 
@@ -117,7 +116,7 @@ class AlignmentDataset:
         """
         return check_new_articles(source_spreadsheet, source_sheet)
 
-    def pinecone_update(self, *names) -> None:
+    def pinecone_update(self, *names, force_update=False) -> None:
         """
         This function updates the Pinecone vector DB.
 
@@ -127,14 +126,14 @@ class AlignmentDataset:
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
-        PineconeUpdater().update(names)
+        PineconeUpdater().update(names, force_update)
 
-    def pinecone_update_all(self, *skip) -> None:
+    def pinecone_update_all(self, *skip, force_update=False) -> None:
         """
         This function updates the Pinecone vector DB.
         """
         names = [name for name in ALL_DATASETS if name not in skip]
-        PineconeUpdater().update(names)
+        PineconeUpdater().update(names, force_update)
 
     def train_finetuning_layer(self) -> None:
         """

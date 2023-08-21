@@ -2,7 +2,7 @@ from typing import List
 import logging
 
 from contextlib import contextmanager
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import Session
 from align_data.settings import DB_CONNECTION_URI
 from align_data.db.models import Article
@@ -21,8 +21,8 @@ def make_session(auto_commit=False):
             session.commit()
 
 
-def stream_pinecone_updates(session, custom_sources: List[str]):
+def stream_pinecone_updates(session: Session, custom_sources: List[str], force_update: bool = False):
     """Yield Pinecone entries that require an update."""
     yield from session.query(Article).filter(
-        Article.pinecone_update_required.is_(True)
+        or_(Article.pinecone_update_required.is_(True), force_update)
     ).filter(Article.source.in_(custom_sources)).yield_per(1000)
