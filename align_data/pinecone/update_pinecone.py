@@ -1,7 +1,7 @@
 from datetime import datetime
 import logging
 import numpy as np
-import os
+from itertools import islice
 from typing import Callable, List, Tuple, Generator
 
 import openai
@@ -69,34 +69,47 @@ class PineconeUpdater:
         """
         with make_session() as session:
             entries_stream = stream_pinecone_updates(session, custom_sources)
-            for article, pinecone_entry in self.process_entries(entries_stream):
+            for batch in self.batch_entries(entries_stream):
+                self.save_batch(session, batch)
+
+    def save_batch(self, session, batch):
+        try:
+            for article, pinecone_entry in batch:
                 self.pinecone_db.upsert_entry(pinecone_entry.dict())
                 article.pinecone_update_required = False
                 session.add(article)
             session.commit()
+        except Exception as e:
+            # Rollback on any kind of error. The next run will redo this batch, but in the meantime keep trucking
+            logger.error(e)
+            session.rollback()
 
-    def process_entries(
+    def batch_entries(
         self, article_stream: Generator[Article, None, None]
-    ) -> Generator[Tuple[Article, PineconeEntry], None, None]:
-        for article in article_stream:
-            try:
-                text_chunks = get_text_chunks(article, self.text_splitter)
-                yield article, PineconeEntry(
-                    id=article.id,
-                    source=article.source,
-                    title=article.title,
-                    url=article.url,
-                    date_published=article.date_published,
-                    authors=[
-                        author.strip()
-                        for author in article.authors.split(",")
-                        if author.strip()
-                    ],
-                    text_chunks=text_chunks,
-                    embeddings=get_embeddings(text_chunks, article.source),
-                )
-            except (ValueError, ValidationError) as e:
-                logger.exception(e)
+    ) -> Generator[List[Tuple[Article, PineconeEntry]], None, None]:
+        items = iter(article_stream)
+        while batch := tuple(islice(items, 10)):
+            yield list(filter(None, map(self._make_pinecone_update, batch)))
+
+    def _make_pinecone_update(self, article: Article):
+        try:
+            text_chunks = get_text_chunks(article)
+            return article, PineconeEntry(
+                id=article.id,
+                source=article.source,
+                title=article.title,
+                url=article.url,
+                date_published=article.date_published,
+                authors=[
+                    author.strip()
+                    for author in article.authors.split(",")
+                    if author.strip()
+                ],
+                text_chunks=text_chunks,
+                embeddings=get_embeddings(text_chunks, article.source)
+            )
+        except (ValueError, ValidationError) as e:
+            logger.exception(e)
 
 
 def get_text_chunks(article: Article, text_splitter: ParagraphSentenceUnitTextSplitter) -> List[str]:
