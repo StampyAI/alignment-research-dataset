@@ -4,7 +4,7 @@ import logging
 import time
 from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Set, Iterable, Tuple, Union
+from typing import List, Optional, Dict, Any, Set, Iterable, Tuple, Generator
 import pytz
 from datetime import datetime
 
@@ -31,7 +31,7 @@ class AlignmentDataset:
 
     _: KW_ONLY
 
-    data_path: Union[str, Path] = Path(__file__).parent / "../../data/"
+    data_path: Path = Path(__file__).parent / "../../data/"
     """The path where data can be found. Usually a folder."""
 
     # Derived paths
@@ -55,8 +55,6 @@ class AlignmentDataset:
     """The number of items to collect before flushing to the database."""
 
     def __post_init__(self):
-        if isinstance(self.data_path, str):
-            self.data_path = Path(self.data_path)
         self.data_path = self.data_path.resolve()
 
         self.raw_data_path = self.data_path / "raw"
@@ -177,7 +175,7 @@ class AlignmentDataset:
         # If it get's to that level, consider batching it somehow
         return self.get_item_key(item) not in self._outputted_items
 
-    def unprocessed_items(self, items=None) -> Iterable:
+    def unprocessed_items(self, items=None) -> list | filter:
         """Return a list of all items to be processed.
 
         This will automatically remove any items that have already been processed,
@@ -190,11 +188,11 @@ class AlignmentDataset:
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice
         if not self.lazy_eval:
-            items_to_process = list(items_to_process)
+            return list(items_to_process)
 
         return items_to_process
 
-    def fetch_entries(self) -> Article:
+    def fetch_entries(self) -> Generator[Article, None, None]:
         """Get all entries to be written to the file."""
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)

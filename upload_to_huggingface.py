@@ -153,11 +153,7 @@ if __name__ == "__main__":
     for name in files:
         upload_data_file(api, name + ".jsonl", "alignment-research-dataset")
 
-    update_readme(
-        api,
-        [name for _, name in files if name in DATASOURCES],
-        "alignment-research-dataset",
-    )
-    update_readme(api, [name for _, name in files], "ard-private")
+    update_readme(api, files, "alignment-research-dataset")
+    update_readme(api, files, "ard-private")
 
     print("done")
