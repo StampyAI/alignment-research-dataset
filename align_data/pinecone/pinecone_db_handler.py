@@ -1,10 +1,13 @@
 # dataset/pinecone_db_handler.py
 
+import datetime
 import logging
 from typing import Dict, List, Tuple, Union
+from dataclasses import dataclass
 
 import pinecone
 
+from align_data.common.utils import get_embeddings
 from align_data.settings import (
     PINECONE_INDEX_NAME,
     PINECONE_VALUES_DIMS,
@@ -12,6 +15,7 @@ from align_data.settings import (
     PINECONE_METADATA_KEYS,
     PINECONE_API_KEY,
     PINECONE_ENVIRONMENT,
+    PINECONE_NAMESPACE
 )
 
 
@@ -26,7 +30,7 @@ class PineconeDB:
         metric: str = PINECONE_METRIC,
         metadata_keys: list = PINECONE_METADATA_KEYS,
         create_index: bool = False,
-        log_index_stats: bool = True,
+        log_index_stats: bool = False,
     ):
         self.index_name = index_name
         self.values_dims = values_dims
@@ -62,6 +66,9 @@ class PineconeDB:
                             "source": entry["source"],
                             "title": entry["title"],
                             "authors": entry["authors"],
+                            "url": entry["url"],
+                            # Note: there is a slight inconsistency between the name of the field in the DB and the name of the field in the Pinecone index.
+                            "date": entry["date_published"],
                             "text": text_chunk,
                         }
                         for text_chunk in entry["text_chunks"]
@@ -69,7 +76,60 @@ class PineconeDB:
                 )
             ),
             batch_size=upsert_size,
+            namespace=PINECONE_NAMESPACE
         )
+        
+    def query(self, query: Union[str, List[float]], top_k=10, include_values=False, include_metadata=True, **kwargs):
+        
+        @dataclass
+        class Block:
+            title: str
+            author: str
+            date: str
+            url: str
+            text: str
+
+        if isinstance(query, str):
+            query = list(get_embeddings(query)[0])
+        
+        query_response = self.index.query(
+            vector=query,
+            top_k=top_k,
+            include_values=include_values,
+            include_metadata=include_metadata,
+            namespace=PINECONE_NAMESPACE,
+            **kwargs,
+        )
+        # print(query_response)
+        
+        blocks = []
+        for match in query_response['matches']:
+
+            date = match['metadata']['date']
+
+            if type(date) == datetime.date: date = date.strftime("%Y-%m-%d") # iso8601
+
+            blocks.append(Block(
+                title = match['metadata']['title'],
+                author = match['metadata']['authors'],
+                date = date,
+                url = match['metadata']['url'],
+                text = strip_block(match['metadata']['text'])
+            ))
+
+        return blocks
+    
+        # def query
+        #   vector: Optional[List[float]] = None,
+        #   id: Optional[str] = None,
+        #   queries: Optional[Union[List[QueryVector], List[Tuple]]] = None,
+        #   top_k: Optional[int] = None,
+        #   namespace: Optional[str] = None,
+        #   filter: Optional[Dict[str, Union[str, float, int, bool, List, dict]]] = None,
+        #   include_values: Optional[bool] = None,
+        #   include_metadata: Optional[bool] = None,
+        #   sparse_vector: Optional[Union[SparseValues, Dict[str, Union[List[float], List[int]]]]] = None,
+        #   **kwargs
 
     def delete_entries(self, ids):
         self.index.delete(filter={"entry_id": {"$in": ids}})
@@ -102,3 +162,15 @@ class PineconeDB:
         """
         vectors = self.index.fetch(ids=ids)['vectors']
         return [(id, vectors.get(id, None)) for id in ids]
+
+
+# we add the title and authors inside the contents of the block, so that
+# searches for the title or author will be more likely to pull it up. This
+# strips it back out.
+import re
+def strip_block(text: str) -> str:
+    r = re.match(r"^\"(.*)\"\s*-\s*Title:.*$", text, re.DOTALL)
+    if not r:
+        print("Warning: couldn't strip block")
+        print(text)
+    return r.group(1) if r else text

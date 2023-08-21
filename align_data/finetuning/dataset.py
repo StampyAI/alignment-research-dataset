@@ -16,10 +16,6 @@ from align_data.pinecone.update_pinecone import get_text_chunks
 from align_data.db.models import Article
 
 
-MAX_RETRIES = 3
-RETRY_DELAY = 5
-
-
 class FinetuningDataset(IterableDataset):
     def __init__(self, num_batches_per_epoch, cache_size=1280):
         self.num_batches_per_epoch = num_batches_per_epoch

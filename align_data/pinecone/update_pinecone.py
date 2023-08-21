@@ -92,7 +92,7 @@ class PineconeUpdater:
 
     def _make_pinecone_update(self, article: Article):
         try:
-            text_chunks = get_text_chunks(article)
+            text_chunks = get_text_chunks(article, self.text_splitter)
             return article, PineconeEntry(
                 id=article.id,
                 source=article.source,
@@ -112,19 +112,12 @@ class PineconeUpdater:
 
 
 def get_text_chunks(article: Article, text_splitter: ParagraphSentenceUnitTextSplitter) -> List[str]:
-    if isinstance(article.authors, str):
-        
-        authors_lst = [author.strip() for author in article.authors.split(",")]
-        authors = get_authors_str(authors_lst)
-    elif isinstance(article.authors, list):
-        authors = get_authors_str(article.authors)
+    authors_lst = [author.strip() for author in article.authors.split(",")]
+    authors = get_authors_str(authors_lst)
     
     signature = f"Title: {article.title}, Author(s): {authors}"
-    if not isinstance(article.text, str):
-        raise ValueError(f"Article text is not a string: {article.text}")
     text_chunks = text_splitter.split_text(article.text)
-    text_chunks = [f"- {signature}\n\n{text_chunk}" for text_chunk in text_chunks]
-    return text_chunks
+    return [f"- {signature}\n\n{text_chunk}" for text_chunk in text_chunks]
 
 
 def get_authors_str(authors_lst: List[str]) -> str:
