@@ -46,8 +46,8 @@ EMBEDDING_LENGTH_BIAS = {  # TODO: Experiement with these values. For now, let's
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 OPENAI_EMBEDDINGS_DIMS = 1536
 OPENAI_EMBEDDINGS_RATE_LIMIT = 3500
-openai.api_key = os.environ["OPENAI_API_KEY"]
-openai.organization = os.environ["OPENAI_ORGANIZATION"]
+openai.api_key = os.environ.get("OPENAI_API_KEY", None)
+openai.organization = os.environ.get("OPENAI_ORGANIZATION", None)
 
 SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL = "sentence-transformers/multi-qa-mpnet-base-cos-v1"
 SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS = 768
@@ -62,7 +62,7 @@ PINECONE_VALUES_DIMS = (
     else SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS
 )
 PINECONE_METRIC = "dotproduct"
-PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "author", "text", "url", "date"]
+PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "authors", "text", "url", "date_published"]
 PINECONE_NAMESPACE = os.environ.get("PINECONE_NAMESPACE", "normal")  # If the finetuned layer is used, this should be "finetuned"
 
 ### FINE-TUNING ###

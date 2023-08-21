@@ -67,8 +67,7 @@ class PineconeDB:
                             "title": entry["title"],
                             "authors": entry["authors"],
                             "url": entry["url"],
-                            # Note: there is a slight inconsistency between the name of the field in the DB and the name of the field in the Pinecone index.
-                            "date": entry["date_published"],
+                            "date_published": entry["date_published"],
                             "text": text_chunk,
                         }
                         for text_chunk in entry["text_chunks"]
@@ -83,11 +82,13 @@ class PineconeDB:
         
         @dataclass
         class Block:
+            id: str
+            source: str
             title: str
-            author: str
-            date: str
-            url: str
+            authors: str
             text: str
+            url: str
+            date_published: str
 
         if isinstance(query, str):
             query = list(get_embeddings(query)[0])
@@ -100,21 +101,23 @@ class PineconeDB:
             namespace=PINECONE_NAMESPACE,
             **kwargs,
         )
-        # print(query_response)
         
         blocks = []
         for match in query_response['matches']:
 
-            date = match['metadata']['date']
+            date_published = match['metadata']['date']
 
-            if type(date) == datetime.date: date = date.strftime("%Y-%m-%d") # iso8601
+            if type(date_published) == datetime.date: 
+                date_published = date_published.strftime("%Y-%m-%d") # iso8601
 
             blocks.append(Block(
+                id = match['id'],
+                source = match['metadata']['source'],
                 title = match['metadata']['title'],
-                author = match['metadata']['authors'],
-                date = date,
+                authors = match['metadata']['authors'],
+                text = strip_block(match['metadata']['text']),
                 url = match['metadata']['url'],
-                text = strip_block(match['metadata']['text'])
+                date_published = date_published,
             ))
 
         return blocks
@@ -167,10 +170,13 @@ class PineconeDB:
 # we add the title and authors inside the contents of the block, so that
 # searches for the title or author will be more likely to pull it up. This
 # strips it back out.
-import re
+# import re
+# def strip_block(text: str) -> str:
+#     r = re.match(r"^\"(.*)\"\s*-\s*Title:.*$", text, re.DOTALL)
+#     if not r:
+#         print("Warning: couldn't strip block")
+#         print(text)
+#     return r.group(1) if r else text
+
 def strip_block(text: str) -> str:
-    r = re.match(r"^\"(.*)\"\s*-\s*Title:.*$", text, re.DOTALL)
-    if not r:
-        print("Warning: couldn't strip block")
-        print(text)
-    return r.group(1) if r else text
+    return "\n".join(text.split("\n")[1:])

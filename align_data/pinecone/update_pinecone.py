@@ -111,13 +111,14 @@ class PineconeUpdater:
 
 
 def get_text_chunks(article: Article, text_splitter: ParagraphSentenceUnitTextSplitter) -> List[str]:
+    title = article.title.replace("\n", " ")
+    
     authors_lst = [author.strip() for author in article.authors.split(",")]
     authors = get_authors_str(authors_lst)
     
-    signature = f"Title: {article.title}, Author(s): {authors}"
+    signature = f"### {title}, by {authors}"
     text_chunks = text_splitter.split_text(article.text)
-    return [f"- {signature}\n\n{text_chunk}" for text_chunk in text_chunks]
-
+    return [f"{signature}\n\"{text_chunk}\"" for text_chunk in text_chunks]
 
 def get_authors_str(authors_lst: List[str]) -> str:
     if authors_lst == []:
@@ -127,4 +128,4 @@ def get_authors_str(authors_lst: List[str]) -> str:
     else:
         authors_lst = authors_lst[:3]
         authors_str = f"{', '.join(authors_lst[:-1])} and {authors_lst[-1]}"
-    return authors_str
+    return authors_str.replace("\n", " ")
