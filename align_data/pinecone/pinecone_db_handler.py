@@ -98,14 +98,15 @@ class PineconeDB:
             top_k=top_k,
             include_values=include_values,
             include_metadata=include_metadata,
-            namespace=PINECONE_NAMESPACE,
             **kwargs,
+            namespace=PINECONE_NAMESPACE,
         )
+        print(query_response)
         
         blocks = []
         for match in query_response['matches']:
 
-            date_published = match['metadata']['date']
+            date_published = match['metadata']['date_published']
 
             if type(date_published) == datetime.date: 
                 date_published = date_published.strftime("%Y-%m-%d") # iso8601
@@ -115,7 +116,8 @@ class PineconeDB:
                 source = match['metadata']['source'],
                 title = match['metadata']['title'],
                 authors = match['metadata']['authors'],
-                text = strip_block(match['metadata']['text']),
+                # text = strip_block(match['metadata']['text']),
+                text = match['metadata']['text'],
                 url = match['metadata']['url'],
                 date_published = date_published,
             ))
@@ -163,8 +165,11 @@ class PineconeDB:
         Returns:
         - List[Tuple[str, Union[List[float], None]]]: List of tuples containing ID and its corresponding embedding.
         """
-        vectors = self.index.fetch(ids=ids)['vectors']
-        return [(id, vectors.get(id, None)) for id in ids]
+        vectors = self.index.fetch(
+            ids=ids,
+            namespace=PINECONE_NAMESPACE,
+        )['vectors']
+        return [(id, vectors.get(id, {}).get("values", None)) for id in ids]
 
 
 # we add the title and authors inside the contents of the block, so that
