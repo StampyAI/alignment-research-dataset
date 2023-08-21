@@ -7,6 +7,7 @@ from align_data.sources.blogs.blogs import (
     EleutherAI,
     OpenAIResearch,
     DeepMindTechnicalBlog,
+    TransformerCircuits,
 )
 from align_data.sources.blogs.substack_blog import SubstackBlog
 from align_data.sources.articles.parsers import MediumParser
@@ -56,4 +57,5 @@ BLOG_REGISTRY = [
         name="deepmind_technical_blog",
         url="https://www.deepmind.com/blog-categories/technical-blogs",
     ),
+    TransformerCircuits(name='transformer-circuits', url='https://transformer-circuits.pub/'),
 ]
