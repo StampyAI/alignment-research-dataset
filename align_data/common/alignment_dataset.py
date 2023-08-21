@@ -262,3 +262,40 @@ class SummaryDataset(AlignmentDataset):
             return item
 
         session.add_all(map(merge, batch))
+
+
+@dataclass
+class MultiDataset(AlignmentDataset):
+
+    datasets: List[AlignmentDataset]
+
+    @property
+    def names(self):
+        return [dataset.name for dataset in self.datasets]
+
+    @property
+    def items_list(self) -> Iterable:
+        """Returns a collection of items to be processed."""
+        return ((item, dataset) for dataset in self.datasets for item in dataset.items_list)
+
+    def setup(self):
+        for dataset in self.datasets:
+            dataset.setup()
+
+    def get_item_key(self, entry):
+        item, dataset = entry
+        return dataset.get_item_key(item)
+
+    def process_entry(self, entry) -> Optional[Article]:
+        item, dataset = entry
+        article = dataset.process_entry(item)
+        article.add_meta('initial_source', article.source)
+        article.source = self.name
+
+    def fetch_entries(self):
+        for dataset in self.datasets:
+            for article in dataset.fetch_entries():
+                if article.source != self.name:
+                    article.add_meta('initial_source', article.source)
+                    article.source = self.name
+                yield article

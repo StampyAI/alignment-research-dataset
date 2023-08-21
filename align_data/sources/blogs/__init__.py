@@ -10,9 +10,10 @@ from align_data.sources.blogs.blogs import (
 )
 from align_data.sources.blogs.substack_blog import SubstackBlog
 from align_data.sources.articles.parsers import MediumParser
+from align_data.common.alignment_dataset import MultiDataset
 
 
-BLOG_REGISTRY = [
+BLOG_DATASETS = [
     WordpressBlog(name="aiimpacts", url="https://aiimpacts.org"),
     WordpressBlog(name="aisafety.camp", url="https://aisafety.camp"),
     WordpressBlog(name="miri", url="https://intelligence.org"),
@@ -56,4 +57,9 @@ BLOG_REGISTRY = [
         name="deepmind_technical_blog",
         url="https://www.deepmind.com/blog-categories/technical-blogs",
     ),
+]
+
+
+BLOG_REGISTRY = [
+    MultiDataset(name='blogs', datasets=BLOG_DATASETS),
 ]
