@@ -31,4 +31,9 @@ jobs:
         run: curl -L "${{ inputs.csv_url }}" -o data.csv
 
       - name: Run Script
+        env:
+          ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
+          ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
+          ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
+          ARD_DB_NAME: alignment_research_dataset
         run: python main.py update data.csv ${{ inputs.delimiter }}
