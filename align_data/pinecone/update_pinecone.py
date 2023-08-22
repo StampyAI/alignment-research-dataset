@@ -46,14 +46,15 @@ class PineconeUpdater:
                 self.pinecone_db.upsert_entry(pinecone_entry)
 
                 article.pinecone_update_required = False
-                article.comments += (
-                    (
-                        f"\n\nComments from this article that were flagged by the moderation model:"
-                        f"{comments}"
+
+                comments = self._handle_flagged_chunks(pinecone_entry)
+                if comments:
+                    prefix = (
+                        "Comments from this article that were flagged by the moderation model:\n"
                     )
-                    if (comments := self._handle_flagged_chunks(pinecone_entry))
-                    else ""
-                )
+                    article.comments = (
+                        (article.comments + "\n\n" if article.comments else "") + prefix + comments
+                    )
 
                 session.add(article)
             session.commit()
@@ -78,14 +79,12 @@ class PineconeUpdater:
 
         assert isinstance(article.date_published, datetime)
         try:
-            # create comment in article if moderation is not None for all mod results
-
             return PineconeEntry(
-                id=article.id,  # the hash_id of the article
+                hash_id=article.id,  # the hash_id of the article
                 source=article.source,
                 title=article.title,
                 url=article.url,
-                date=article.date_published.timestamp(),
+                date_published=article.date_published.timestamp(),
                 authors=[author.strip() for author in article.authors.split(",") if author.strip()],
                 text_chunks=text_chunks,
                 embeddings=embeddings,

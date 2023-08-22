@@ -13,7 +13,7 @@ from align_data.sources.articles.articles import (
     update_articles,
 )
 from align_data.pinecone.update_pinecone import PineconeUpdater
-from align_data.finetuning.model import finetune_embeddings
+from align_data.finetuning.training import finetune_embeddings
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,

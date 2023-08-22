@@ -75,7 +75,14 @@ class PineconeDB:
             namespace=PINECONE_NAMESPACE,
         )
 
-        return [ScoredVector(**match) for match in query_response["matches"]]
+        return [
+            ScoredVector(
+                id=match["id"],
+                score=match["score"],
+                metadata=PineconeMetadata(**match["metadata"]),
+            )
+            for match in query_response["matches"]
+        ]
 
     def query_text(
         self,
@@ -95,7 +102,7 @@ class PineconeDB:
         )
 
     def delete_entries(self, ids):
-        self.index.delete(filter={"entry_id": {"$in": ids}})
+        self.index.delete(filter={"hash_id": {"$in": ids}})
 
     def create_index(self, replace_current_index: bool = True):
         if replace_current_index:

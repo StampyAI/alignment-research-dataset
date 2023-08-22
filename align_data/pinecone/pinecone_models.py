@@ -5,21 +5,21 @@ from pinecone.core.client.models import Vector, ScoredVector, QueryResponse
 
 
 class PineconeMetadata(TypedDict):
-    entry_id: str
+    hash_id: str
     source: str
     title: str
+    url: str
+    date_published: float
     authors: List[str]
     text: str
-    url: str
-    date_published: int
 
 
 class PineconeEntry(BaseModel):
-    id: str
+    hash_id: str
     source: str
     title: str
     url: str
-    date_published: int
+    date_published: float
     authors: List[str]
     text_chunks: List[str]
     embeddings: List[List[float]]
@@ -34,16 +34,17 @@ class PineconeEntry(BaseModel):
                 f"[{chunks[:450]} [...] {chunks[-450:]} ]" if len(chunks) > 1000 else f"[{chunks}]"
             )
 
-        return f"PineconeEntry(id={self.id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={display_chunks(self.text_chunks)})"
+        return f"PineconeEntry(hash_id={self.hash_id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={display_chunks(self.text_chunks)})"
 
     @validator(
-        "id",
+        "hash_id",
         "source",
         "title",
         "url",
         "date_published",
         "authors",
         "text_chunks",
+        "embeddings",
         pre=True,
         always=True,
     )
@@ -59,10 +60,10 @@ class PineconeEntry(BaseModel):
     def create_pinecone_vectors(self) -> List[Vector]:
         return [
             Vector(
-                id=f"{self.id}_{str(i).zfill(6)}",
+                id=f"{self.hash_id}_{str(i).zfill(6)}",
                 values=self.embeddings[i],
                 metadata=PineconeMetadata(
-                    entry_id=self.id,
+                    hash_id=self.hash_id,
                     source=self.source,
                     title=self.title,
                     authors=self.authors,
