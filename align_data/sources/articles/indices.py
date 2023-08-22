@@ -79,16 +79,6 @@ def format_anthropic(post):
     }
 
 
-def format_transformer_circuits(item):
-    if not item.get("href").startswith("http"):
-        url = f'https://transformer-circuits.pub/{item.get("href")}'
-        return {
-            "title": get_text(item, "h3"),
-            "url": url,
-            "source_url": url,
-        }
-
-
 def format_safe_ai(item):
     return {
         "title": get_text(item, "h4"),
@@ -202,12 +192,6 @@ def fetch_all():
             "div.b-postList",
             "a",
             format_anthropic,
-        ),
-        indice_fetcher(
-            "https://transformer-circuits.pub/",
-            "div.toc",
-            "a",
-            format_transformer_circuits,
         ),
         indice_fetcher(
             "https://www.safe.ai/research",
