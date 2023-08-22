@@ -79,7 +79,6 @@ def compute_openai_embeddings(non_flagged_texts, engine, **kwargs):
     data = openai.Embedding.create(input=non_flagged_texts, engine=engine, **kwargs).data
     return [d["embedding"] for d in data]
 
-from openai.embeddings_utils import get_embeddings
 def get_embeddings(
     texts: List[str], 
     embed_all: bool = False,
@@ -126,8 +125,8 @@ def get_embeddings(
     return final_embeddings
 
 
-def embed_query(query: str, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs) -> List[float]:
-    return get_embeddings([query], engine=engine, **kwargs)[0]
+def get_embedding(text: str, **kwargs) -> List[float]:
+    return get_embeddings(texts=[text], **kwargs)[0]
 
 
 def get_recursive_type(obj):

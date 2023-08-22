@@ -23,7 +23,7 @@ class PineconeEntry(BaseModel):
     source: str
     title: str
     url: str
-    date_published: int
+    date_published: float
     authors: List[str]
     text_chunks: List[str]
     embeddings: List[List[float]]

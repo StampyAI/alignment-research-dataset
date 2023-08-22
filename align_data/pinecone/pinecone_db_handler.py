@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Union
 
 import pinecone
 
-from align_data.common.utils import get_embeddings, embed_query
+from align_data.common.utils import get_embedding
 from align_data.pinecone.pinecone_models import PineconeEntry, PineconeMatch, PineconeMetadata
 from align_data.settings import (
     PINECONE_INDEX_NAME,
@@ -82,7 +82,7 @@ class PineconeDB:
             include_values: bool = False, include_metadata: bool = True, **kwargs
             ) -> List[PineconeMatch]:
         
-        query_vector = embed_query(query)
+        query_vector = get_embedding(query)
         return self.query_vector(
             query=query_vector, top_k=top_k, 
             include_values=include_values, include_metadata=include_metadata, **kwargs
