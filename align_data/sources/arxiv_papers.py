@@ -22,9 +22,7 @@ def get_arxiv_metadata(paper_id) -> arxiv.Result:
 
 
 def get_id(url: str) -> Optional[str]:
-    if res := re.search(
-        r"https?://arxiv.org/(?:abs|pdf)/(.*?)(?:v\d+)?(?:/|\.pdf)?$", url
-    ):
+    if res := re.search(r"https?://arxiv.org/(?:abs|pdf)/(.*?)(?:v\d+)?(?:/|\.pdf)?$", url):
         return res.group(1)
 
 

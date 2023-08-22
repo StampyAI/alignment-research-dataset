@@ -81,9 +81,7 @@ class AlignmentDataset:
         This function counts the number of tokens, words, and characters in the dataset
         :return: None
         """
-        assert os.path.exists(
-            merged_dataset_path
-        ), "The path to the merged dataset does not exist"
+        assert os.path.exists(merged_dataset_path), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
 
     def update(self, csv_path, delimiter=","):

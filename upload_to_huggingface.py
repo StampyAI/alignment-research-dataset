@@ -10,9 +10,7 @@ from huggingface_hub import login
 from huggingface_hub import HfApi
 
 
-GDOCS_FOLDER = (
-    "https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8"
-)
+GDOCS_FOLDER = "https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8"
 DATASOURCES = [
     "agentmodels",
     "aiimpacts",
@@ -70,11 +68,7 @@ def get_gdoc_names(url):
         return None
 
     _, id_name_type_iter = _parse_google_drive_file(url=url, content=res.text)
-    return [
-        (id, name)
-        for id, name, filetype in id_name_type_iter
-        if name.endswith(".jsonl")
-    ]
+    return [(id, name) for id, name, filetype in id_name_type_iter if name.endswith(".jsonl")]
 
 
 def upload_data_file(api, name, repo_name):
@@ -99,9 +93,7 @@ def upload_data_file(api, name, repo_name):
 
 def download_file(repo_name, filename, api):
     headers = {"Authorization": f"Bearer {api.token}"}
-    url = (
-        f"https://huggingface.co/datasets/StampyAI/{repo_name}/raw/main/{filename.name}"
-    )
+    url = f"https://huggingface.co/datasets/StampyAI/{repo_name}/raw/main/{filename.name}"
     response = requests.get(url, headers=headers)
 
     if response.status_code == 200:

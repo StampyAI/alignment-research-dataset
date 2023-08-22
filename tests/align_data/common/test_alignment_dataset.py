@@ -275,16 +275,11 @@ def test_unprocessed_items_some_done(numbers_dataset):
 
 
 def test_fetch_entries(numbers_dataset):
-    assert [i.meta["value"] for i in numbers_dataset.fetch_entries()] == [
-        i**2 for i in range(10)
-    ]
+    assert [i.meta["value"] for i in numbers_dataset.fetch_entries()] == [i**2 for i in range(10)]
 
 
 def test_format_datatime(dataset):
-    assert (
-        dataset._format_datetime(datetime(2022, 1, 1, 12, 23, 43))
-        == "2022-01-01T12:23:43Z"
-    )
+    assert dataset._format_datetime(datetime(2022, 1, 1, 12, 23, 43)) == "2022-01-01T12:23:43Z"
 
 
 def test_format_datatime_ignore_timezone(dataset):

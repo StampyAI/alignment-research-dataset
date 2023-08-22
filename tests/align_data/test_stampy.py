@@ -14,17 +14,14 @@ def test_validate_coda_token():
 
 def test_get_item_key():
     dataset = Stampy(name="bla")
-    assert (
-        dataset.get_item_key({"Question": "Why&NewLine;not&#32;just&#63;"})
-        == "Why\nnot just?"
-    )
+    assert dataset.get_item_key({"Question": "Why&NewLine;not&#32;just&#63;"}) == "Why\nnot just?"
 
 
 def test_get_published_date():
     dataset = Stampy(name="bla")
-    assert dataset._get_published_date(
-        {"Doc Last Edited": "2012/01/03 12:23:32"}
-    ) == parse("2012-01-03T12:23:32Z")
+    assert dataset._get_published_date({"Doc Last Edited": "2012/01/03 12:23:32"}) == parse(
+        "2012-01-03T12:23:32Z"
+    )
 
 
 def test_get_published_date_missing():

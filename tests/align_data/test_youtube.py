@@ -46,9 +46,7 @@ def test_next_page_empty_by_default():
         },
         {
             "kind": "youtube#playlistItem",
-            "snippet": {
-                "resourceId": {"kind": "youtube#video", "videoId": "your_video_id"}
-            },
+            "snippet": {"resourceId": {"kind": "youtube#video", "videoId": "your_video_id"}},
         },
     ),
 )
@@ -72,9 +70,7 @@ def test_get_id_with_id(item):
         },
         {
             "kind": "youtube#playlistItem",
-            "snippet": {
-                "resourceId": {"kind": "invalid_kind", "videoId": "your_video_id"}
-            },
+            "snippet": {"resourceId": {"kind": "invalid_kind", "videoId": "your_video_id"}},
         },
     ),
 )
@@ -187,8 +183,7 @@ def test_items_list():
 
     def fetcher(collection_id):
         return [
-            {"id": {"kind": "youtube#video", "videoId": f"{collection_id}_{i}"}}
-            for i in range(3)
+            {"id": {"kind": "youtube#video", "videoId": f"{collection_id}_{i}"}} for i in range(3)
         ]
 
     with patch.object(dataset, "fetch_videos", fetcher):
@@ -208,9 +203,7 @@ def test_get_item_key():
         "id": {"kind": "youtube#video", "videoId": "your_video_id"},
         "kind": "youtube#searchResult",
     }
-    assert (
-        dataset.get_item_key(video) == "https://www.youtube.com/watch?v=your_video_id"
-    )
+    assert dataset.get_item_key(video) == "https://www.youtube.com/watch?v=your_video_id"
 
 
 @pytest.mark.parametrize(
@@ -229,9 +222,7 @@ def test_get_contents_with_no_transcript_found(error):
     }
 
     transcriber = Mock()
-    transcriber.list_transcripts.return_value.find_transcript.return_value.fetch.side_effect = (
-        error
-    )
+    transcriber.list_transcripts.return_value.find_transcript.return_value.fetch.side_effect = error
 
     with patch("align_data.sources.youtube.youtube.YouTubeTranscriptApi", transcriber):
         assert dataset._get_contents(video) is None
@@ -336,16 +327,12 @@ def test_channel_process_item(transcriber):
 
 
 def test_playlist_collection_ids():
-    dataset = YouTubePlaylistDataset(
-        name="bla", playlist_ids=["a list id", "another id"]
-    )
+    dataset = YouTubePlaylistDataset(name="bla", playlist_ids=["a list id", "another id"])
     assert dataset.collection_ids == ["a list id", "another id"]
 
 
 def test_playlist_published_date():
-    dataset = YouTubePlaylistDataset(
-        name="bla", playlist_ids=["a list id", "another id"]
-    )
+    dataset = YouTubePlaylistDataset(name="bla", playlist_ids=["a list id", "another id"])
     video = {
         "kind": "youtube#playlistItem",
         "snippet": {
@@ -359,9 +346,7 @@ def test_playlist_published_date():
 
 
 def test_channel_process_item(transcriber):
-    dataset = YouTubePlaylistDataset(
-        name="bla", playlist_ids=["a list id", "another id"]
-    )
+    dataset = YouTubePlaylistDataset(name="bla", playlist_ids=["a list id", "another id"])
     video = {
         "kind": "youtube#playlistItem",
         "snippet": {

@@ -20,9 +20,7 @@ def validate_date_format(file_path, keys_to_print):
                 # Try to parse the date_published string into a datetime object
                 parse(date_published)
             except ValueError:
-                print(
-                    f"Row {i}: date_published is NOT in a valid format: {date_published}"
-                )
+                print(f"Row {i}: date_published is NOT in a valid format: {date_published}")
                 for key in keys_to_print:
                     print(f"  {key}: {entry.get(key)}")
 

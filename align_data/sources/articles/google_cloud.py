@@ -151,10 +151,7 @@ def fetch_markdown(file_id):
 
 def parse_grobid(contents):
     doc_dict = grobid_tei_xml.parse_document_xml(contents).to_dict()
-    authors = [
-        xx["full_name"].strip(" !")
-        for xx in doc_dict.get("header", {}).get("authors", [])
-    ]
+    authors = [xx["full_name"].strip(" !") for xx in doc_dict.get("header", {}).get("authors", [])]
 
     if not doc_dict.get("body"):
         return {
@@ -185,9 +182,7 @@ def extract_gdrive_contents(link):
         logger.error("Could not fetch the file at %s - 403 returned", link)
         return {"error": "Could not read file from google drive - forbidden"}
     if res.status_code >= 400:
-        logger.error(
-            "Could not fetch the file at %s - are you sure that link is correct?", link
-        )
+        logger.error("Could not fetch the file at %s - are you sure that link is correct?", link)
         return {"error": "Could not read file from google drive"}
 
     result = {
@@ -217,9 +212,7 @@ def extract_gdrive_contents(link):
             soup = BeautifulSoup(res.content, "html.parser")
             result.update(
                 {
-                    "text": MarkdownConverter()
-                    .convert_soup(soup.select_one("body"))
-                    .strip(),
+                    "text": MarkdownConverter().convert_soup(soup.select_one("body")).strip(),
                     "source_type": "html",
                 }
             )
@@ -238,9 +231,7 @@ def google_doc(url: str) -> Dict:
         return {}
 
     doc_id = res.group(1)
-    body = fetch_element(
-        f"https://docs.google.com/document/d/{doc_id}/export?format=html", "body"
-    )
+    body = fetch_element(f"https://docs.google.com/document/d/{doc_id}/export?format=html", "body")
     if body:
         return {
             "text": MarkdownConverter().convert_soup(body).strip(),

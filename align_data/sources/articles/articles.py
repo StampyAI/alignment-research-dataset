@@ -116,9 +116,7 @@ def process_spreadsheets(source_sheet, output_sheets):
 def update_new_items(source_spreadsheet, source_sheet, output_spreadsheet):
     """Go through all unprocessed items from the source worksheet, updating the appropriate metadata in the output one."""
     source_sheet = get_sheet(source_spreadsheet, source_sheet)
-    sheets = {
-        sheet.title: sheet for sheet in get_spreadsheet(output_spreadsheet).worksheets()
-    }
+    sheets = {sheet.title: sheet for sheet in get_spreadsheet(output_spreadsheet).worksheets()}
     return process_spreadsheets(source_sheet, sheets)
 
 
@@ -138,8 +136,7 @@ def check_new_articles(source_spreadsheet, source_sheet):
     missing = [
         item
         for title, item in indices_items.items()
-        if title not in current
-        and not {item.get("url"), item.get("source_url")} & seen_urls
+        if title not in current and not {item.get("url"), item.get("source_url")} & seen_urls
     ]
     if not missing:
         logger.info("No new articles found")
@@ -155,9 +152,7 @@ def check_new_articles(source_spreadsheet, source_sheet):
         "publication_title",
         "source_type",
     ]
-    res = source_sheet.append_rows(
-        [[item.get(col) for col in columns] for item in missing]
-    )
+    res = source_sheet.append_rows([[item.get(col) for col in columns] for item in missing])
     updated = res["updates"]["updatedRows"]
     logger.info("Added %s rows", updated)
     return updated

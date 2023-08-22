@@ -60,9 +60,7 @@ class Article(Base):
         DateTime, onupdate=func.current_timestamp()
     )
     status: Mapped[Optional[str]] = mapped_column(String(256))
-    comments: Mapped[Optional[str]] = mapped_column(
-        LONGTEXT
-    )  # Editor comments. Can be anything
+    comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
 
     pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -75,19 +73,14 @@ class Article(Base):
 
     def is_metadata_keys_equal(self, other):
         if not isinstance(other, Article):
-            raise TypeError(
-                f"Expected an instance of Article, got {type(other).__name__}"
-            )
+            raise TypeError(f"Expected an instance of Article, got {type(other).__name__}")
         return not any(
-            getattr(self, key, None)
-            != getattr(other, key, None)  # entry_id is implicitly ignored
+            getattr(self, key, None) != getattr(other, key, None)  # entry_id is implicitly ignored
             for key in PINECONE_METADATA_KEYS
         )
 
     def generate_id_string(self) -> bytes:
-        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode(
-            "utf-8"
-        )
+        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
 
     @property
     def __id_fields(self):
@@ -125,9 +118,7 @@ class Article(Base):
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
                 setattr(self, field, getattr(other, field))
-        self.meta = dict(
-            (self.meta or {}), **{k: v for k, v in other.meta.items() if k and v}
-        )
+        self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
 
         if other._id:
             self._id = other._id

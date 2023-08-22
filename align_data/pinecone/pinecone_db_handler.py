@@ -56,9 +56,7 @@ class PineconeDB:
     def upsert_entry(self, pinecone_entry: PineconeEntry, upsert_size: int = 100):
         vectors = pinecone_entry.create_pinecone_vectors()
 
-        self.index.upsert(
-            vectors=vectors, batch_size=upsert_size, namespace=PINECONE_NAMESPACE
-        )
+        self.index.upsert(vectors=vectors, batch_size=upsert_size, namespace=PINECONE_NAMESPACE)
 
     def query_vector(
         self,
@@ -132,9 +130,7 @@ class PineconeDB:
             logger.info(f"Deleting index '{self.index_name}'.")
             pinecone.delete_index(self.index_name)
 
-    def get_embeddings_by_ids(
-        self, ids: List[str]
-    ) -> List[Tuple[str, Union[List[float], None]]]:
+    def get_embeddings_by_ids(self, ids: List[str]) -> List[Tuple[str, Union[List[float], None]]]:
         """
         Fetch embeddings for given entry IDs from Pinecone.
 

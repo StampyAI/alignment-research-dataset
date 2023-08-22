@@ -278,9 +278,7 @@ def test_extract_gdrive_contents_xml_with_confirm():
             )
 
         # The second one returns the actual contents
-        return Mock(
-            headers={"Content-Type": "text/xml"}, status_code=200, content=SAMPLE_XML
-        )
+        return Mock(headers={"Content-Type": "text/xml"}, status_code=200, content=SAMPLE_XML)
 
     with patch(
         "requests.head",

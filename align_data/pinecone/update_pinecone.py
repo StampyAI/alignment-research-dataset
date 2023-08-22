@@ -72,11 +72,7 @@ class PineconeUpdater:
                 title=article.title,
                 url=article.url,
                 date=article.date_published.timestamp(),
-                authors=[
-                    author.strip()
-                    for author in article.authors.split(",")
-                    if author.strip()
-                ],
+                authors=[author.strip() for author in article.authors.split(",") if author.strip()],
                 text_chunks=text_chunks,
                 embeddings=get_embeddings(text_chunks, article.source),
             )

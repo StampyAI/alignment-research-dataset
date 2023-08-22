@@ -54,8 +54,8 @@ GetEmbeddingsReturnType = Union[
 
 RETRY_CONDITIONS = (
     retry_if_exception_type(RateLimitError)
-    |retry_if_exception_type(APIError)
-    |retry_if_exception(lambda e: "502" in str(e))
+    | retry_if_exception_type(APIError)
+    | retry_if_exception(lambda e: "502" in str(e))
 )
 
 
@@ -74,9 +74,7 @@ def handle_openai_errors(func):
             raise
         except APIError as e:
             if "502" in str(e):
-                logger.warning(
-                    f"OpenAI 502 Bad Gateway error. Trying again. Error: {e}"
-                )
+                logger.warning(f"OpenAI 502 Bad Gateway error. Trying again. Error: {e}")
             else:
                 logger.error(f"OpenAI API Error encountered: {e}")
             raise
@@ -105,9 +103,7 @@ def moderation_check(texts):
 
 @handle_openai_errors
 def compute_openai_embeddings(non_flagged_texts, engine, **kwargs):
-    data = openai.Embedding.create(
-        input=non_flagged_texts, engine=engine, **kwargs
-    ).data
+    data = openai.Embedding.create(input=non_flagged_texts, engine=engine, **kwargs).data
     return [d["embedding"] for d in data]
 
 
@@ -133,20 +129,14 @@ def get_embeddings(
         return None
 
     # Filter out flagged texts before embedding and replace newlines, which can negatively affect performance.
-    non_flagged_texts = [
-        text for text, flagged in zip(texts, flagged_bools) if not flagged
-    ]
+    non_flagged_texts = [text for text, flagged in zip(texts, flagged_bools) if not flagged]
     non_flagged_texts = [text.replace("\n", " ") for text in non_flagged_texts]
 
     # Step 2: Compute embeddings for non-flagged texts
     non_flagged_embeddings = []
-    if (
-        non_flagged_texts
-    ):  # Only call the embedding function if there are non-flagged texts
+    if non_flagged_texts:  # Only call the embedding function if there are non-flagged texts
         if USE_OPENAI_EMBEDDINGS:
-            non_flagged_embeddings = compute_openai_embeddings(
-                non_flagged_texts, engine, **kwargs
-            )
+            non_flagged_embeddings = compute_openai_embeddings(non_flagged_texts, engine, **kwargs)
         else:
             non_flagged_embeddings = hf_embeddings.embed_documents(
                 non_flagged_texts
@@ -160,9 +150,7 @@ def get_embeddings(
 
     # Step 3: Reconstruct the final list of embeddings with None for flagged texts
     non_flagged_iter = iter(non_flagged_embeddings)
-    final_embeddings = [
-        None if flagged else next(non_flagged_iter) for flagged in flagged_bools
-    ]
+    final_embeddings = [None if flagged else next(non_flagged_iter) for flagged in flagged_bools]
 
     if return_moderation_info:
         return final_embeddings, moderation_results
@@ -217,10 +205,7 @@ def get_recursive_length(obj):
         max_depth = max(len(sub) if isinstance(sub, list) else 0 for sub in sub_lengths)
         for i in range(max_depth):
             lengths.append(
-                [
-                    sub[i] if isinstance(sub, list) and len(sub) > i else 1
-                    for sub in sub_lengths
-                ]
+                [sub[i] if isinstance(sub, list) and len(sub) > i else 1 for sub in sub_lengths]
             )
         return lengths
 

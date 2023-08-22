@@ -127,9 +127,7 @@ def dataset():
         page = json.loads(kwargs.get("data", "{}")).get("pageAlias")
 
         if "json/explore" in url:
-            response.json.return_value = {
-                "pages": {f"{page}-{i}": i for i in range(10)}
-            }
+            response.json.return_value = {"pages": {f"{page}-{i}": i for i in range(10)}}
         elif "json/primaryPage" in url:
             response.json.return_value = {
                 "pages": {
@@ -201,9 +199,7 @@ def test_extract_authors_ignore_missing(dataset):
     page = {"changeLogs": [{"userId": author} for author in authors]}
 
     with patch.object(dataset, "get_title", lambda author: author):
-        assert sorted(dataset.extract_authors(page)) == sorted(
-            ["John Snow", "mr. blobby"]
-        )
+        assert sorted(dataset.extract_authors(page)) == sorted(["John Snow", "mr. blobby"])
 
 
 @pytest.mark.parametrize(

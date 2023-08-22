@@ -108,11 +108,8 @@ class SpecialDocs(SpreadsheetDataset):
                 "title": self.maybe(item, "title") or contents.get("title"),
                 "source": contents.get("source_type") or self.name,
                 "source_url": self.maybe(item, "source_url"),
-                "source_type": contents.get("source_type")
-                or self.maybe(item, "source_type"),
-                "date_published": self._get_published_date(
-                    self.maybe(item, "date_published")
-                )
+                "source_type": contents.get("source_type") or self.maybe(item, "source_type"),
+                "date_published": self._get_published_date(self.maybe(item, "date_published"))
                 or contents.get("date_published"),
                 "authors": self.extract_authors(item) or contents.get("authors", []),
                 "text": contents.get("text"),
@@ -130,10 +127,7 @@ class SpecialDocs(SpreadsheetDataset):
             and url not in self._outputted_items
             and source_url not in self._outputted_items
             and (not url or arxiv_cannonical_url(url) not in self._outputted_items)
-            and (
-                not source_url
-                or arxiv_cannonical_url(source_url) not in self._outputted_items
-            )
+            and (not source_url or arxiv_cannonical_url(source_url) not in self._outputted_items)
         )
 
     def process_entry(self, item):
@@ -183,9 +177,7 @@ class EbookArticles(SpreadsheetDataset):
 
     def _get_text(self, item):
         file_id = item.source_url.split("/")[-2]
-        filename = download(
-            output=str(self.files_path / f"{item.title}.epub"), id=file_id
-        )
+        filename = download(output=str(self.files_path / f"{item.title}.epub"), id=file_id)
         return convert_file(filename, "plain", "epub", extra_args=["--wrap=none"])
 
 

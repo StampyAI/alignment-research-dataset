@@ -45,13 +45,9 @@ class Stampy(AlignmentDataset):
     def process_entry(self, entry):
         def clean_text(text):
             text = html.unescape(text)
-            return re.sub(
-                r"\(/\?state=(\w+)\)", r"(http://aisafety.info?state=\1)", text
-            )
+            return re.sub(r"\(/\?state=(\w+)\)", r"(http://aisafety.info?state=\1)", text)
 
-        question = clean_text(
-            entry["Question"]
-        )  # raise an error if the entry has no question
+        question = clean_text(entry["Question"])  # raise an error if the entry has no question
         answer = clean_text(entry["Rich Text"])
         url = "https://aisafety.info?state=" + entry["UI ID"]
 

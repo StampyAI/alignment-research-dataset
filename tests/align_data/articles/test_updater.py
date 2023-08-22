@@ -93,9 +93,7 @@ def test_items_list(csv_file):
 def test_update_text(csv_file, updates):
     dataset = ReplacerDataset(name="bla", csv_path=csv_file, delimiter=",")
 
-    article = Mock(
-        text="this should be changed", status="as should this", url="http:/bla.bla.com"
-    )
+    article = Mock(text="this should be changed", status="as should this", url="http:/bla.bla.com")
 
     with patch(
         "align_data.sources.articles.updater.item_metadata",

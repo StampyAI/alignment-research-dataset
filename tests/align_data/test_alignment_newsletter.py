@@ -43,9 +43,7 @@ def test_process_entry_no_summary(dataset):
 
 
 def test_format_datatime(dataset):
-    assert dataset._get_published_date(2022) == datetime(
-        2022, 1, 1, tzinfo=timezone.utc
-    )
+    assert dataset._get_published_date(2022) == datetime(2022, 1, 1, tzinfo=timezone.utc)
 
 
 def test_process_entry(dataset):

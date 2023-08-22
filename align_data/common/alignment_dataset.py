@@ -85,9 +85,7 @@ class AlignmentDataset:
 
         article = Article(
             pinecone_update_required=True,
-            meta={
-                k: v for k, v in data.items() if k not in INIT_DICT and v is not None
-            },
+            meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )
         self._add_authors(article, authors)
@@ -166,14 +164,9 @@ class AlignmentDataset:
                 # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
                 # duplicates. The bad thing is that this could potentially return a massive amount of data if there
                 # are lots of items.
-                return set(
-                    session.scalars(select(getattr(Article, self.done_key))).all()
-                )
+                return set(session.scalars(select(getattr(Article, self.done_key))).all())
             # TODO: Properly handle this - it should create a proper SQL JSON select
-            return {
-                item.get(self.done_key)
-                for item in session.scalars(select(Article.meta)).all()
-            }
+            return {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
 
     def not_processed(self, item):
         # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
@@ -255,9 +248,7 @@ class SummaryDataset(AlignmentDataset):
         with make_session() as session:
             return set(
                 session.scalars(
-                    select(Article.url)
-                    .join(Article.summaries)
-                    .filter(Summary.source == self.name)
+                    select(Article.url).join(Article.summaries).filter(Summary.source == self.name)
                 )
             )
 

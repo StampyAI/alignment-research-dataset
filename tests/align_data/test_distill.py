@@ -76,9 +76,7 @@ def test_extra_values():
     """
 
     soup = BeautifulSoup(contents, "html.parser")
-    assert dataset._extra_values(
-        {"soup": soup, "summary": "A wild summary has appeared!"}
-    ) == {
+    assert dataset._extra_values({"soup": soup, "summary": "A wild summary has appeared!"}) == {
         "bibliography": [
             {
                 "link": "https://doi.org/10.23915/distill.00033",

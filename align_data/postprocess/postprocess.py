@@ -33,9 +33,7 @@ class PostProcesser:
                     text = obj["text"]
                     source_stats = self.all_stats[source_name]
                     source_stats["num_entries"] += 1
-                    source_stats["num_tokens"] += len(
-                        text.split()
-                    )  # TODO: Use tokenizer
+                    source_stats["num_tokens"] += len(text.split())  # TODO: Use tokenizer
                     source_stats["num_chars"] += len(text)
                     source_stats["num_words"] += len(text.split())
                     source_stats["num_sentences"] += len(

@@ -102,9 +102,7 @@ def format_far_ai(item):
     return {
         "title": get_text(item, ".article-title"),
         "url": f'https://www.safe.ai/research{item.select_one(".article-title a").get("href")}',
-        "source_url": item.select_one('div.btn-links a:-soup-contains("PDF")').get(
-            "href"
-        ),
+        "source_url": item.select_one('div.btn-links a:-soup-contains("PDF")').get("href"),
         "authors": ", ".join(i.text for i in item.select(".article-metadata a")),
     }
 
@@ -295,9 +293,7 @@ class IndicesDataset(AlignmentDataset):
                     "source": self.name,
                     "url": self.get_item_key(item),
                     "title": item.get("title"),
-                    "date_published": self._get_published_date(
-                        item.get("date_published")
-                    ),
+                    "date_published": self._get_published_date(item.get("date_published")),
                     "authors": self.extract_authors(item),
                     "status": "Ignored",
                     "comments": "Added from indices",

@@ -53,9 +53,7 @@ def fetch_pdf(link):
             link,
         )
 
-    content_type = {
-        c_type.strip().lower() for c_type in res.headers.get("Content-Type").split(";")
-    }
+    content_type = {c_type.strip().lower() for c_type in res.headers.get("Content-Type").split(";")}
     if not content_type & {"application/octet-stream", "application/pdf"}:
         return {
             "error": f"Wrong content type retrieved: {content_type} - {link}",
@@ -95,11 +93,7 @@ def get_arxiv_link(doi):
     if res.status_code != 200:
         return None
 
-    vals = [
-        val
-        for val in response.json().get("values")
-        if val.get("type", "").upper() == "URL"
-    ]
+    vals = [val for val in response.json().get("values") if val.get("type", "").upper() == "URL"]
 
     if not vals:
         return None

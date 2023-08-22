@@ -30,9 +30,7 @@ def get_pdf_from_page(*link_selectors: str):
         for selector in link_selectors:
             elem = fetch_element(link, selector)
             if not elem:
-                return {
-                    "error": f"Could not find pdf download link for {link} using '{selector}'"
-                }
+                return {"error": f"Could not find pdf download link for {link} using '{selector}'"}
 
             link = elem.get("href")
             if not link.startswith("http") or not link.startswith("//"):
@@ -140,9 +138,7 @@ HTML_PARSERS = {
     "carnegieendowment.org": element_extractor(
         "div.article-body", remove=[".no-print", ".related-pubs"]
     ),
-    "casparoesterheld.com": element_extractor(
-        ".entry-content", remove=["div.sharedaddy"]
-    ),
+    "casparoesterheld.com": element_extractor(".entry-content", remove=["div.sharedaddy"]),
     "cullenokeefe.com": element_extractor("div.sqs-block-content"),
     "deepmindsafetyresearch.medium.com": MediumParser(
         name="html", url="deepmindsafetyresearch.medium.com"
@@ -177,9 +173,7 @@ HTML_PARSERS = {
     "theconversation.com": element_extractor("div.content-body"),
     "thegradient.pub": element_extractor("div.c-content"),
     "towardsdatascience.com": MediumParser(name="html", url="towardsdatascience.com"),
-    "unstableontology.com": element_extractor(
-        ".entry-content", remove=["div.sharedaddy"]
-    ),
+    "unstableontology.com": element_extractor(".entry-content", remove=["div.sharedaddy"]),
     "waitbutwhy.com": element_extractor("article", remove=[".entry-header"]),
     "weightagnostic.github.io": element_extractor(
         "dt-article", remove=["#authors_section", "dt-byline"]
@@ -187,9 +181,7 @@ HTML_PARSERS = {
     "cnas.org": element_extractor("#mainbar-toc"),
     "econlib.org": element_extractor("div.post-content"),
     "humanityplus.org": element_extractor("div.content"),
-    "gleech.org": element_extractor(
-        "article.post-content", remove=["center", "div.accordion"]
-    ),
+    "gleech.org": element_extractor("article.post-content", remove=["center", "div.accordion"]),
     "ibm.com": element_extractor("div:has(> p)"),  # IBM's HTML is really ugly...
     "microsoft.com": element_extractor("div.content-container"),
     "mdpi.com": element_extractor(
@@ -266,9 +258,7 @@ PDF_PARSERS = {
     "jstor.org": doi_getter,
     "ri.cmu.edu": get_pdf_from_page("a.pub-link"),
     "risksciences.ucla.edu": get_pdf_from_page('a:-soup-contains("Download")'),
-    "ssrn.com": get_pdf_from_page(
-        '.abstract-buttons a.button-link:-soup-contains("Download")'
-    ),
+    "ssrn.com": get_pdf_from_page('.abstract-buttons a.button-link:-soup-contains("Download")'),
     "yjolt.org": get_pdf_from_page("span.file a"),
 }
 
@@ -284,9 +274,7 @@ def item_metadata(url) -> Dict[str, any]:
     except (MissingSchema, InvalidSchema, ConnectionError) as e:
         return {"error": str(e)}
 
-    content_type = {
-        item.strip() for item in res.headers.get("Content-Type", "").split(";")
-    }
+    content_type = {item.strip() for item in res.headers.get("Content-Type", "").split(";")}
 
     if content_type & {"text/html", "text/xml"}:
         # If the url points to a html webpage, then it either contains the text as html, or
@@ -305,9 +293,7 @@ def item_metadata(url) -> Dict[str, any]:
         if parser := UNIMPLEMENTED_PARSERS.get(domain):
             return parser(url)
 
-        if domain not in (
-            HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()
-        ):
+        if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()):
             return {"error": "No domain handler defined"}
         return {"error": "could not parse url"}
     elif content_type & {"application/octet-stream", "application/pdf"}:

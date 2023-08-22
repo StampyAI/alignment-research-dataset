@@ -40,25 +40,18 @@ class ReplacerDataset(AlignmentDataset):
         by_id = {i.id: i for i in self.csv_items if self.maybe(i, "id")}
         by_hash_id = {i.hash_id: i for i in self.csv_items if self.maybe(i, "hash_id")}
 
-        return [
-            Item(by_id.get(a._id) or by_hash_id.get(a.id), a)
-            for a in self.read_entries()
-        ]
+        return [Item(by_id.get(a._id) or by_hash_id.get(a.id), a) for a in self.read_entries()]
 
     @property
     def _query_items(self):
         ids = [i.id for i in self.csv_items if self.maybe(i, "id")]
         hash_ids = [i.hash_id for i in self.csv_items if self.maybe(i, "hash_id")]
-        return select(Article).where(
-            or_(Article.id.in_(hash_ids), Article._id.in_(ids))
-        )
+        return select(Article).where(or_(Article.id.in_(hash_ids), Article._id.in_(ids)))
 
     def update_text(self, updates, article):
         # If the url is the same as it was before, and there isn't a source url provided, assume that the
         # previous text is still valid
-        if article.url == self.maybe(updates, "url") and not self.maybe(
-            updates, "source_url"
-        ):
+        if article.url == self.maybe(updates, "url") and not self.maybe(updates, "source_url"):
             return
 
         # If no url found, then don't bother fetching the text - assume it was successfully fetched previously

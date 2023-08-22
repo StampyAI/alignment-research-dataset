@@ -50,12 +50,7 @@ class EleutherAI(HTMLDataset):
             return ""
 
     def extract_authors(self, article):
-        return (
-            article.select_one("header .post-meta")
-            .text.split("·")[1]
-            .strip()
-            .split(", ")
-        )
+        return article.select_one("header .post-meta").text.split("·")[1].strip().split(", ")
 
 
 class OpenAIResearch(HTMLDataset):
@@ -77,15 +72,11 @@ class OpenAIResearch(HTMLDataset):
         author_selector = 'div:-soup-contains("Authors") + div .f-body-1'
         ack_selector = 'div:-soup-contains("Acknowledgments") + div .f-body-1'
 
-        authors_div = article.select_one(author_selector) or article.select_one(
-            ack_selector
-        )
+        authors_div = article.select_one(author_selector) or article.select_one(ack_selector)
         authors = []
         if authors_div:
             authors = [
-                i.split("(")[0].strip()
-                for i in authors_div.select_one("p").children
-                if not i.name
+                i.split("(")[0].strip() for i in authors_div.select_one("p").children if not i.name
             ]
         return authors or ["OpenAI Research"]
 
@@ -115,9 +106,7 @@ class DeepMindTechnicalBlog(HTMLDataset):
                 page += 1
 
                 # update the tqdm progress bar
-                pbar.set_postfix_str(
-                    f"page {page}", refresh=True
-                )  # Set postfix to "page X"
+                pbar.set_postfix_str(f"page {page}", refresh=True)  # Set postfix to "page X"
                 pbar.update()  # Here we increment the progress bar by 1
 
         logger.info("Got %s pages", len(articles))

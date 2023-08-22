@@ -161,10 +161,7 @@ def test_caradomoe_text():
     </div>
     """
     soup = BeautifulSoup(contents, "html.parser")
-    assert (
-        dataset._get_text({"soup": soup})
-        == "bla bla bla [a link](http://ble.com) bla bla"
-    )
+    assert dataset._get_text({"soup": soup}) == "bla bla bla [a link](http://ble.com) bla bla"
 
 
 def test_caradomoe_process_entry():
@@ -229,9 +226,7 @@ GWERN_CONTENTS = f"""
 
 
 def test_gwern_get_text():
-    dataset = GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    )
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
 
     soup = BeautifulSoup(GWERN_CONTENTS, "html.parser")
     assert dataset._get_text(soup) == "bla bla bla [a link](http://ble.com) bla bla"
@@ -251,17 +246,13 @@ def test_gwern_get_text():
     ),
 )
 def test_gwern_get_published_date(metadata, date):
-    dataset = GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    )
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
 
     assert dataset._get_published_date(metadata) == date
 
 
 def test_gwern_get_article():
-    dataset = GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    )
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
     with patch("requests.get", return_value="article contents"):
         assert dataset._get_article("http://bla.com") == "article contents"
 
@@ -302,13 +293,9 @@ def test_gwern_process_markdown():
     ...
     {SAMPLE_HTML}
     """
-    dataset = GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    )
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
 
-    assert dataset._process_markdown(
-        "http://article.url", Mock(text=text)
-    ).to_dict() == {
+    assert dataset._process_markdown("http://article.url", Mock(text=text)).to_dict() == {
         "authors": ["Gwern Branwen"],
         "date_published": "2020-05-28T00:00:00Z",
         "id": None,
@@ -329,13 +316,9 @@ def test_gwern_process_entry_markdown():
     ...
     {SAMPLE_HTML}
     """
-    dataset = GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    )
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
 
-    with patch(
-        "requests.get", return_value=Mock(text=text, status_code=200, headers={})
-    ):
+    with patch("requests.get", return_value=Mock(text=text, status_code=200, headers={})):
         assert dataset.process_entry("http://article.url").to_dict() == {
             "authors": ["Gwern Branwen"],
             "date_published": "2020-05-28T00:00:00Z",
@@ -350,9 +333,7 @@ def test_gwern_process_entry_markdown():
 
 
 def test_gwern_process_entry_html():
-    dataset = GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    )
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
 
     with patch(
         "requests.get",
@@ -376,9 +357,7 @@ def test_gwern_process_entry_html():
 
 
 def test_gwern_process_entry_erro():
-    dataset = GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    )
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
 
     with patch("requests.get", return_value=Mock(status_code=404)):
         assert dataset.process_entry("http://article.url") is None
@@ -490,9 +469,7 @@ WORDPRESS_FEED = {
         "title": "Eliezer S. Yudkowsky",
         "link": "https://www.yudkowsky.net",
     },
-    "headers": {
-        "link": '<https://www.yudkowsky.net/wp-json/>; rel="https://api.w.org/"'
-    },
+    "headers": {"link": '<https://www.yudkowsky.net/wp-json/>; rel="https://api.w.org/"'},
 }
 
 
@@ -508,9 +485,7 @@ def test_wordpress_blog_setup():
 @patch("feedparser.parse", return_value=WORDPRESS_FEED)
 def test_wordpress_blog_items_list(feedparser_parse):
     blog = WordpressBlog(name="blog", url="https://www.bla.yudkowsky.net")
-    assert blog.items_list == [
-        "https://www.yudkowsky.net/other/fiction/prospiracy-theory"
-    ]
+    assert blog.items_list == ["https://www.yudkowsky.net/other/fiction/prospiracy-theory"]
 
 
 def test_wordpress_blog_get_item_key():
@@ -527,9 +502,7 @@ def test_wordpress_blog_get_published_date():
         name="blog",
         url="https://www.bla.yudkowsky.net",
     )
-    date_published = blog._get_published_date(
-        {"published": "Mon, 26 Jun 2023 13:40:01 +0000"}
-    )
+    date_published = blog._get_published_date({"published": "Mon, 26 Jun 2023 13:40:01 +0000"})
     assert date_published == parse("2023-06-26T13:40:01Z")
 
 
@@ -540,9 +513,7 @@ def test_wordpress_blog_process_entry(feedparser_parse):
         url="https://www.bla.yudkowsky.net",
     )
     blog.items = {i["link"]: i for i in WORDPRESS_FEED["entries"]}
-    entry = blog.process_entry(
-        "https://www.yudkowsky.net/other/fiction/prospiracy-theory"
-    )
+    entry = blog.process_entry("https://www.yudkowsky.net/other/fiction/prospiracy-theory")
     assert entry.to_dict() == {
         "authors": ["Eliezer S. Yudkowsky"],
         "date_published": "2020-09-04T04:11:23Z",
@@ -643,9 +614,7 @@ def test_openai_research_get_text():
 
     soup = BeautifulSoup(OPENAI_HTML, "html.parser")
     parsers = {"arxiv.org": lambda _: {"text": "bla bla bla"}}
-    with patch(
-        "requests.head", return_value=Mock(headers={"Content-Type": "text/html"})
-    ):
+    with patch("requests.head", return_value=Mock(headers={"Content-Type": "text/html"})):
         with patch("align_data.sources.articles.parsers.PDF_PARSERS", parsers):
             assert dataset._get_text(soup) == "bla bla bla"
 
@@ -697,9 +666,7 @@ def test_openai_research_process_entry():
 
     soup = BeautifulSoup(OPENAI_HTML, "html.parser")
     parsers = {"arxiv.org": lambda _: {"text": "bla bla bla"}}
-    with patch(
-        "requests.head", return_value=Mock(headers={"Content-Type": "text/html"})
-    ):
+    with patch("requests.head", return_value=Mock(headers={"Content-Type": "text/html"})):
         with patch("requests.get", return_value=Mock(content=OPENAI_HTML)):
             with patch("align_data.sources.articles.parsers.PDF_PARSERS", parsers):
                 assert dataset.process_entry(soup).to_dict() == {

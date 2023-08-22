@@ -59,9 +59,7 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
             block_length = self._length_function(current_block)
 
             if block_length > self.max_chunk_size:
-                current_block = self._handle_large_paragraph(
-                    current_block, blocks, paragraph
-                )
+                current_block = self._handle_large_paragraph(current_block, blocks, paragraph)
             elif block_length >= self.min_chunk_size:
                 blocks.append(current_block)
                 current_block = ""
@@ -71,9 +69,7 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
         blocks = self._handle_remaining_text(current_block, blocks)
         return [block.strip() for block in blocks]
 
-    def _handle_large_paragraph(
-        self, current_block: str, blocks: List[str], paragraph: str
-    ) -> str:
+    def _handle_large_paragraph(self, current_block: str, blocks: List[str], paragraph: str) -> str:
         # Undo adding the whole paragraph
         offset = len(paragraph) + 2  # +2 accounts for "\n\n"
         current_block = current_block[:-offset]
@@ -95,9 +91,7 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
     def _truncate_large_block(self, current_block: str, blocks: List[str]) -> str:
         while self._length_function(current_block) > self.max_chunk_size:
             # Truncate current_block to max size, set remaining text as current_block
-            truncated_block = self._truncate_function(
-                current_block, self.max_chunk_size
-            )
+            truncated_block = self._truncate_function(current_block, self.max_chunk_size)
             blocks.append(truncated_block)
 
             current_block = current_block[len(truncated_block) :].lstrip()

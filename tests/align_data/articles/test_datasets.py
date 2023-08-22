@@ -133,21 +133,15 @@ def test_html_articles_get_text():
         assert url == "http://example.org/bla.bla"
         return {"text": "html contents"}
 
-    with patch(
-        "align_data.sources.articles.datasets.HTML_PARSERS", {"example.org": parser}
-    ):
+    with patch("align_data.sources.articles.datasets.HTML_PARSERS", {"example.org": parser}):
         assert (
-            HTMLArticles._get_text(Mock(source_url="http://example.org/bla.bla"))
-            == "html contents"
+            HTMLArticles._get_text(Mock(source_url="http://example.org/bla.bla")) == "html contents"
         )
 
 
 def test_html_articles_get_text_no_parser():
     with patch("align_data.sources.articles.datasets.HTML_PARSERS", {}):
-        assert (
-            HTMLArticles._get_text(Mock(source_url="http://example.org/bla.bla"))
-            is None
-        )
+        assert HTMLArticles._get_text(Mock(source_url="http://example.org/bla.bla")) is None
 
 
 def test_html_articles_process_entry(articles):
@@ -203,9 +197,7 @@ def test_ebook_articles_process_entry(articles):
 
     contents = '   html contents with <a href="bla.com">proper elements</a> ble ble   '
     with patch("align_data.sources.articles.datasets.download"):
-        with patch(
-            "align_data.sources.articles.datasets.convert_file", return_value=contents
-        ):
+        with patch("align_data.sources.articles.datasets.convert_file", return_value=contents):
             assert dataset.process_entry(item).to_dict() == {
                 "authors": ["John Snow", "mr Blobby"],
                 "date_published": "2023-01-01T12:32:11Z",
@@ -290,12 +282,8 @@ def test_markdown_articles_process_entry(articles):
 def test_doc_articles_get_text():
     dataset = DocArticles(name="bla", spreadsheet_id="123", sheet_id="456")
     with patch("align_data.sources.articles.datasets.fetch_file"):
-        with patch(
-            "align_data.sources.articles.datasets.convert_file", return_value="bla bla"
-        ):
-            assert (
-                dataset._get_text(Mock(source_url="bla.com/bla/123/bla")) == "bla bla"
-            )
+        with patch("align_data.sources.articles.datasets.convert_file", return_value="bla bla"):
+            assert dataset._get_text(Mock(source_url="bla.com/bla/123/bla")) == "bla bla"
 
 
 def test_doc_articles_process_entry(articles):
@@ -304,9 +292,7 @@ def test_doc_articles_process_entry(articles):
         item = list(dataset.items_list)[0]
 
     with patch("align_data.sources.articles.datasets.fetch_file"):
-        with patch(
-            "align_data.sources.articles.datasets.convert_file", return_value="bla bla"
-        ):
+        with patch("align_data.sources.articles.datasets.convert_file", return_value="bla bla"):
             assert dataset.process_entry(item).to_dict() == {
                 "authors": ["John Snow", "mr Blobby"],
                 "date_published": "2023-01-01T12:32:11Z",
@@ -416,9 +402,7 @@ def test_special_docs_process_entry():
         "source_type": "html",
     }
 
-    with patch(
-        "align_data.sources.articles.datasets.item_metadata", return_value=contents
-    ):
+    with patch("align_data.sources.articles.datasets.item_metadata", return_value=contents):
         assert dataset.process_entry(item).to_dict() == {
             "authors": ["mr. blobby"],
             "date_published": "2023-10-02T01:23:45Z",

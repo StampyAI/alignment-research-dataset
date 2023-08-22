@@ -24,17 +24,14 @@ class ContrastiveLoss(nn.Module):
         euclidean_distance = nn.functional.pairwise_distance(output1, output2)
         loss_contrastive = torch.mean(
             (1 - label) * torch.pow(euclidean_distance, 2)
-            + (label)
-            * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
+            + (label) * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
         )
 
         return loss_contrastive
 
 
 class NonLinearFineTuneModel(nn.Module):
-    def __init__(
-        self, embedding_dim=PINECONE_VALUES_DIMS, hidden_dim=2000, dropout=0.5
-    ):
+    def __init__(self, embedding_dim=PINECONE_VALUES_DIMS, hidden_dim=2000, dropout=0.5):
         super(FineTuneModel, self).__init__()
 
         self.fc1 = nn.Linear(embedding_dim, hidden_dim)
@@ -91,9 +88,7 @@ def validate(model, dataloader, criterion):
     total_loss = 0.0
 
     with torch.no_grad():
-        for batch_idx, (text1_embedding, text2_embedding, target) in enumerate(
-            dataloader
-        ):
+        for batch_idx, (text1_embedding, text2_embedding, target) in enumerate(dataloader):
             text1_embedding = text1_embedding.to(DEVICE)
             text2_embedding = text2_embedding.to(DEVICE)
             target = target.float().to(DEVICE)
@@ -121,20 +116,14 @@ def finetune_embeddings():
     model = FineTuneModel().to(DEVICE)
     model = load_best_model_if_exists(model)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    scheduler = ReduceLROnPlateau(
-        optimizer, "min", patience=2, factor=0.5, verbose=True
-    )
+    scheduler = ReduceLROnPlateau(optimizer, "min", patience=2, factor=0.5, verbose=True)
     criterion = ContrastiveLoss(MARGIN)
 
     # Assuming you've split your data and have a separate validation set
     validation_dataset = FinetuningDataset(num_batches_per_epoch=BATCH_PER_EPOCH)
-    validation_dataloader = DataLoader(
-        validation_dataset, batch_size=BATCH_SIZE, num_workers=5
-    )
+    validation_dataloader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, num_workers=5)
     best_val_loss = validate(model, validation_dataloader, criterion)
-    print(
-        f"Initial validation loss (from loaded model or new model): {best_val_loss:.4f}"
-    )
+    print(f"Initial validation loss (from loaded model or new model): {best_val_loss:.4f}")
 
     epochs_without_improvement = 0
     max_epochs_without_improvement = 15  # stop after 5 epochs without improvement

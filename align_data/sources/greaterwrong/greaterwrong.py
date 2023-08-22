@@ -77,10 +77,7 @@ class GreaterWrong(AlignmentDataset):
         self.ai_tags = get_allowed_tags(self.base_url, self.name)
 
     def tags_ok(self, post):
-        return (
-            not self.ai_tags
-            or {t["name"] for t in post["tags"] if t.get("name")} & self.ai_tags
-        )
+        return not self.ai_tags or {t["name"] for t in post["tags"] if t.get("name")} & self.ai_tags
 
     def get_item_key(self, item):
         return item["pageUrl"]

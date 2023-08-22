@@ -49,15 +49,9 @@ class FinetuningDataset(IterableDataset):
         """Fetch a batch of random articles."""
         # If the list has fewer IDs than needed, raise an exception
         random_selected_ids = random.sample(self.all_article_ids, batch_size)
-        return (
-            self.session.query(Article)
-            .filter(Article.id.in_(random_selected_ids))
-            .all()
-        )
+        return self.session.query(Article).filter(Article.id.in_(random_selected_ids)).all()
 
-    def _get_random_chunks(
-        self, article: Article, num_chunks: int = 2
-    ) -> List[Tuple[int, str]]:
+    def _get_random_chunks(self, article: Article, num_chunks: int = 2) -> List[Tuple[int, str]]:
         chunks = get_text_chunks(article, self.text_splitter)
         if len(chunks) < num_chunks:
             return None
@@ -65,9 +59,7 @@ class FinetuningDataset(IterableDataset):
         random_chunks = [chunks[idx] for idx in random_chunk_indices]
         return list(zip(random_chunk_indices, random_chunks))
 
-    def _get_embeddings(
-        self, article: Article, chunks: List[Tuple[str, str]]
-    ) -> List[List[float]]:
+    def _get_embeddings(self, article: Article, chunks: List[Tuple[str, str]]) -> List[List[float]]:
         full_ids = [f"{article.id}_{str(idx).zfill(6)}" for idx, _ in chunks]
         _embeddings = self.pinecone_db.get_embeddings_by_ids(full_ids)
 
@@ -108,10 +100,7 @@ class FinetuningDataset(IterableDataset):
             )
             batches_yielded += 1
 
-            if (
-                self.num_batches_per_epoch
-                and batches_yielded >= self.num_batches_per_epoch
-            ):
+            if self.num_batches_per_epoch and batches_yielded >= self.num_batches_per_epoch:
                 break
 
         if get_worker_info() is not None:

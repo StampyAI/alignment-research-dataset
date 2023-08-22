@@ -38,9 +38,7 @@ class PineconeEntry(BaseModel):
         def display_chunks(chunks: List[str]) -> str:
             chunks = ", ".join(f'"{make_small(chunk)}"' for chunk in chunks)
             return (
-                f"[{chunks[:450]} [...] {chunks[-450:]} ]"
-                if len(chunks) > 1000
-                else f"[{chunks}]"
+                f"[{chunks[:450]} [...] {chunks[-450:]} ]" if len(chunks) > 1000 else f"[{chunks}]"
             )
 
         return f"PineconeEntry(id={self.id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={display_chunks(self.text_chunks)})"

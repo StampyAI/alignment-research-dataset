@@ -84,9 +84,7 @@ def test_greaterwrong_get_item_key(dataset):
 
 
 def test_greaterwrong_get_published_date(dataset):
-    assert dataset._get_published_date({"postedAt": "2021/02/01"}) == parse(
-        "2021-02-01T00:00:00Z"
-    )
+    assert dataset._get_published_date({"postedAt": "2021/02/01"}) == parse("2021-02-01T00:00:00Z")
 
 
 def test_greaterwrong_get_published_date_missing(dataset):
@@ -152,9 +150,7 @@ def test_items_list_with_previous_items(dataset):
             ]
         return {"results": results}
 
-    mock_items = (
-        i for i in [Mock(date_published=datetime.fromisoformat("2014-12-12T01:23:45"))]
-    )
+    mock_items = (i for i in [Mock(date_published=datetime.fromisoformat("2014-12-12T01:23:45"))])
     with patch.object(dataset, "fetch_posts", fetcher):
         with patch.object(dataset, "make_query", lambda next_date: next_date):
             with patch.object(dataset, "read_entries", return_value=mock_items):
