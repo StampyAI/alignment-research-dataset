@@ -48,6 +48,7 @@ ModerationInfoType = Dict[str, Any]
 # DECORATORS
 # --------------------
 
+
 def handle_openai_errors(func):
     """Decorator to handle OpenAI-specific exceptions with retries."""
 
@@ -84,6 +85,7 @@ def handle_openai_errors(func):
 # --------------------
 # MAIN FUNCTIONS
 # --------------------
+
 
 @handle_openai_errors
 def moderation_check(texts):
