@@ -7,7 +7,7 @@ The AI Alignment Research Dataset is a collection of documents related to AI Ali
 Here are the list of sources along with sample contents:
 
 - [agentmodel](https://agentmodels.org/)
-- agisf - the recommended readings from the AGI safety foundations
+- [agisf](https://course.aisafetyfundamentals.com/) - recommended readings from AGI Safety Fundamentals
 - [aisafety.info](https://aisafety.info/) - Stampy's FAQ
 - [alignmentforum](https://www.alignmentforum.org)
 - [alignment_newsletter](https://rohinshah.com/alignment-newsletter/)
