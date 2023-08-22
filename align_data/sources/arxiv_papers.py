@@ -5,15 +5,9 @@ from typing import Dict, Optional, Any
 import arxiv
 from align_data.sources.articles.pdf import fetch_pdf, parse_vanity
 from align_data.sources.articles.html import fetch_element
+from align_data.sources.utils import merge_dicts
 
 logger = logging.getLogger(__name__)
-
-
-def merge_dicts(*dicts):
-    final = {}
-    for d in dicts:
-        final = dict(final, **{k: v for k, v in d.items() if v})
-    return final
 
 
 def get_arxiv_metadata(paper_id) -> arxiv.Result:
@@ -100,5 +94,6 @@ def fetch_arxiv(url) -> Dict:
     )
     authors = data.get("authors") or paper.get("authors") or []
     data["authors"] = [str(a).strip() for a in authors]
+    data["source"] = "arxiv"
 
     return merge_dicts(data, paper)

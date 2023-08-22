@@ -24,6 +24,7 @@ on:
         options:
           - all
           - agentmodels
+          - agisf
           - aiimpacts
           - aisafety.camp
           - aisafety.info

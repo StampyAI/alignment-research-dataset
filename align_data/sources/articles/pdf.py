@@ -58,7 +58,6 @@ def fetch_pdf(link):
     if not content_type & {"application/octet-stream", "application/pdf"}:
         return {
             "error": f"Wrong content type retrieved: {content_type} - {link}",
-            "contents": res.content,
         }
 
     try:
