@@ -44,7 +44,17 @@ class PineconeUpdater:
         try:
             for article, pinecone_entry in batch:
                 self.pinecone_db.upsert_entry(pinecone_entry)
+
                 article.pinecone_update_required = False
+                article.comments += (
+                    (
+                        f"\n\nComments from this article that were flagged by the moderation model:"
+                        f"{comments}"
+                    )
+                    if (comments := self._handle_flagged_chunks(pinecone_entry))
+                    else ""
+                )
+
                 session.add(article)
             session.commit()
         except Exception as e:
@@ -64,8 +74,12 @@ class PineconeUpdater:
 
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry:
         text_chunks = get_text_chunks(article, self.text_splitter)
+        embeddings, _ = get_embeddings(text_chunks, article.source)
+
         assert isinstance(article.date_published, datetime)
         try:
+            # create comment in article if moderation is not None for all mod results
+
             return PineconeEntry(
                 id=article.id,  # the hash_id of the article
                 source=article.source,
@@ -74,10 +88,17 @@ class PineconeUpdater:
                 date=article.date_published.timestamp(),
                 authors=[author.strip() for author in article.authors.split(",") if author.strip()],
                 text_chunks=text_chunks,
-                embeddings=get_embeddings(text_chunks, article.source),
+                embeddings=embeddings,
             )
         except (ValueError, ValidationError) as e:
             logger.exception(e)
+
+    def _handle_flagged_chunks(self, entry: PineconeEntry) -> str:
+        """Handle flagged text chunks and return comments for them."""
+        comments = ""
+        for i, (chunk, embedding) in enumerate(zip(entry.text_chunks, entry.embeddings)):
+            comments += f'Chunk {i}: "{chunk}"\n' if not embedding else ""
+        return comments
 
 
 def get_text_chunks(

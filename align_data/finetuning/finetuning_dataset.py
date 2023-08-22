@@ -9,7 +9,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql import func
 
 from align_data.db.session import make_session
-from align_data.common.utils import get_embeddings
+from align_data.common.utils import get_embedding
 from align_data.pinecone.pinecone_db_handler import PineconeDB
 from align_data.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
 from align_data.pinecone.update_pinecone import get_text_chunks
@@ -66,7 +66,7 @@ class FinetuningDataset(IterableDataset):
         embeddings = []
         for (chunk_idx, chunk), (full_id, embedding) in zip(chunks, _embeddings):
             if embedding is None:
-                embedding = get_embeddings([chunk]).tolist()[0]
+                embedding, _ = get_embedding(chunk)
             embeddings.append(torch.tensor(embedding))
 
         return embeddings

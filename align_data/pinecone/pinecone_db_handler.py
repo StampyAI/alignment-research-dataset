@@ -52,7 +52,6 @@ class PineconeDB:
 
     def upsert_entry(self, pinecone_entry: PineconeEntry, upsert_size: int = 100):
         vectors = pinecone_entry.create_pinecone_vectors()
-
         self.index.upsert(vectors=vectors, batch_size=upsert_size, namespace=PINECONE_NAMESPACE)
 
     def query_vector(
@@ -94,18 +93,6 @@ class PineconeDB:
             include_metadata=include_metadata,
             **kwargs,
         )
-
-        # def query
-        #   vector: Optional[List[float]] = None,
-        #   id: Optional[str] = None,
-        #   queries: Optional[Union[List[QueryVector], List[Tuple]]] = None,
-        #   top_k: Optional[int] = None,
-        #   namespace: Optional[str] = None,
-        #   filter: Optional[Dict[str, Union[str, float, int, bool, List, dict]]] = None,
-        #   include_values: Optional[bool] = None,
-        #   include_metadata: Optional[bool] = None,
-        #   sparse_vector: Optional[Union[SparseValues, Dict[str, Union[List[float], List[int]]]]] = None,
-        #   **kwargs
 
     def delete_entries(self, ids):
         self.index.delete(filter={"entry_id": {"$in": ids}})

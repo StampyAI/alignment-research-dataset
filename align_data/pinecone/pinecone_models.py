@@ -14,7 +14,6 @@ class PineconeMetadata(TypedDict):
     date_published: int
 
 
-# TODO: avoid having the model compute the vectors
 class PineconeEntry(BaseModel):
     id: str
     source: str
@@ -73,4 +72,5 @@ class PineconeEntry(BaseModel):
                 ),
             )
             for i in range(self.chunk_num)
+            if self.embeddings[i]  # Skips flagged chunks
         ]
