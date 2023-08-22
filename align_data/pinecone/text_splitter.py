@@ -11,8 +11,6 @@ from nltk.tokenize import sent_tokenize
 StrToIntFunction = Callable[[str], int]
 StrIntBoolToStrFunction = Callable[[str, int, bool], str]
 
-def default_truncate_function(string: str, length: int, from_end: bool = False) -> str:
-    return string[-length:] if from_end else string[:length]
 
 def default_truncate_function(string: str, length: int, from_end: bool = False) -> str:
     return string[-length:] if from_end else string[:length]
