@@ -43,15 +43,13 @@ RETRY_CONDITIONS = (
     | retry_if_exception(lambda e: "502" in str(e))
 )
 
-hf_embeddings = (
-    HuggingFaceEmbeddings(
+hf_embeddings = None
+if not USE_OPENAI_EMBEDDINGS:
+    hf_embeddings = HuggingFaceEmbeddings(
         model_name=SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
         model_kwargs={"device": DEVICE},
         encode_kwargs={"show_progress_bar": False},
     )
-    if not USE_OPENAI_EMBEDDINGS
-    else None
-)
 
 # --------------------
 # TYPE DEFINITIONS
