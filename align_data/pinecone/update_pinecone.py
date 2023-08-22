@@ -6,7 +6,7 @@ from typing import Callable, List, Tuple, Generator, Iterator, Any, Dict
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
-from align_data.common.utils import get_embeddings
+from align_data.pinecone.embedding_utils import get_embeddings
 from align_data.db.models import Article
 from align_data.db.session import make_session, stream_pinecone_updates
 from align_data.pinecone.pinecone_db_handler import PineconeDB

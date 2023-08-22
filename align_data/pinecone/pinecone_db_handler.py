@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Union
 import pinecone
 from pinecone.core.client.models import Vector, ScoredVector
 
-from align_data.common.utils import get_embedding
+from align_data.pinecone.embedding_utils import get_embedding
 from align_data.pinecone.pinecone_models import (
     PineconeEntry,
     PineconeMetadata,
