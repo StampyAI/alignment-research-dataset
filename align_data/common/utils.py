@@ -1,5 +1,6 @@
 import logging
-from typing import List
+from typing import List, Tuple, Dict, Union, Any, Optional
+from functools import wraps
 
 import openai
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -20,63 +21,109 @@ from align_data.settings import (
 
 logger = logging.getLogger(__name__)
 
-
+# Configuration for embeddings
 hf_embeddings = HuggingFaceEmbeddings(
     model_name=SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
     model_kwargs={"device": DEVICE},
     encode_kwargs={"show_progress_bar": False},
 ) if not USE_OPENAI_EMBEDDINGS else None
 
+# Type definitions
+EmbeddingType = Optional[List[float]]  # Represents a single embedding or None
+EmbeddingsListType = Optional[List[EmbeddingType]]  # List of embeddings
+ModerationInfoListType = List[Dict[str, Any]]  # Moderation results for all input texts
+GetEmbeddingsReturnType = Union[EmbeddingsListType, Tuple[EmbeddingsListType, ModerationInfoListType]]  # Return type for main function
 
-@retry(
-    wait=wait_random_exponential(multiplier=1, min=2, max=30), 
-    stop=stop_after_attempt(6),
-    retry=(retry_if_exception_type(RateLimitError) |
-           retry_if_exception_type(APIError) |
-           retry_if_exception(lambda e: '502' in str(e)))
+RETRY_CONDITIONS = (
+    retry_if_exception_type(RateLimitError) |
+    retry_if_exception_type(APIError) |
+    retry_if_exception(lambda e: '502' in str(e))
 )
+
+
+def handle_openai_errors(func):
+    @wraps(func)
+    @retry(
+        wait=wait_random_exponential(multiplier=1, min=2, max=30), 
+        stop=stop_after_attempt(6),
+        retry=RETRY_CONDITIONS
+    )
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except RateLimitError as e:
+            logger.warning(f"OpenAI Rate limit error. Trying again. Error: {e}")
+            raise
+        except APIError as e:
+            if '502' in str(e):
+                logger.warning(f"OpenAI 502 Bad Gateway error. Trying again. Error: {e}")
+            else:
+                logger.error(f"OpenAI API Error encountered: {e}")
+            raise
+        except (InvalidRequestError, APIConnectionError, AuthenticationError,
+                PermissionError, ServiceUnavailableError, InvalidAPIType,
+                SignatureVerificationError) as e:
+            logger.error(f"OpenAI Error encountered: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error encountered: {e}")
+            raise
+    return wrapper
+
+@handle_openai_errors
+def moderation_check(texts):
+    return openai.Moderation.create(input=texts)["results"]
+
+@handle_openai_errors
+def compute_openai_embeddings(non_flagged_texts, engine, **kwargs):
+    data = openai.Embedding.create(input=non_flagged_texts, engine=engine, **kwargs).data
+    return [d["embedding"] for d in data]
+
+from openai.embeddings_utils import get_embeddings
 def get_embeddings(
-    list_of_text: List[str], 
+    texts: List[str], 
+    embed_all: bool = False,
+    return_moderation_info: bool = False,
     source: str = 'no source', 
     engine=OPENAI_EMBEDDINGS_MODEL, 
     **kwargs
-    ) -> List[List[float]]:
-    assert len(list_of_text) <= 2048, "The batch size should not be larger than 2048."
-
-    list_of_text = [text.replace("\n", " ") for text in list_of_text]
-
-    try:
+) -> GetEmbeddingsReturnType:
+    assert len(texts) <= 2048, "The batch size should not be larger than 2048."
+    assert all(texts), "No empty strings allowed in the input list."
+    
+    # Step 1: Check all texts for moderation flags
+    moderation_results = moderation_check(texts)
+    flagged_bools = [result["flagged"] for result in moderation_results]
+    
+    # If not embedding all and any text is flagged, return None immediately
+    if not embed_all and any(flagged_bools):
+        if return_moderation_info:
+            return None, moderation_results
+        return None
+    
+    # Filter out flagged texts before embedding and replace newlines, which can negatively affect performance.
+    non_flagged_texts = [text for text, flagged in zip(texts, flagged_bools) if not flagged]
+    non_flagged_texts = [text.replace("\n", " ") for text in non_flagged_texts]
+    
+    # Step 2: Compute embeddings for non-flagged texts
+    non_flagged_embeddings = []
+    if non_flagged_texts:  # Only call the embedding function if there are non-flagged texts
         if USE_OPENAI_EMBEDDINGS:
-            data = openai.Embedding.create(input=list_of_text, engine=engine, **kwargs).data
-            embeddings = [d["embedding"] for d in data]
+            non_flagged_embeddings = compute_openai_embeddings(non_flagged_texts, engine, **kwargs)
         else:
-            embeddings = hf_embeddings.embed_documents(list_of_text)
+            non_flagged_embeddings = hf_embeddings.embed_documents(non_flagged_texts)  # Assuming this doesn't require the same error handling
 
-        #TODO: figure out a good way to bias
-        if bias := EMBEDDING_LENGTH_BIAS.get(source, 1.0):
-            embeddings = [[bias * e for e in embedding] for embedding in embeddings]
-        return embeddings
+    # Bias adjustment
+    if bias := EMBEDDING_LENGTH_BIAS.get(source, 1.0):
+        non_flagged_embeddings = [[bias * e for e in embedding] for embedding in non_flagged_embeddings]
+    
+    # Step 3: Reconstruct the final list of embeddings with None for flagged texts
+    non_flagged_iter = iter(non_flagged_embeddings)
+    final_embeddings = [None if flagged else next(non_flagged_iter) for flagged in flagged_bools]
 
-    except RateLimitError as e:
-        logger.warning(f"OpenAI Rate limit error. Trying again. Error: {e}")
-        raise
-
-    except APIError as e:
-        if '502' in str(e):
-            logger.warning(f"OpenAI 502 Bad Gateway error. Trying again. Error: {e}")
-        else:
-            logger.error(f"OpenAI API Error encountered: {e}")
-        raise
-
-    except (InvalidRequestError, APIConnectionError, AuthenticationError,
-            PermissionError, ServiceUnavailableError, InvalidAPIType,
-            SignatureVerificationError) as e:
-        logger.error(f"OpenAI Error encountered: {e}")
-        raise
-
-    except Exception as e:
-        logger.error(f"Unexpected error encountered: {e}")
-        raise
+    if return_moderation_info:
+        return final_embeddings, moderation_results
+    return final_embeddings
 
 
 def embed_query(query: str, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs) -> List[float]:
