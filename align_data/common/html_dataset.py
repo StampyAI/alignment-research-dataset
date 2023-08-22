@@ -153,5 +153,5 @@ class RSSDataset(HTMLDataset):
     def items_list(self):
         logger.info(f"Fetching entries from {self.feed_url}")
         feed = feedparser.parse(self.feed_url)
-        self.items = {item["link"]: item for item in feed["entries"]}
+        self.items = {item["link"]: item for item in feed["entries"] if 'link' in item}
         return list(self.items.keys())

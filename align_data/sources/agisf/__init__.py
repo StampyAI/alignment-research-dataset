@@ -1,7 +1,9 @@
 from align_data.common.alignment_dataset import MultiDataset
-from align_data.sources.airtable.airtable import AirtableDataset
+from align_data.sources.airtable import AirtableDataset
+from align_data.sources.agisf.agisf import AGISFPodcastDataset
 
-AGISF_DATASETS = [
+
+datasets = [
     AirtableDataset(
         name='agisf_governance',
         base_id='app9q0E0jlDWlsR0z',
@@ -18,8 +20,17 @@ AGISF_DATASETS = [
             'authors': lambda val: val and [v.strip() for v in val.split(',')]
         }
     ),
+    AGISFPodcastDataset(
+        name='agisf_readings_alignment',
+        url='https://feeds.type3.audio/agi-safety-fundamentals--alignment.rss',
+    ),
+    AGISFPodcastDataset(
+        name='agisf_readings_governance',
+        url='https://feeds.type3.audio/agi-safety-fundamentals--governance.rss',
+    ),
 ]
 
-AIRTABLE_DATASETS = [
-    MultiDataset(name='agisf', datasets=AGISF_DATASETS),
+
+AGISF_DATASETS = [
+    MultiDataset(name='agisf', datasets=datasets),
 ]

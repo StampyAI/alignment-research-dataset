@@ -1,7 +1,7 @@
 import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
-from align_data.sources.airtable.airtable import AirtableDataset
+from align_data.sources.airtable import AirtableDataset
 
 
 @pytest.mark.parametrize('item, overwrites', (
@@ -127,7 +127,7 @@ def test_process_entry():
         'status': 'fine',
         'comments': 'should be ok',
     }
-    with patch("align_data.sources.airtable.airtable.item_metadata", return_value={
+    with patch("align_data.sources.airtable.item_metadata", return_value={
         'text': 'bla bla bla',
         'source_type': 'some kind of thing',
     }):
