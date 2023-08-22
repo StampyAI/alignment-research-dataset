@@ -77,7 +77,9 @@ class OpenAIResearch(HTMLDataset):
         author_selector = 'div:-soup-contains("Authors") + div .f-body-1'
         ack_selector = 'div:-soup-contains("Acknowledgments") + div .f-body-1'
 
-        authors_div = article.select_one(author_selector) or article.select_one(ack_selector)
+        authors_div = article.select_one(author_selector) or article.select_one(
+            ack_selector
+        )
         authors = []
         if authors_div:
             authors = [

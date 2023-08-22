@@ -60,7 +60,9 @@ class Article(Base):
         DateTime, onupdate=func.current_timestamp()
     )
     status: Mapped[Optional[str]] = mapped_column(String(256))
-    comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
+    comments: Mapped[Optional[str]] = mapped_column(
+        LONGTEXT
+    )  # Editor comments. Can be anything
 
     pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -89,15 +91,21 @@ class Article(Base):
 
     @property
     def __id_fields(self):
-        if self.source == 'aisafety.info':
-            return ['url']
-        if self.source in ['importai', 'ml_safety_newsletter', 'alignment_newsletter']:
-            return ['url', 'title', 'source']
+        if self.source == "aisafety.info":
+            return ["url"]
+        if self.source in ["importai", "ml_safety_newsletter", "alignment_newsletter"]:
+            return ["url", "title", "source"]
         return ["url", "title"]
 
     @property
     def missing_fields(self):
-        fields = set(self.__id_fields) | {'text', 'title', 'url', 'source', 'date_published'}
+        fields = set(self.__id_fields) | {
+            "text",
+            "title",
+            "url",
+            "source",
+            "date_published",
+        }
         return sorted([field for field in fields if not getattr(self, field, None)])
 
     def verify_id(self):
@@ -117,7 +125,9 @@ class Article(Base):
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
                 setattr(self, field, getattr(other, field))
-        self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
+        self.meta = dict(
+            (self.meta or {}), **{k: v for k, v in other.meta.items() if k and v}
+        )
 
         if other._id:
             self._id = other._id
@@ -136,10 +146,12 @@ class Article(Base):
     @hybrid_property
     def is_valid(self):
         return (
-            self.text and self.text.strip() and
-            self.url and self.title and
-            self.authors is not None and
-            self.status == OK_STATUS
+            self.text
+            and self.text.strip()
+            and self.url
+            and self.title
+            and self.authors is not None
+            and self.status == OK_STATUS
         )
 
     @is_valid.expression
@@ -157,7 +169,7 @@ class Article(Base):
         target.verify_id_fields()
 
         if not target.status and target.missing_fields:
-            target.status = 'Missing fields'
+            target.status = "Missing fields"
             target.comments = f'missing fields: {", ".join(target.missing_fields)}'
 
         if target.id:

@@ -85,7 +85,9 @@ class AlignmentDataset:
 
         article = Article(
             pinecone_update_required=True,
-            meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
+            meta={
+                k: v for k, v in data.items() if k not in INIT_DICT and v is not None
+            },
             **{k: v for k, v in data.items() if k in INIT_DICT},
         )
         self._add_authors(article, authors)
@@ -239,7 +241,11 @@ class SummaryDataset(AlignmentDataset):
 
         urls = map(self.get_item_key, items)
         with make_session() as session:
-            articles = session.query(Article).options(joinedload(Article.summaries)).filter(Article.url.in_(urls))
+            articles = (
+                session.query(Article)
+                .options(joinedload(Article.summaries))
+                .filter(Article.url.in_(urls))
+            )
             self.articles = {a.url: a for a in articles if a.url}
 
         return items

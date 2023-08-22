@@ -70,8 +70,8 @@ def fetch_pdf(link):
             "source_type": "pdf",
         }
     except (TypeError, PdfReadError) as e:
-        logger.error('Could not read PDF file: %s', e)
-        return {'error': str(e)}
+        logger.error("Could not read PDF file: %s", e)
+        return {"error": str(e)}
 
     filenames = [
         i.strip().split("=")[1]
@@ -134,7 +134,7 @@ def doi_getter(url):
 def parse_vanity(url) -> Dict[str, Any]:
     contents = fetch_element(url, "article")
     if not contents:
-        return {'error': 'Could not fetch from arxiv vanity'}
+        return {"error": "Could not fetch from arxiv vanity"}
 
     if title := contents.select_one("h1.ltx_title"):
         title = title.text

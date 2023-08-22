@@ -30,13 +30,17 @@ class PostProcesser:
         for source_name, path in tqdm(zip(self.source_list, self.jsonl_list)):
             with jsonlines.open(path) as reader:
                 for obj in reader:
-                    text = obj['text']
+                    text = obj["text"]
                     source_stats = self.all_stats[source_name]
                     source_stats["num_entries"] += 1
-                    source_stats["num_tokens"] += len(text.split())  # TODO: Use tokenizer
+                    source_stats["num_tokens"] += len(
+                        text.split()
+                    )  # TODO: Use tokenizer
                     source_stats["num_chars"] += len(text)
                     source_stats["num_words"] += len(text.split())
-                    source_stats["num_sentences"] += len(text.split("."))  # TODO: Use NLTK/Spacy or similar
+                    source_stats["num_sentences"] += len(
+                        text.split(".")
+                    )  # TODO: Use NLTK/Spacy or similar
                     source_stats["num_paragraphs"] += len(text.splitlines())
 
     def plot_statistics(self) -> None:

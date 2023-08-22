@@ -21,11 +21,12 @@ def make_session(auto_commit=False):
             session.commit()
 
 
-def stream_pinecone_updates(session: Session, custom_sources: List[str], force_update: bool = False):
+def stream_pinecone_updates(
+    session: Session, custom_sources: List[str], force_update: bool = False
+):
     """Yield Pinecone entries that require an update."""
     yield from (
-        session
-        .query(Article)
+        session.query(Article)
         .filter(or_(Article.pinecone_update_required.is_(True), force_update))
         .filter(Article.is_valid)
         .filter(Article.source.in_(custom_sources))

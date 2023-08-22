@@ -14,37 +14,37 @@ GDOCS_FOLDER = (
     "https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8"
 )
 DATASOURCES = [
-    'agentmodels',
-    'aiimpacts',
-    'aisafety.camp',
-    'aisafety.info',
-    'ai_alignment_playlist',
-    'ai_explained',
-    'ai_safety_talks',
-    'ai_safety_reading_group',
-    'ai_tech_tu_delft',
-    'alignmentforum',
-    'arbital',
-    'arxiv',
-    'carado.moe',
-    'cold_takes',
-    'deepmind_blog',
-    'deepmind_technical_blog',
-    'distill',
-    'eaforum',
-    'eleuther.ai',
-    'generative.ink',
-    'gwern_blog',
-    'importai',
-    'jsteinhardt_blog',
-    'lesswrong',
-    'miri',
-    'ml_safety_newsletter',
-    'openai.research',
-    'rob_miles_ai_safety',
-    'special_docs',
-    'vkrakovna_blog',
-    'yudkowsky_blog'
+    "agentmodels",
+    "aiimpacts",
+    "aisafety.camp",
+    "aisafety.info",
+    "ai_alignment_playlist",
+    "ai_explained",
+    "ai_safety_talks",
+    "ai_safety_reading_group",
+    "ai_tech_tu_delft",
+    "alignmentforum",
+    "arbital",
+    "arxiv",
+    "carado.moe",
+    "cold_takes",
+    "deepmind_blog",
+    "deepmind_technical_blog",
+    "distill",
+    "eaforum",
+    "eleuther.ai",
+    "generative.ink",
+    "gwern_blog",
+    "importai",
+    "jsteinhardt_blog",
+    "lesswrong",
+    "miri",
+    "ml_safety_newsletter",
+    "openai.research",
+    "rob_miles_ai_safety",
+    "special_docs",
+    "vkrakovna_blog",
+    "yudkowsky_blog",
 ]
 
 
@@ -84,7 +84,7 @@ def upload_data_file(api, name, repo_name):
 
     # Don't download it if it exists locally
     if not filename.exists():
-        print(f'{filename} not found!')
+        print(f"{filename} not found!")
         return
 
     try:

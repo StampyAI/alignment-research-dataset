@@ -34,7 +34,9 @@ class PineconeUpdater:
         :param custom_sources: List of sources to update.
         """
         with make_session() as session:
-            articles_to_update_stream = stream_pinecone_updates(session, custom_sources, force_update)
+            articles_to_update_stream = stream_pinecone_updates(
+                session, custom_sources, force_update
+            )
             for batch in self.batch_entries(articles_to_update_stream):
                 self.save_batch(session, batch)
 
@@ -55,17 +57,17 @@ class PineconeUpdater:
     ) -> Iterator[List[Tuple[Article, PineconeEntry]]]:
         while batch := tuple(islice(article_stream, 10)):
             yield [
-                (article, pinecone_entry) 
-                for article in batch 
+                (article, pinecone_entry)
+                for article in batch
                 if (pinecone_entry := self._make_pinecone_entry(article)) is not None
-                ]
+            ]
 
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry:
         text_chunks = get_text_chunks(article, self.text_splitter)
         assert isinstance(article.date_published, datetime)
         try:
             return PineconeEntry(
-                id=article.id, # the hash_id of the article
+                id=article.id,  # the hash_id of the article
                 source=article.source,
                 title=article.title,
                 url=article.url,
@@ -76,36 +78,39 @@ class PineconeUpdater:
                     if author.strip()
                 ],
                 text_chunks=text_chunks,
-                embeddings=get_embeddings(text_chunks, article.source)
+                embeddings=get_embeddings(text_chunks, article.source),
             )
         except (ValueError, ValidationError) as e:
             logger.exception(e)
 
 
-def get_text_chunks(article: Article, text_splitter: ParagraphSentenceUnitTextSplitter) -> List[str]:
+def get_text_chunks(
+    article: Article, text_splitter: ParagraphSentenceUnitTextSplitter
+) -> List[str]:
     title = article.title.replace("\n", " ")
-    
+
     authors_lst = [author.strip() for author in article.authors.split(",")]
     authors = get_authors_str(authors_lst)
-    
+
     signature = f"Title: {title}; Author(s): {authors}."
     text_chunks = text_splitter.split_text(article.text)
     return [f'###{signature}###\n"""{text_chunk}"""' for text_chunk in text_chunks]
 
+
 def get_authors_str(authors_lst: List[str]) -> str:
     if not authors_lst:
         return "n/a"
-    
+
     if len(authors_lst) == 1:
         authors_str = authors_lst[0]
     else:
         authors_lst = authors_lst[:4]
         authors_str = f"{', '.join(authors_lst[:-1])} and {authors_lst[-1]}"
-    
+
     authors_str = authors_str.replace("\n", " ")
 
     # Truncate if necessary
     if len(authors_str) > 500:
         authors_str = authors_str[:497] + "..."
-    
+
     return authors_str

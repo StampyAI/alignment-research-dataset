@@ -102,7 +102,9 @@ def format_far_ai(item):
     return {
         "title": get_text(item, ".article-title"),
         "url": f'https://www.safe.ai/research{item.select_one(".article-title a").get("href")}',
-        "source_url": item.select_one('div.btn-links a:-soup-contains("PDF")').get("href"),
+        "source_url": item.select_one('div.btn-links a:-soup-contains("PDF")').get(
+            "href"
+        ),
         "authors": ", ".join(i.text for i in item.select(".article-metadata a")),
     }
 
@@ -255,49 +257,60 @@ def fetch_all():
 
 
 class IndicesDataset(AlignmentDataset):
-
-    done_key = 'url'
+    done_key = "url"
 
     @property
     def items_list(self):
         return fetch_all().values()
 
     def get_item_key(self, item):
-        return item.get('url')
+        return item.get("url")
 
     @staticmethod
     def extract_authors(item):
-        if authors := (item.get('authors') or '').strip():
-            return [author.strip() for author in authors.split(',') if author.strip()]
+        if authors := (item.get("authors") or "").strip():
+            return [author.strip() for author in authors.split(",") if author.strip()]
         return []
 
     def process_entry(self, item):
         contents = {}
-        url = item.get('source_url') or item.get('url')
+        url = item.get("source_url") or item.get("url")
         if url:
-            contents= item_metadata(url)
+            contents = item_metadata(url)
 
-        if not contents.get('text'):
-            logger.error('Could not get text for %s (%s) - %s - skipping for now', item.get('title'), url, contents.get('error'))
+        if not contents.get("text"):
+            logger.error(
+                "Could not get text for %s (%s) - %s - skipping for now",
+                item.get("title"),
+                url,
+                contents.get("error"),
+            )
             return None
 
         # If the article is not an arxiv paper, just mark it as ignored - if in the future editors
         # decide it's worth adding, it can be fetched then
-        if parse_domain(url or '') != 'arxiv.org':
-            return self.make_data_entry({
-                'source': self.name,
-                'url': self.get_item_key(item),
-                'title': item.get('title'),
-                'date_published': self._get_published_date(item.get('date_published')),
-                'authors': self.extract_authors(item),
-                'status': 'Ignored',
-                'comments': 'Added from indices',
-            })
+        if parse_domain(url or "") != "arxiv.org":
+            return self.make_data_entry(
+                {
+                    "source": self.name,
+                    "url": self.get_item_key(item),
+                    "title": item.get("title"),
+                    "date_published": self._get_published_date(
+                        item.get("date_published")
+                    ),
+                    "authors": self.extract_authors(item),
+                    "status": "Ignored",
+                    "comments": "Added from indices",
+                }
+            )
 
-        return self.make_data_entry({
-            'source': 'arxiv',
-            'url': contents.get('url') or self.get_item_key(item),
-            'title': item.get('title'),
-            'date_published': self._get_published_date(item.get('date_published')),
-            'authors': self.extract_authors(item),
-        }, **contents)
+        return self.make_data_entry(
+            {
+                "source": "arxiv",
+                "url": contents.get("url") or self.get_item_key(item),
+                "title": item.get("title"),
+                "date_published": self._get_published_date(item.get("date_published")),
+                "authors": self.extract_authors(item),
+            },
+            **contents,
+        )

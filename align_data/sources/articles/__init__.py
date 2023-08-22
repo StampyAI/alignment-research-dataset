@@ -1,6 +1,12 @@
 from align_data.sources.articles.datasets import (
-    ArxivPapers, EbookArticles, DocArticles, HTMLArticles,
-    MarkdownArticles, PDFArticles, SpecialDocs, XMLArticles
+    ArxivPapers,
+    EbookArticles,
+    DocArticles,
+    HTMLArticles,
+    MarkdownArticles,
+    PDFArticles,
+    SpecialDocs,
+    XMLArticles,
 )
 from align_data.sources.articles.indices import IndicesDataset
 
@@ -36,14 +42,14 @@ ARTICLES_REGISTRY = [
         sheet_id="1293295703",
     ),
     SpecialDocs(
-        'special_docs',
-        spreadsheet_id='1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI',
-        sheet_id='980957638',
+        "special_docs",
+        spreadsheet_id="1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI",
+        sheet_id="980957638",
     ),
     ArxivPapers(
         name="arxiv",
         spreadsheet_id="1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI",
         sheet_id="655836697",
     ),
-    IndicesDataset('indices'),
+    IndicesDataset("indices"),
 ]

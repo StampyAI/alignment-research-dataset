@@ -105,8 +105,10 @@ def process_spreadsheets(source_sheet, output_sheets):
             row["source_url"] = row["url"]
         if row.get("source_url") in seen:
             logger.info(f'skipping "{title}", as it has already been seen')
-        elif row.get('status'):
-            logger.info(f'skipping "{title}", as it has a status set - remove it for this row to be processed')
+        elif row.get("status"):
+            logger.info(
+                f'skipping "{title}", as it has a status set - remove it for this row to be processed'
+            )
         else:
             process_row(row, output_sheets)
 
@@ -162,5 +164,5 @@ def check_new_articles(source_spreadsheet, source_sheet):
 
 
 def update_articles(csv_file, delimiter):
-    dataset = ReplacerDataset(name='updater', csv_path=csv_file, delimiter=delimiter)
+    dataset = ReplacerDataset(name="updater", csv_path=csv_file, delimiter=delimiter)
     dataset.add_entries(dataset.fetch_entries())

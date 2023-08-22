@@ -7,13 +7,17 @@ import fire
 
 from align_data import ALL_DATASETS, get_dataset
 from align_data.analysis.count_tokens import count_token
-from align_data.sources.articles.articles import update_new_items, check_new_articles, update_articles
+from align_data.sources.articles.articles import (
+    update_new_items,
+    check_new_articles,
+    update_articles,
+)
 from align_data.pinecone.update_pinecone import PineconeUpdater
 from align_data.finetuning.model import finetune_embeddings
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,
-    METADATA_SOURCE_SPREADSHEET
+    METADATA_SOURCE_SPREADSHEET,
 )
 
 
@@ -82,7 +86,7 @@ class AlignmentDataset:
         ), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
 
-    def update(self, csv_path, delimiter=','):
+    def update(self, csv_path, delimiter=","):
         """Update all articles in the provided csv files, overwriting the provided values and fetching new text if a different url provided.
 
         :param str csv_path: The path to the csv file to be processed

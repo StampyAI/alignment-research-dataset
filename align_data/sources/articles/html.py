@@ -70,9 +70,9 @@ def element_extractor(selector, remove=[]):
             for e in elem.select(sel):
                 e.extract()
         return {
-            'text': MarkdownConverter().convert_soup(elem).strip(),
-            'source_url': url,
-            'source_type': 'html',
+            "text": MarkdownConverter().convert_soup(elem).strip(),
+            "source_url": url,
+            "source_type": "html",
         }
 
     return getter

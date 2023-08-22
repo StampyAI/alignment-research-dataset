@@ -48,7 +48,7 @@ def mock_arxiv():
         journal_ref="sdf",
         primary_category="cat",
     )
-    metadata.get_short_id.return_value = '2001.11038'
+    metadata.get_short_id.return_value = "2001.11038"
     arxiv = Mock()
     arxiv.Search.return_value.results.return_value = iter([metadata])
 
@@ -124,14 +124,14 @@ def test_pdf_articles_process_item(articles):
                 "text": "pdf contents [bla](asd.com)",
                 "title": "article no 0",
                 "url": "http://example.com/item/0",
-                'source_url': 'http://example.com/source_url/0',
+                "source_url": "http://example.com/source_url/0",
             }
 
 
 def test_html_articles_get_text():
     def parser(url):
         assert url == "http://example.org/bla.bla"
-        return {'text': "html contents"}
+        return {"text": "html contents"}
 
     with patch(
         "align_data.sources.articles.datasets.HTML_PARSERS", {"example.org": parser}
@@ -156,7 +156,9 @@ def test_html_articles_process_entry(articles):
         item = list(dataset.items_list)[0]
 
     parsers = {
-        "example.com": lambda _: {'text': '   html contents with <a href="bla.com">proper elements</a> ble ble   '}
+        "example.com": lambda _: {
+            "text": '   html contents with <a href="bla.com">proper elements</a> ble ble   '
+        }
     }
     with patch("align_data.sources.articles.datasets.HTML_PARSERS", parsers):
         assert dataset.process_entry(item).to_dict() == {
@@ -170,7 +172,7 @@ def test_html_articles_process_entry(articles):
             "text": "html contents with [proper elements](bla.com) ble ble",
             "title": "article no 0",
             "url": "http://example.com/item/0",
-            'source_url': 'http://example.com/source_url/0',
+            "source_url": "http://example.com/source_url/0",
         }
 
 
@@ -215,7 +217,7 @@ def test_ebook_articles_process_entry(articles):
                 "text": "html contents with [proper elements](bla.com) ble ble",
                 "title": "article no 0",
                 "url": "http://example.com/item/0",
-                'source_url': 'http://example.com/source_url/0',
+                "source_url": "http://example.com/source_url/0",
             }
 
 
@@ -248,7 +250,7 @@ def test_xml_articles_process_entry(articles):
             "text": "bla bla",
             "title": "article no 0",
             "url": "http://example.com/item/0",
-            'source_url': 'http://example.com/source_url/0',
+            "source_url": "http://example.com/source_url/0",
         }
 
 
@@ -281,7 +283,7 @@ def test_markdown_articles_process_entry(articles):
             "text": "bla bla",
             "title": "article no 0",
             "url": "http://example.com/item/0",
-            'source_url': 'http://example.com/source_url/0',
+            "source_url": "http://example.com/source_url/0",
         }
 
 
@@ -316,11 +318,11 @@ def test_doc_articles_process_entry(articles):
                 "text": "bla bla",
                 "title": "article no 0",
                 "url": "http://example.com/item/0",
-                'source_url': 'http://example.com/source_url/0',
+                "source_url": "http://example.com/source_url/0",
             }
 
 
-@patch('requests.get', return_value=Mock(content=''))
+@patch("requests.get", return_value=Mock(content=""))
 def test_arxiv_process_entry(_, mock_arxiv):
     dataset = ArxivPapers(name="asd", spreadsheet_id="ad", sheet_id="da")
     item = Mock(
@@ -335,9 +337,7 @@ def test_arxiv_process_entry(_, mock_arxiv):
         "authors": ["mr blobby"],
         "source_type": "html",
     }
-    with patch(
-        "align_data.sources.arxiv_papers.parse_vanity", return_value=contents
-    ):
+    with patch("align_data.sources.arxiv_papers.parse_vanity", return_value=contents):
         assert dataset.process_entry(item).to_dict() == {
             "comment": "no comment",
             "authors": ["mr blobby"],
@@ -377,9 +377,9 @@ def test_arxiv_process_entry_retracted(mock_arxiv):
      </div>
     """
 
-    with patch('requests.get', return_value=Mock(content=response)):
+    with patch("requests.get", return_value=Mock(content=response)):
         article = dataset.process_entry(item)
-        assert article.status == 'Withdrawn'
+        assert article.status == "Withdrawn"
         assert article.to_dict() == {
             "comment": "no comment",
             "authors": [],
@@ -407,7 +407,7 @@ def test_special_docs_process_entry():
         authors="mr. blobby",
         date_published="2023-10-02T01:23:45",
         source_type=None,
-        source_url="https://ble.ble.com"
+        source_url="https://ble.ble.com",
     )
     contents = {
         "text": "this is the text",
@@ -416,22 +416,24 @@ def test_special_docs_process_entry():
         "source_type": "html",
     }
 
-    with patch("align_data.sources.articles.datasets.item_metadata", return_value=contents):
+    with patch(
+        "align_data.sources.articles.datasets.item_metadata", return_value=contents
+    ):
         assert dataset.process_entry(item).to_dict() == {
-            'authors': ['mr. blobby'],
-            'date_published': '2023-10-02T01:23:45Z',
-            'id': None,
-            'source': 'html',
-            'source_url': "https://ble.ble.com",
-            'source_type': 'html',
-            'summaries': [],
-            'text': 'this is the text',
-            'title': 'this is the title',
-            'url': 'https://bla.bla.bla',
+            "authors": ["mr. blobby"],
+            "date_published": "2023-10-02T01:23:45Z",
+            "id": None,
+            "source": "html",
+            "source_url": "https://ble.ble.com",
+            "source_type": "html",
+            "summaries": [],
+            "text": "this is the text",
+            "title": "this is the title",
+            "url": "https://bla.bla.bla",
         }
 
 
-@patch('requests.get', return_value=Mock(content=''))
+@patch("requests.get", return_value=Mock(content=""))
 def test_special_docs_process_entry_arxiv(_, mock_arxiv):
     dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
     item = Mock(
@@ -447,9 +449,7 @@ def test_special_docs_process_entry_arxiv(_, mock_arxiv):
         "source_type": "pdf",
     }
 
-    with patch(
-        "align_data.sources.arxiv_papers.parse_vanity", return_value=contents
-    ):
+    with patch("align_data.sources.arxiv_papers.parse_vanity", return_value=contents):
         assert dataset.process_entry(item).to_dict() == {
             "comment": "no comment",
             "authors": ["mr blobby"],
@@ -469,16 +469,22 @@ def test_special_docs_process_entry_arxiv(_, mock_arxiv):
         }
 
 
-@pytest.mark.parametrize('url, expected', (
-    ("http://bla.bla", "http://bla.bla"),
-    ("http://arxiv.org/abs/2001.11038", "https://arxiv.org/abs/2001.11038"),
-    ("https://arxiv.org/abs/2001.11038", "https://arxiv.org/abs/2001.11038"),
-    ("https://arxiv.org/abs/2001.11038/", "https://arxiv.org/abs/2001.11038"),
-    ("https://arxiv.org/pdf/2001.11038", "https://arxiv.org/abs/2001.11038"),
-    ("https://arxiv.org/pdf/2001.11038.pdf", "https://arxiv.org/abs/2001.11038"),
-    ("https://arxiv.org/pdf/2001.11038v3.pdf", "https://arxiv.org/abs/2001.11038"),
-    ("https://arxiv.org/abs/math/2001.11038", "https://arxiv.org/abs/math/2001.11038"),
-))
+@pytest.mark.parametrize(
+    "url, expected",
+    (
+        ("http://bla.bla", "http://bla.bla"),
+        ("http://arxiv.org/abs/2001.11038", "https://arxiv.org/abs/2001.11038"),
+        ("https://arxiv.org/abs/2001.11038", "https://arxiv.org/abs/2001.11038"),
+        ("https://arxiv.org/abs/2001.11038/", "https://arxiv.org/abs/2001.11038"),
+        ("https://arxiv.org/pdf/2001.11038", "https://arxiv.org/abs/2001.11038"),
+        ("https://arxiv.org/pdf/2001.11038.pdf", "https://arxiv.org/abs/2001.11038"),
+        ("https://arxiv.org/pdf/2001.11038v3.pdf", "https://arxiv.org/abs/2001.11038"),
+        (
+            "https://arxiv.org/abs/math/2001.11038",
+            "https://arxiv.org/abs/math/2001.11038",
+        ),
+    ),
+)
 def test_special_docs_not_processed_true(url, expected):
     dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
     dataset._outputted_items = [url, expected]
@@ -486,13 +492,15 @@ def test_special_docs_not_processed_true(url, expected):
     assert not dataset.not_processed(Mock(url=None, source_url=url))
 
 
-@pytest.mark.parametrize('url', (
-    "http://bla.bla"
-    "http://arxiv.org/abs/2001.11038",
-    "https://arxiv.org/abs/2001.11038",
-    "https://arxiv.org/abs/2001.11038/",
-    "https://arxiv.org/pdf/2001.11038",
-))
+@pytest.mark.parametrize(
+    "url",
+    (
+        "http://bla.bla" "http://arxiv.org/abs/2001.11038",
+        "https://arxiv.org/abs/2001.11038",
+        "https://arxiv.org/abs/2001.11038/",
+        "https://arxiv.org/pdf/2001.11038",
+    ),
+)
 def test_special_docs_not_processed_false(url):
     dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
     dataset._outputted_items = []

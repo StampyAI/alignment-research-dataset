@@ -642,7 +642,7 @@ def test_openai_research_get_text():
     dataset = OpenAIResearch(name="openai", url="bla.bla")
 
     soup = BeautifulSoup(OPENAI_HTML, "html.parser")
-    parsers = {"arxiv.org": lambda _: {'text': 'bla bla bla'}}
+    parsers = {"arxiv.org": lambda _: {"text": "bla bla bla"}}
     with patch(
         "requests.head", return_value=Mock(headers={"Content-Type": "text/html"})
     ):
@@ -696,7 +696,7 @@ def test_openai_research_process_entry():
     dataset = OpenAIResearch(name="openai", url="bla.bla")
 
     soup = BeautifulSoup(OPENAI_HTML, "html.parser")
-    parsers = {"arxiv.org": lambda _: {'text': 'bla bla bla'}}
+    parsers = {"arxiv.org": lambda _: {"text": "bla bla bla"}}
     with patch(
         "requests.head", return_value=Mock(headers={"Content-Type": "text/html"})
     ):
