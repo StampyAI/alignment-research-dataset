@@ -62,15 +62,6 @@ PINECONE_VALUES_DIMS = (
     OPENAI_EMBEDDINGS_DIMS if USE_OPENAI_EMBEDDINGS else SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS
 )
 PINECONE_METRIC = "dotproduct"
-PINECONE_METADATA_KEYS = [
-    "entry_id",
-    "source",
-    "title",
-    "authors",
-    "text",
-    "url",
-    "date_published",
-]
 PINECONE_NAMESPACE = os.environ.get("PINECONE_NAMESPACE", "normal")  # "normal" or "finetuned"
 
 ### FINE-TUNING ###

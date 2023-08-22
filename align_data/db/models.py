@@ -17,7 +17,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.ext.hybrid import hybrid_property
-from align_data.settings import PINECONE_METADATA_KEYS
 
 
 logger = logging.getLogger(__name__)
@@ -70,14 +69,6 @@ class Article(Base):
 
     def __repr__(self) -> str:
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
-
-    def is_metadata_keys_equal(self, other):
-        if not isinstance(other, Article):
-            raise TypeError(f"Expected an instance of Article, got {type(other).__name__}")
-        return not any(
-            getattr(self, key, None) != getattr(other, key, None)  # entry_id is implicitly ignored
-            for key in PINECONE_METADATA_KEYS
-        )
 
     def generate_id_string(self) -> bytes:
         return "".join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")

@@ -1,5 +1,7 @@
-from typing import Dict, List, Optional, TypedDict, Tuple, Any
+from typing import List, TypedDict
+
 from pydantic import BaseModel, validator
+from pinecone.core.client.models import Vector, ScoredVector, QueryResponse
 
 
 class PineconeMetadata(TypedDict):
@@ -12,21 +14,13 @@ class PineconeMetadata(TypedDict):
     date_published: int
 
 
-class PineconeMatch(TypedDict):
-    id: str
-    score: float
-    values: Optional[List[float]]
-    metadata: PineconeMetadata
-    sparseValues: Optional[Dict[str, List[float]]]
-
-
 # TODO: avoid having the model compute the vectors
 class PineconeEntry(BaseModel):
     id: str
     source: str
     title: str
     url: str
-    date_published: float
+    date_published: int
     authors: List[str]
     text_chunks: List[str]
     embeddings: List[List[float]]
@@ -63,20 +57,20 @@ class PineconeEntry(BaseModel):
     def chunk_num(self) -> int:
         return len(self.text_chunks)
 
-    def create_pinecone_vectors(self) -> List[Tuple[str, List[float], Dict[str, Any]]]:
+    def create_pinecone_vectors(self) -> List[Vector]:
         return [
-            (
-                f"{self.id}_{str(i).zfill(6)}",  # entry.id is the article's hash_id
-                self.embeddings[i],  # values
-                {
-                    "entry_id": self.id,
-                    "source": self.source,
-                    "title": self.title,
-                    "authors": self.authors,
-                    "url": self.url,
-                    "date_published": self.date_published,
-                    "text": self.text_chunks[i],
-                },  # metadata
+            Vector(
+                id=f"{self.id}_{str(i).zfill(6)}",
+                values=self.embeddings[i],
+                metadata=PineconeMetadata(
+                    entry_id=self.id,
+                    source=self.source,
+                    title=self.title,
+                    authors=self.authors,
+                    url=self.url,
+                    date_published=self.date_published,
+                    text=self.text_chunks[i],
+                ),
             )
             for i in range(self.chunk_num)
         ]

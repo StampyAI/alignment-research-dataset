@@ -3,18 +3,17 @@ import logging
 from typing import Dict, List, Tuple, Union
 
 import pinecone
+from pinecone.core.client.models import Vector, ScoredVector
 
 from align_data.common.utils import get_embedding
 from align_data.pinecone.pinecone_models import (
     PineconeEntry,
-    PineconeMatch,
     PineconeMetadata,
 )
 from align_data.settings import (
     PINECONE_INDEX_NAME,
     PINECONE_VALUES_DIMS,
     PINECONE_METRIC,
-    PINECONE_METADATA_KEYS,
     PINECONE_API_KEY,
     PINECONE_ENVIRONMENT,
     PINECONE_NAMESPACE,
@@ -30,14 +29,12 @@ class PineconeDB:
         index_name: str = PINECONE_INDEX_NAME,
         values_dims: int = PINECONE_VALUES_DIMS,
         metric: str = PINECONE_METRIC,
-        metadata_keys: list = PINECONE_METADATA_KEYS,
         create_index: bool = False,
         log_index_stats: bool = False,
     ):
         self.index_name = index_name
         self.values_dims = values_dims
         self.metric = metric
-        self.metadata_keys = metadata_keys
 
         pinecone.init(
             api_key=PINECONE_API_KEY,
@@ -65,7 +62,7 @@ class PineconeDB:
         include_values: bool = False,
         include_metadata: bool = True,
         **kwargs,
-    ) -> List[PineconeMatch]:
+    ) -> List[ScoredVector]:
         assert not isinstance(
             query, str
         ), "query must be a list of floats. Use query_PineconeDB_text for text queries"
@@ -78,9 +75,8 @@ class PineconeDB:
             **kwargs,
             namespace=PINECONE_NAMESPACE,
         )
-        print(query_response)
 
-        return query_response["matches"]
+        return [ScoredVector(**match) for match in query_response["matches"]]
 
     def query_text(
         self,
@@ -89,7 +85,7 @@ class PineconeDB:
         include_values: bool = False,
         include_metadata: bool = True,
         **kwargs,
-    ) -> List[PineconeMatch]:
+    ) -> List[ScoredVector]:
         query_vector = get_embedding(query)
         return self.query_vector(
             query=query_vector,
@@ -122,7 +118,7 @@ class PineconeDB:
             name=self.index_name,
             dimension=self.values_dims,
             metric=self.metric,
-            metadata_config={"indexed": self.metadata_keys},
+            metadata_config={"indexed": list(PineconeMetadata.__annotations__.keys())},
         )
 
     def delete_index(self):
@@ -130,7 +126,7 @@ class PineconeDB:
             logger.info(f"Deleting index '{self.index_name}'.")
             pinecone.delete_index(self.index_name)
 
-    def get_embeddings_by_ids(self, ids: List[str]) -> List[Tuple[str, Union[List[float], None]]]:
+    def get_embeddings_by_ids(self, ids: List[str]) -> List[Tuple[str, List[float] | None]]:
         """
         Fetch embeddings for given entry IDs from Pinecone.
 
@@ -138,7 +134,7 @@ class PineconeDB:
         - ids (List[str]): List of entry IDs for which embeddings are to be fetched.
 
         Returns:
-        - List[Tuple[str, Union[List[float], None]]]: List of tuples containing ID and its corresponding embedding.
+        - List[Tuple[str, List[float] | None]]: List of tuples containing ID and its corresponding embedding.
         """
         # TODO: check that this still works
         vectors = self.index.fetch(
