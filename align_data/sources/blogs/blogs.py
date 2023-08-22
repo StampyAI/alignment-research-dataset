@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urljoin
 
 import requests
 from align_data.sources.articles.parsers import item_metadata
@@ -122,4 +123,42 @@ class DeepMindTechnicalBlog(HTMLDataset):
             '.c_cms_content__meta__wrapper div:-soup-contains("Authors") + div'
         ):
             return [author.strip() for author in div.text.split(",")]
+        return []
+
+
+class TransformerCircuits(HTMLDataset):
+
+    item_selector = "div.toc a"
+    text_selector = 'h3'
+
+    def get_item_key(self, item):
+        article_url = item.get("href").split("?")[0]
+        return urljoin(self.url, article_url)
+
+    @property
+    def items_list(self):
+        return [i for i in super().items_list if self.get_item_key(i).startswith(self.url)]
+
+    def _metadata(self, contents, selector):
+        if meta := contents.select_one('div.d-byline'):
+            return meta.select(selector)
+
+    def _get_title(self, contents):
+        title = contents.find("title")
+        return title and title.text.strip()
+
+    def _get_published_date(self, contents):
+        if date := self._metadata(contents, 'div.published div'):
+            return super()._get_published_date(date[0].text)
+
+    def _get_text(self, contents):
+        article = contents.find("d-article") or contents.find("dt-article")
+        return self._extract_markdown(article)
+
+    def extract_authors(self, contents):
+        if authors := self._metadata(contents, 'span.author'):
+            for a in authors:
+                for sup in a.select('sup'):
+                    sup.extract()
+            return [a.text.strip().strip(',*') for a in authors]
         return []

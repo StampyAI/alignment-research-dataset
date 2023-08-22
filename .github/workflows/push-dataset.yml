@@ -53,6 +53,7 @@ on:
           - openai.research
           - rob_miles_ai_safety
           - special_docs
+          - transformer-circuits
           - vkrakovna_blog
           - yudkowsky_blog
 
