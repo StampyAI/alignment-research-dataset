@@ -25,17 +25,12 @@ from align_data.settings import (
     DEVICE,
 )
 
+
 # --------------------
 # CONSTANTS & CONFIGURATION
 # --------------------
 
 logger = logging.getLogger(__name__)
-
-RETRY_CONDITIONS = (
-    retry_if_exception_type(RateLimitError)
-    | retry_if_exception_type(APIError)
-    | retry_if_exception(lambda e: "502" in str(e))
-)
 
 hf_embeddings = None
 if not USE_OPENAI_EMBEDDINGS:
@@ -45,16 +40,13 @@ if not USE_OPENAI_EMBEDDINGS:
         encode_kwargs={"show_progress_bar": False},
     )
 
-# --------------------
-# TYPE DEFINITIONS
-# --------------------
-
+EmbeddingType = List[float]
 ModerationInfoType = Dict[str, Any]
+
 
 # --------------------
 # DECORATORS
 # --------------------
-
 
 def handle_openai_errors(func):
     """Decorator to handle OpenAI-specific exceptions with retries."""
@@ -63,7 +55,9 @@ def handle_openai_errors(func):
     @retry(
         wait=wait_random_exponential(multiplier=1, min=2, max=30),
         stop=stop_after_attempt(6),
-        retry=RETRY_CONDITIONS,
+        retry=retry_if_exception_type(RateLimitError)
+        | retry_if_exception_type(APIError)
+        | retry_if_exception(lambda e: "502" in str(e)),
     )
     def wrapper(*args, **kwargs):
         try:
@@ -77,9 +71,7 @@ def handle_openai_errors(func):
             else:
                 logger.error(f"OpenAI API Error encountered: {e}")
             raise
-        except (
-            OpenAIError
-        ) as e:
+        except OpenAIError as e:
             logger.error(f"OpenAI Error encountered: {e}")
             raise
         except Exception as e:
@@ -90,65 +82,8 @@ def handle_openai_errors(func):
 
 
 # --------------------
-# UTILITY FUNCTIONS
-# --------------------
-
-
-def get_recursive_type(obj):
-    """Get the nested type of a given object."""
-
-    if isinstance(obj, list):
-        return f"List[{get_recursive_type(obj[0]) if obj else 'Any'}]"
-    elif isinstance(obj, tuple):
-        return f"Tuple[{', '.join(get_recursive_type(item) for item in obj)}]"
-    elif isinstance(obj, dict):
-        keys, values = next(iter(obj.items())) if obj else (Any, Any)
-        return f"Dict[{get_recursive_type(keys)}, {get_recursive_type(values)}]"
-    else:
-        return type(obj).__name__
-
-
-def get_recursive_length(obj):
-    """Determine the nested length of a given object."""
-    lengths = []
-
-    if isinstance(obj, (str, int, float)):
-        return len(obj) if isinstance(obj, str) else 1
-    if isinstance(obj, (list, tuple)):
-        lengths.append(len(obj))
-        sub_lengths = [get_recursive_length(item) for item in obj]
-
-        # Flatten the sub_lengths list to a single list with the lengths of each level
-        max_depth = max(len(sub) if isinstance(sub, list) else 0 for sub in sub_lengths)
-        for i in range(max_depth):
-            lengths.append(
-                [sub[i] if isinstance(sub, list) and len(sub) > i else 1 for sub in sub_lengths]
-            )
-        return lengths
-    if isinstance(obj, dict):
-        lengths.append(len(obj))
-        keys_lengths = [get_recursive_length(k) for k in obj.keys()]
-        values_lengths = [get_recursive_length(v) for v in obj.values()]
-
-        # Combine the lengths of keys and values for each level
-        max_depth = max(len(sub) for sub in keys_lengths + values_lengths)
-        for i in range(max_depth):
-            lengths.append(
-                [
-                    keys_lengths[j][i] + values_lengths[j][i]
-                    if len(keys_lengths[j]) > i and len(values_lengths[j]) > i
-                    else 1
-                    for j in range(len(obj))
-                ]
-            )
-        return lengths
-    return 1
-
-
-# --------------------
 # MAIN FUNCTIONS
 # --------------------
-
 
 @handle_openai_errors
 def moderation_check(texts):
@@ -166,7 +101,7 @@ def get_embeddings_without_moderation(
     source: str = "no source",
     engine=OPENAI_EMBEDDINGS_MODEL,
     **kwargs,
-) -> List[List[float]]:
+) -> List[EmbeddingType]:
     """
     Obtain embeddings without moderation checks.
 
@@ -177,7 +112,7 @@ def get_embeddings_without_moderation(
     - **kwargs: Additional keyword arguments passed to the embedding function.
 
     Returns:
-    - List[List[float]]: List of embeddings for the provided texts.
+    - List[EmbeddingType]: List of embeddings for the provided texts.
     """
 
     embeddings = []
@@ -199,7 +134,7 @@ def get_embeddings_or_none_if_flagged(
     source: str = "no source",
     engine=OPENAI_EMBEDDINGS_MODEL,
     **kwargs,
-) -> Tuple[Optional[List[List[float]]], List[ModerationInfoType]]:
+) -> Tuple[Optional[List[EmbeddingType]], List[ModerationInfoType]]:
     """
     Obtain embeddings for the provided texts. If any text is flagged during moderation,
     the function returns None for the embeddings while still providing the moderation results.
@@ -208,7 +143,7 @@ def get_embeddings_or_none_if_flagged(
     - texts (List[str]): List of texts to be embedded.
 
     Returns:
-    - Tuple[Optional[List[List[float]]], ModerationInfoListType]: Tuple containing the list of embeddings (or None if any text is flagged) and the moderation results.
+    - Tuple[Optional[List[EmbeddingType]], ModerationInfoListType]: Tuple containing the list of embeddings (or None if any text is flagged) and the moderation results.
     """
     moderation_results = moderation_check(texts)
     if any(result["flagged"] for result in moderation_results):
@@ -223,7 +158,7 @@ def get_embeddings(
     source: str = "no source",
     engine=OPENAI_EMBEDDINGS_MODEL,
     **kwargs,
-) -> Tuple[List[Optional[List[float]]], List[ModerationInfoType]]:
+) -> Tuple[List[Optional[EmbeddingType]], List[ModerationInfoType]]:
     """
     Obtain embeddings for the provided texts, replacing the embeddings of flagged texts with `None`.
 
@@ -234,7 +169,7 @@ def get_embeddings(
     - **kwargs: Additional keyword arguments passed to the embedding function.
 
     Returns:
-    - Tuple[List[Optional[List[float]]], ModerationInfoListType]: Tuple containing the list of embeddings (with None for flagged texts) and the moderation results.
+    - Tuple[List[Optional[EmbeddingType]], ModerationInfoListType]: Tuple containing the list of embeddings (with None for flagged texts) and the moderation results.
     """
     assert len(texts) <= 2048, "The batch size should not be larger than 2048."
     assert all(texts), "No empty strings allowed in the input list."
@@ -260,7 +195,7 @@ def get_embeddings(
 
 def get_embedding(
     text: str, source: str = "no source", engine=OPENAI_EMBEDDINGS_MODEL, **kwargs
-) -> Tuple[List[float], ModerationInfoType]:
+) -> Tuple[EmbeddingType, ModerationInfoType]:
     """Obtain an embedding for a single text."""
     embedding, moderation_result = get_embeddings([text], source=source, engine=engine, **kwargs)
     return embedding[0], moderation_result[0]

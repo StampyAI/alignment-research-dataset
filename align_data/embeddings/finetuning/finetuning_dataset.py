@@ -9,10 +9,10 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql import func
 
 from align_data.db.session import make_session
-from align_data.pinecone.embedding_utils import get_embedding
-from align_data.pinecone.pinecone_db_handler import PineconeDB
-from align_data.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
-from align_data.pinecone.update_pinecone import get_text_chunks
+from align_data.embeddings.embedding_utils import get_embedding
+from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
+from align_data.embeddings.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
+from align_data.embeddings.pinecone.update_pinecone import get_text_chunks
 from align_data.db.models import Article
 
 

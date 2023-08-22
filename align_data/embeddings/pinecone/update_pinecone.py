@@ -6,12 +6,12 @@ from typing import Callable, List, Tuple, Generator, Iterator, Any, Dict
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
-from align_data.pinecone.embedding_utils import get_embeddings
+from align_data.embeddings.embedding_utils import get_embeddings
 from align_data.db.models import Article
 from align_data.db.session import make_session, stream_pinecone_updates
-from align_data.pinecone.pinecone_db_handler import PineconeDB
-from align_data.pinecone.pinecone_models import PineconeEntry
-from align_data.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
+from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
+from align_data.embeddings.pinecone.pinecone_models import PineconeEntry
+from align_data.embeddings.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
 
 
 logger = logging.getLogger(__name__)
