@@ -5,14 +5,8 @@ from functools import wraps
 import openai
 from langchain.embeddings import HuggingFaceEmbeddings
 from openai.error import (
+    OpenAIError,
     RateLimitError,
-    InvalidRequestError,
-    APIConnectionError,
-    AuthenticationError,
-    PermissionError,
-    ServiceUnavailableError,
-    InvalidAPIType,
-    SignatureVerificationError,
     APIError,
 )
 from tenacity import (
@@ -84,13 +78,7 @@ def handle_openai_errors(func):
                 logger.error(f"OpenAI API Error encountered: {e}")
             raise
         except (
-            InvalidRequestError,
-            APIConnectionError,
-            AuthenticationError,
-            PermissionError,
-            ServiceUnavailableError,
-            InvalidAPIType,
-            SignatureVerificationError,
+            OpenAIError
         ) as e:
             logger.error(f"OpenAI Error encountered: {e}")
             raise
