@@ -186,7 +186,7 @@ class XMLArticles(SpreadsheetDataset):
 
     def _get_text(self, item):
         vals = extract_gdrive_contents(item.source_url)
-        return vals["text"]
+        return vals.get("text")
 
 
 class MarkdownArticles(SpreadsheetDataset):
@@ -195,7 +195,7 @@ class MarkdownArticles(SpreadsheetDataset):
     def _get_text(self, item):
         file_id = item.source_url.split("/")[-2]
         vals = fetch_markdown(file_id)
-        return vals["text"]
+        return vals.get("text")
 
 
 class DocArticles(SpreadsheetDataset):
