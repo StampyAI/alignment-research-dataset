@@ -1,9 +1,6 @@
-import time
 import logging
 from typing import List
-import numpy as np
 
-import torch
 import openai
 from langchain.embeddings import HuggingFaceEmbeddings
 from openai.error import (RateLimitError, InvalidRequestError, 
@@ -24,12 +21,11 @@ from align_data.settings import (
 logger = logging.getLogger(__name__)
 
 
-if not USE_OPENAI_EMBEDDINGS:
-    hf_embeddings = HuggingFaceEmbeddings(
-        model_name=SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
-        model_kwargs={"device": DEVICE},
-        encode_kwargs={"show_progress_bar": False},
-    )
+hf_embeddings = HuggingFaceEmbeddings(
+    model_name=SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
+    model_kwargs={"device": DEVICE},
+    encode_kwargs={"show_progress_bar": False},
+) if not USE_OPENAI_EMBEDDINGS else None
 
 
 @retry(
@@ -41,10 +37,10 @@ if not USE_OPENAI_EMBEDDINGS:
 )
 def get_embeddings(
     list_of_text: List[str], 
-    source: str = None,
+    source: str = 'no source', 
     engine=OPENAI_EMBEDDINGS_MODEL, 
     **kwargs
-) -> np.ndarray:
+    ) -> List[List[float]]:
     assert len(list_of_text) <= 2048, "The batch size should not be larger than 2048."
 
     list_of_text = [text.replace("\n", " ") for text in list_of_text]
@@ -56,9 +52,11 @@ def get_embeddings(
         else:
             embeddings = hf_embeddings.embed_documents(list_of_text)
 
-        bias = EMBEDDING_LENGTH_BIAS.get(source, 1.0)
-        embeddings = bias * np.array(embeddings)
+        #TODO: figure out a good way to bias
+        if bias := EMBEDDING_LENGTH_BIAS.get(source, 1.0):
+            embeddings = [[bias * e for e in embedding] for embedding in embeddings]
         return embeddings
+
     except RateLimitError as e:
         logger.warning(f"OpenAI Rate limit error. Trying again. Error: {e}")
         raise
@@ -80,6 +78,9 @@ def get_embeddings(
         logger.error(f"Unexpected error encountered: {e}")
         raise
 
+
+def embed_query(query: str, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs) -> List[float]:
+    return get_embeddings([query], engine=engine, **kwargs)[0]
 
 
 def get_recursive_type(obj):

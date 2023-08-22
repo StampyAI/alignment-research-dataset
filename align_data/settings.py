@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Dict
 import openai
 import torch
 from dotenv import load_dotenv
@@ -39,7 +40,7 @@ DB_CONNECTION_URI = f"mysql+mysqldb://{user}:{password}@{host}:{port}/{db_name}"
 
 ### EMBEDDINGS ###
 USE_OPENAI_EMBEDDINGS = True  # If false, SentenceTransformer embeddings will be used.
-EMBEDDING_LENGTH_BIAS = {  # TODO: Experiement with these values. For now, let's remove the bias.
+EMBEDDING_LENGTH_BIAS: Dict[str, float] = {  # TODO: Experiement with these values. For now, let's remove the bias.
     # "aisafety.info": 1.05,  # In search, favor AISafety.info entries.
 }
 

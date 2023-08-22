@@ -1,13 +1,11 @@
 # dataset/pinecone_db_handler.py
-
-import datetime
 import logging
 from typing import Dict, List, Tuple, Union
-from dataclasses import dataclass
 
 import pinecone
 
-from align_data.common.utils import get_embeddings
+from align_data.common.utils import get_embeddings, embed_query
+from align_data.pinecone.pinecone_models import PineconeEntry, PineconeMatch, PineconeMetadata
 from align_data.settings import (
     PINECONE_INDEX_NAME,
     PINECONE_VALUES_DIMS,
@@ -51,47 +49,20 @@ class PineconeDB:
             index_stats_response = self.index.describe_index_stats()
             logger.info(f"{self.index_name}:\n{index_stats_response}")
 
-    def upsert_entry(self, entry: Dict, upsert_size=100):
+    def upsert_entry(self, pinecone_entry: PineconeEntry, upsert_size: int = 100):
+        vectors = pinecone_entry.create_pinecone_vectors()
+        
         self.index.upsert(
-            vectors=list(
-                zip(
-                    [
-                        f"{entry['id']}_{str(i).zfill(6)}"
-                        for i in range(len(entry["text_chunks"]))
-                    ],
-                    entry["embeddings"].tolist(),
-                    [
-                        {
-                            "entry_id": entry["id"],
-                            "source": entry["source"],
-                            "title": entry["title"],
-                            "authors": entry["authors"],
-                            "url": entry["url"],
-                            "date_published": entry["date_published"],
-                            "text": text_chunk,
-                        }
-                        for text_chunk in entry["text_chunks"]
-                    ],
-                )
-            ),
+            vectors=vectors,
             batch_size=upsert_size,
             namespace=PINECONE_NAMESPACE
         )
-        
-    def query(self, query: Union[str, List[float]], top_k=10, include_values=False, include_metadata=True, **kwargs):
-        
-        @dataclass
-        class Block:
-            id: str
-            source: str
-            title: str
-            authors: str
-            text: str
-            url: str
-            date_published: str
 
-        if isinstance(query, str):
-            query = list(get_embeddings(query)[0])
+    def query_vector(
+            self, query: List[float], top_k: int = 10, 
+            include_values: bool = False, include_metadata: bool = True, **kwargs
+            ) -> List[PineconeMatch]:
+        assert not isinstance(query, str), "query must be a list of floats. Use query_PineconeDB_text for text queries"
         
         query_response = self.index.query(
             vector=query,
@@ -102,27 +73,20 @@ class PineconeDB:
             namespace=PINECONE_NAMESPACE,
         )
         print(query_response)
+
+        return query_response['matches']
+
+    
+    def query_text(
+            self, query: str, top_k: int = 10,
+            include_values: bool = False, include_metadata: bool = True, **kwargs
+            ) -> List[PineconeMatch]:
         
-        blocks = []
-        for match in query_response['matches']:
-
-            date_published = match['metadata']['date_published']
-
-            if type(date_published) == datetime.date: 
-                date_published = date_published.strftime("%Y-%m-%d") # iso8601
-
-            blocks.append(Block(
-                id = match['id'],
-                source = match['metadata']['source'],
-                title = match['metadata']['title'],
-                authors = match['metadata']['authors'],
-                # text = strip_block(match['metadata']['text']),
-                text = match['metadata']['text'],
-                url = match['metadata']['url'],
-                date_published = date_published,
-            ))
-
-        return blocks
+        query_vector = embed_query(query)
+        return self.query_vector(
+            query=query_vector, top_k=top_k, 
+            include_values=include_values, include_metadata=include_metadata, **kwargs
+        )
     
         # def query
         #   vector: Optional[List[float]] = None,
@@ -165,23 +129,13 @@ class PineconeDB:
         Returns:
         - List[Tuple[str, Union[List[float], None]]]: List of tuples containing ID and its corresponding embedding.
         """
+        #TODO: check that this still works
         vectors = self.index.fetch(
             ids=ids,
             namespace=PINECONE_NAMESPACE,
         )['vectors']
         return [(id, vectors.get(id, {}).get("values", None)) for id in ids]
 
-
-# we add the title and authors inside the contents of the block, so that
-# searches for the title or author will be more likely to pull it up. This
-# strips it back out.
-# import re
-# def strip_block(text: str) -> str:
-#     r = re.match(r"^\"(.*)\"\s*-\s*Title:.*$", text, re.DOTALL)
-#     if not r:
-#         print("Warning: couldn't strip block")
-#         print(text)
-#     return r.group(1) if r else text
 
 def strip_block(text: str) -> str:
     return "\n".join(text.split("\n")[1:])
