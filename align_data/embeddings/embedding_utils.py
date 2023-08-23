@@ -125,8 +125,9 @@ def get_embeddings_without_moderation(
             embeddings = hf_embedding_model.embed_documents(texts)
         else:
             raise ValueError("No embedding model available.")
+
     # Bias adjustment
-    if bias := EMBEDDING_LENGTH_BIAS.get(source, 1.0):
+    if bias := EMBEDDING_LENGTH_BIAS.get(source or "", 1.0):
         embeddings = [[bias * e for e in embedding] for embedding in embeddings]
 
     return embeddings
