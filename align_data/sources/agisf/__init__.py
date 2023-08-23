@@ -15,6 +15,10 @@ datasets = [
             "comments": "[h] Resource guide",
             "authors": "Author(s) (from Resources)",
         },
+        processors={
+            "source_type": lambda val: val[0] if val else None,
+            "authors": lambda val: val and [v.strip() for v in val.split(",")],
+        },
     ),
     AGISFPodcastDataset(
         name="agisf_readings_alignment",
