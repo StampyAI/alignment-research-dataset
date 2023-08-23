@@ -42,6 +42,17 @@ class PineconeUpdater:
             for batch in self.batch_entries(articles_to_update_stream):
                 self.save_batch(session, batch)
 
+    def update_articles_by_ids(
+        self, custom_sources: List[str], article_ids: List[int], force_update: bool = False
+    ):
+        """Update the Pinecone entries of specific articles based on their IDs."""
+        with make_session() as session:
+            articles_to_update_stream = stream_pinecone_updates(
+                session, custom_sources, force_update, article_ids
+            )
+            for batch in self.batch_entries(articles_to_update_stream):
+                self.save_batch(session, batch)
+
     def save_batch(self, session: Session, batch: List[Tuple[Article, PineconeEntry]]):
         try:
             for article, pinecone_entry in batch:
