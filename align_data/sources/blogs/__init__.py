@@ -56,10 +56,10 @@ BLOG_DATASETS = [
         name="deepmind_technical_blog",
         url="https://www.deepmind.com/blog-categories/technical-blogs",
     ),
-    TransformerCircuits(name='transformer-circuits', url='https://transformer-circuits.pub/'),
+    TransformerCircuits(name="transformer-circuits", url="https://transformer-circuits.pub/"),
 ]
 
 
 BLOG_REGISTRY = [
-    MultiDataset(name='blogs', datasets=BLOG_DATASETS),
+    MultiDataset(name="blogs", datasets=BLOG_DATASETS),
 ]

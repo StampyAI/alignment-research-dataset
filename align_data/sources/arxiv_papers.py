@@ -60,19 +60,22 @@ def add_metadata(data, paper_id):
     metadata = get_arxiv_metadata(paper_id)
     if not metadata:
         return {}
-    return merge_dicts({
-        "authors": metadata.authors,
-        "title": metadata.title,
-        "date_published": metadata.published,
-        "data_last_modified": metadata.updated.isoformat(),
-        "summary": metadata.summary.replace("\n", " "),
-        "comment": metadata.comment,
-        "journal_ref": metadata.journal_ref,
-        "doi": metadata.doi,
-        "primary_category": metadata.primary_category,
-        "categories": metadata.categories,
-        "version": get_version(metadata.get_short_id()),
-    }, data)
+    return merge_dicts(
+        {
+            "authors": metadata.authors,
+            "title": metadata.title,
+            "date_published": metadata.published,
+            "data_last_modified": metadata.updated.isoformat(),
+            "summary": metadata.summary.replace("\n", " "),
+            "comment": metadata.comment,
+            "journal_ref": metadata.journal_ref,
+            "doi": metadata.doi,
+            "primary_category": metadata.primary_category,
+            "categories": metadata.categories,
+            "version": get_version(metadata.get_short_id()),
+        },
+        data,
+    )
 
 
 def fetch_arxiv(url) -> Dict:

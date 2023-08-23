@@ -787,8 +787,9 @@ TRANSFORMER_CIRCUITS_HTML = """<html>
 </html>
 """
 
+
 def test_transformer_circuits_item_key():
-    dataset = TransformerCircuits(url='http://bla.com', name='ble')
+    dataset = TransformerCircuits(url="http://bla.com", name="ble")
     html = """<div>
     <a class="paper" href="2023/july-update/index.html">
         <h3>Circuits Updates — July 2023</h3>
@@ -797,11 +798,14 @@ def test_transformer_circuits_item_key():
         A collection of small updates from the Anthropic Interpretability Team.
         </div>
     </a></div>"""
-    assert dataset.get_item_key(BeautifulSoup(html, 'html.parser').find('a')) == 'http://bla.com/2023/july-update/index.html'
+    assert (
+        dataset.get_item_key(BeautifulSoup(html, "html.parser").find("a"))
+        == "http://bla.com/2023/july-update/index.html"
+    )
 
 
 def test_transformer_circuits_item_list():
-    dataset = TransformerCircuits(url='http://bla.com', name='ble')
+    dataset = TransformerCircuits(url="http://bla.com", name="ble")
     html = """<div>
     <div class="toc">
         <a href="item1.html"></a>
@@ -812,41 +816,44 @@ def test_transformer_circuits_item_list():
         <a href="http://this.will.be.skipped"></a>
     </div></div>"""
     with patch("requests.get", return_value=Mock(content=html)):
-        assert [i.get('href') for i in dataset.items_list] == [
-            'item1.html', 'item2.html', 'item3.html', 'http://bla.com/item4.html'
+        assert [i.get("href") for i in dataset.items_list] == [
+            "item1.html",
+            "item2.html",
+            "item3.html",
+            "http://bla.com/item4.html",
         ]
 
 
 def test_transformer_circuits_get_title():
-    dataset = TransformerCircuits(url='http://bla.com', name='ble')
+    dataset = TransformerCircuits(url="http://bla.com", name="ble")
     soup = BeautifulSoup(TRANSFORMER_CIRCUITS_HTML, "html.parser")
     assert dataset._get_title(soup) == "This is the title"
 
 
 def test_transformer_circuits_get_published_date():
-    dataset = TransformerCircuits(url='http://bla.com', name='ble')
+    dataset = TransformerCircuits(url="http://bla.com", name="ble")
     soup = BeautifulSoup(TRANSFORMER_CIRCUITS_HTML, "html.parser")
     assert dataset._get_published_date(soup).isoformat() == "2023-03-16T00:00:00+00:00"
 
 
 def test_transformer_circuits_get_text():
-    dataset = TransformerCircuits(url='http://bla.com', name='ble')
+    dataset = TransformerCircuits(url="http://bla.com", name="ble")
     soup = BeautifulSoup(TRANSFORMER_CIRCUITS_HTML, "html.parser")
     assert dataset._get_text(soup) == "This is where the text goes. With a [link](bla.com) to test"
 
 
 def test_transformer_circuits_process_item():
-    dataset = TransformerCircuits(url='http://bla.com', name='ble')
-    item = BeautifulSoup('<a href="ble/bla"</a>', "html.parser").find('a')
+    dataset = TransformerCircuits(url="http://bla.com", name="ble")
+    item = BeautifulSoup('<a href="ble/bla"</a>', "html.parser").find("a")
     with patch("requests.get", return_value=Mock(content=TRANSFORMER_CIRCUITS_HTML)):
         assert dataset.process_entry(item).to_dict() == {
-            'authors': ['Nelson Elhage', 'Robert Lasenby', 'Christopher Olah'],
-            'date_published': '2023-03-16T00:00:00Z',
-            'id': None,
-            'source': 'ble',
-            'source_type': 'blog',
-            'summaries': [],
-            'text': 'This is where the text goes. With a [link](bla.com) to test',
-            'title': 'This is the title',
-            'url': 'http://bla.com/ble/bla',
+            "authors": ["Nelson Elhage", "Robert Lasenby", "Christopher Olah"],
+            "date_published": "2023-03-16T00:00:00Z",
+            "id": None,
+            "source": "ble",
+            "source_type": "blog",
+            "summaries": [],
+            "text": "This is where the text goes. With a [link](bla.com) to test",
+            "title": "This is the title",
+            "url": "http://bla.com/ble/bla",
         }

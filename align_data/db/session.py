@@ -22,26 +22,41 @@ def make_session(auto_commit=False):
             session.commit()
 
 
-def stream_pinecone_updates(
+def get_pinecone_articles_to_update(
     session: Session,
     custom_sources: List[str],
     force_update: bool = False,
-    article_ids: List[int] | None = None,
 ):
     """Yield Pinecone entries that require an update."""
-    query = (
+    yield from (
         session.query(Article)
         .filter(or_(Article.pinecone_update_required.is_(True), force_update))
         .filter(Article.is_valid)
         .filter(Article.source.in_(custom_sources))
         .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
+        # .yield_per(10)
     )
 
-    # If article_ids are provided, filter based on those IDs
-    if article_ids:
-        query = query.filter(Article.id.in_(article_ids))
 
-    yield from query.yield_per(1000)
+def get_pinecone_articles_by_ids(
+    session: Session,
+    custom_sources: List[str],
+    force_update: bool = False,
+    hash_ids: List[int] | None = None,
+):
+    """Yield Pinecone entries that require an update and match the given IDs."""
+    if hash_ids is None:
+        hash_ids = []
+
+    yield from (
+        session.query(Article)
+        .filter(or_(Article.pinecone_update_required.is_(True), force_update))
+        .filter(Article.is_valid)
+        .filter(Article.source.in_(custom_sources))
+        .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
+        .filter(Article.id.in_(hash_ids))
+        # .yield_per(10)
+    )
 
 
 def get_all_valid_article_ids(session: Session) -> List[str]:

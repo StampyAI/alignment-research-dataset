@@ -8,10 +8,16 @@ from pydantic import ValidationError
 
 from align_data.embeddings.embedding_utils import get_embeddings
 from align_data.db.models import Article
-from align_data.db.session import make_session, stream_pinecone_updates
+from align_data.db.session import (
+    make_session,
+    get_pinecone_articles_to_update,
+    get_pinecone_articles_by_ids,
+)
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
 from align_data.embeddings.pinecone.pinecone_models import (
-    PineconeEntry, MissingFieldsError, MissingEmbeddingModelError
+    PineconeEntry,
+    MissingFieldsError,
+    MissingEmbeddingModelError,
 )
 from align_data.embeddings.text_splitter import ParagraphSentenceUnitTextSplitter
 
@@ -36,27 +42,28 @@ class PineconeUpdater:
         :param custom_sources: List of sources to update.
         """
         with make_session() as session:
-            articles_to_update_stream = stream_pinecone_updates(
+            articles_to_update_stream = get_pinecone_articles_to_update(
                 session, custom_sources, force_update
             )
             for batch in self.batch_entries(articles_to_update_stream):
                 self.save_batch(session, batch)
 
     def update_articles_by_ids(
-        self, custom_sources: List[str], article_ids: List[int], force_update: bool = False
+        self, custom_sources: List[str], hash_ids: List[int], force_update: bool = False
     ):
-        """Update the Pinecone entries of specific articles based on their IDs."""
+        """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
-            articles_to_update_stream = stream_pinecone_updates(
-                session, custom_sources, force_update, article_ids
+            articles_to_update_stream = get_pinecone_articles_by_ids(
+                session, custom_sources, force_update, hash_ids
             )
             for batch in self.batch_entries(articles_to_update_stream):
                 self.save_batch(session, batch)
 
-    def save_batch(self, session: Session, batch: List[Tuple[Article, PineconeEntry]]):
+    def save_batch(self, session: Session, batch: List[Tuple[Article, PineconeEntry | None]]):
         try:
             for article, pinecone_entry in batch:
-                self.pinecone_db.upsert_entry(pinecone_entry)
+                if pinecone_entry:
+                    self.pinecone_db.upsert_entry(pinecone_entry)
 
                 article.pinecone_update_required = False
                 session.add(article)
@@ -70,23 +77,27 @@ class PineconeUpdater:
 
     def batch_entries(
         self, article_stream: Generator[Article, None, None]
-    ) -> Iterator[List[Tuple[Article, PineconeEntry]]]:
+    ) -> Iterator[List[Tuple[Article, PineconeEntry | None]]]:
         while batch := tuple(islice(article_stream, 10)):
-            yield [
-                (article, pinecone_entry)
-                for article in batch
-                if (pinecone_entry := self._make_pinecone_entry(article)) is not None
-            ]
+            yield [(article, self._make_pinecone_entry(article)) for article in batch]
 
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
         try:
             text_chunks = get_text_chunks(article, self.text_splitter)
             embeddings, moderation_results = get_embeddings(text_chunks, article.source)
 
-            if any(result['flagged'] for result in moderation_results):
-                flagged_text_chunks = [f"Chunk {i}: \"{text}\"" for i, (text, result) in enumerate(zip(text_chunks, moderation_results)) if result["flagged"]]
-                logger.warning(f"OpenAI moderation flagged text chunks for the following article: {article.id}")
-                article.append_comment(f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}")
+            if any(result["flagged"] for result in moderation_results):
+                flagged_text_chunks = [
+                    f'Chunk {i}: "{text}"'
+                    for i, (text, result) in enumerate(zip(text_chunks, moderation_results))
+                    if result["flagged"]
+                ]
+                logger.warning(
+                    f"OpenAI moderation flagged text chunks for the following article: {article.id}"
+                )
+                article.append_comment(
+                    f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}"
+                )
 
             return PineconeEntry(
                 hash_id=article.id,  # the hash_id of the article
@@ -98,11 +109,18 @@ class PineconeUpdater:
                 text_chunks=text_chunks,
                 embeddings=embeddings,
             )
-        except (ValueError, TypeError, AttributeError, ValidationError, MissingFieldsError, MissingEmbeddingModelError) as e:
+        except (
+            ValueError,
+            TypeError,
+            AttributeError,
+            ValidationError,
+            MissingFieldsError,
+            MissingEmbeddingModelError,
+        ) as e:
             logger.warning(e)
             article.append_comment(f"Error encountered while processing this article: {e}")
             return None
-        
+
         except Exception as e:
             logger.error(e)
             raise
