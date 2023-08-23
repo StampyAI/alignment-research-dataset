@@ -8,7 +8,7 @@ from torch.utils.data import IterableDataset, get_worker_info
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql import func
 
-from align_data.db.session import make_session
+from align_data.db.session import make_session, get_all_valid_article_ids
 from align_data.embeddings.embedding_utils import get_embedding
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
 from align_data.embeddings.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
@@ -25,31 +25,28 @@ class FinetuningDataset(IterableDataset):
         self.pinecone_db = PineconeDB()
 
         with make_session() as session:
-            self.all_article_ids = [row[0] for row in session.query(Article.id).all()]
+            self.all_article_ids = get_all_valid_article_ids(session)
             self.total_articles = len(self.all_article_ids)
 
     def __len__(self):
         return self.num_batches_per_epoch
 
     def __iter__(self):
+        start, end = 0, None
         worker_info = get_worker_info()
-        if worker_info is None:  # Single-process loading
-            with make_session() as session:
-                self.session = session
-                return self._generate_pairs()
-        else:  # Multi-process loading
-            # Create a new session for this worker
-            self.session = make_session(auto_commit=False).__enter__()
+        if worker_info is not None:  # Multi-process loading
             per_worker = math.ceil(self.total_articles / worker_info.num_workers)
             start = worker_info.id * per_worker
             end = min(start + per_worker, self.total_articles)
-            return self._generate_pairs(start, end)
 
-    def _fetch_random_articles(self, batch_size=1) -> List[Article]:
+        with make_session() as session:
+            return self._generate_pairs(session, start, end)
+
+    def _fetch_random_articles(self, session, batch_size=1) -> List[Article]:
         """Fetch a batch of random articles."""
         # If the list has fewer IDs than needed, raise an exception
         random_selected_ids = random.sample(self.all_article_ids, batch_size)
-        return self.session.query(Article).filter(Article.id.in_(random_selected_ids)).all()
+        return session.query(Article).filter(Article.id.in_(random_selected_ids)).all()
 
     def _get_random_chunks(self, article: Article, num_chunks: int = 2) -> List[Tuple[int, str]]:
         chunks = get_text_chunks(article, self.text_splitter)
@@ -72,7 +69,7 @@ class FinetuningDataset(IterableDataset):
         return embeddings
 
     def _generate_pairs(
-        self, start=0, end=None, neg_pos_proportion=0.5
+        self, session, start=0, end=None, neg_pos_proportion=0.5
     ) -> Generator[Tuple[List[float], List[float], int], None, None]:
         end = end or self.total_articles
 
@@ -81,13 +78,13 @@ class FinetuningDataset(IterableDataset):
             start += 1
             if random.random() < neg_pos_proportion:
                 # Positive pairs
-                article = self._fetch_random_articles()[0]
+                article = self._fetch_random_articles(session)[0]
                 chunks = self._get_random_chunks(article, 2)
                 embedding_1, embedding_2 = self._get_embeddings(article, chunks)
                 label = 1
             else:
                 # Negative pairs
-                article1, article2 = self._fetch_random_articles(batch_size=2)
+                article1, article2 = self._fetch_random_articles(session, batch_size=2)
                 chunk1 = self._get_random_chunks(article1, 1)
                 chunk2 = self._get_random_chunks(article2, 1)
                 embedding_1, embedding_2 = (
@@ -102,6 +99,3 @@ class FinetuningDataset(IterableDataset):
 
             if self.num_batches_per_epoch and batches_yielded >= self.num_batches_per_epoch:
                 break
-
-        if get_worker_info() is not None:
-            self.session.close()

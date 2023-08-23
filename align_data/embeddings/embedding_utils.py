@@ -188,9 +188,9 @@ def get_embeddings(
         non_flagged_texts, source, engine, **kwargs
     )
 
-    # Reconstruct the final list of embeddings with None for flagged texts
-    embeddings_iter = iter(non_flagged_embeddings)
-    embeddings = [None if flagged else next(embeddings_iter) for flagged in flagged_bools]
+    embeddings = []
+    for flagged in flagged_bools:
+        embeddings.append(None if flagged else non_flagged_embeddings.pop(0))
 
     return embeddings, moderation_results
 

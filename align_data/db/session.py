@@ -34,3 +34,14 @@ def stream_pinecone_updates(
         .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
         .yield_per(1000)
     )
+
+
+def get_all_valid_article_ids(session: Session):
+    """Return all valid article IDs."""
+    query_result = (
+        session.query(Article.id)
+        .filter(Article.is_valid)
+        .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
+        .all()
+    )
+    return [item[0] for item in query_result]
