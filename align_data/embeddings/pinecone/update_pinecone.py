@@ -68,17 +68,15 @@ class PineconeUpdater:
             ]
 
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
-        text_chunks = get_text_chunks(article, self.text_splitter)
-        embeddings, moderation_results = get_embeddings(text_chunks, article.source)
-
-        if any(result['flagged'] for result in moderation_results):
-            flagged_text_chunks = [f"Chunk {i}: \"{text}\"" for i, (text, result) in enumerate(zip(text_chunks, moderation_results)) if result["flagged"]]
-            logger.warning(f"OpenAI moderation flagged text chunks for the following article: {article.id}")
-            article.append_comment(f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}")
-
         try:
-            if not isinstance(article.date_published, datetime):
-                raise TypeError("Date published must be a datetime")
+            text_chunks = get_text_chunks(article, self.text_splitter)
+            embeddings, moderation_results = get_embeddings(text_chunks, article.source)
+
+            if any(result['flagged'] for result in moderation_results):
+                flagged_text_chunks = [f"Chunk {i}: \"{text}\"" for i, (text, result) in enumerate(zip(text_chunks, moderation_results)) if result["flagged"]]
+                logger.warning(f"OpenAI moderation flagged text chunks for the following article: {article.id}")
+                article.append_comment(f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}")
+
             return PineconeEntry(
                 hash_id=article.id,  # the hash_id of the article
                 source=article.source,
@@ -89,7 +87,7 @@ class PineconeUpdater:
                 text_chunks=text_chunks,
                 embeddings=embeddings,
             )
-        except (ValueError, TypeError, ValidationError, MissingFieldsError, MissingEmbeddingModelError) as e:
+        except (ValueError, TypeError, AttributeError, ValidationError, MissingFieldsError, MissingEmbeddingModelError) as e:
             logger.warning(e)
             article.append_comment(f"Error encountered while processing this article: {e}")
             return None
