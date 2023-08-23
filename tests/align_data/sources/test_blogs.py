@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
 from align_data.sources.blogs import (
+    AXRPDataset,
     CaradoMoe,
     ColdTakes,
     GenerativeInk,
@@ -850,3 +851,53 @@ def test_transformer_circuits_process_item():
             'title': 'This is the title',
             'url': 'http://bla.com/ble/bla',
         }
+
+
+def test_axrp_dataset_extract_item_url():
+    dataset = AXRPDataset(name='bla', url='https://ble.ble.com')
+    assert dataset._extract_item_url({'link': '/a/path'}) == 'https://ble.ble.com/a/path'
+
+
+@pytest.mark.parametrize('item, expected', (
+    ({}, ['default authors']),
+    ({'authors': []}, ['default authors']),
+    ({'authors': [{'bla': 'bla'}]}, ['default authors']),
+    ({'authors': [{'name': ''}]}, ['default authors']),
+    ({'authors': [{'name': '    \t    \n'}]}, ['default authors']),
+
+    ({'title': 'bla bla bla'}, ['default authors']),
+    ({'title': 'bla bla bla with'}, ['default authors']),
+    ({'title': 'bla bla bla with     \t    \n'}, ['default authors']),
+
+    ({'authors': [{'name': 'mr. blobby'}]}, ['mr. blobby']),
+    ({'authors': [{'name': 'mr. blobby'}, {'name': 'janek'}]}, ['mr. blobby', 'janek']),
+
+    ({'title': 'bla bla bla with your momma'}, ['default authors', 'your momma']),
+))
+def test_axrp_dataset_extract_authors(item, expected):
+    dataset = AXRPDataset(name='bla', url='https://ble.ble.com', authors=['default authors'])
+    assert dataset.extract_authors(item) == expected
+
+
+def test_axrp_dataset_process_entry():
+    dataset = AXRPDataset(name='bla', url='https://ble.ble.com', authors=['default authors'])
+    url = 'https://ble.ble.com/ble/ble'
+    dataset.items = {
+        url: {
+            'content': [{'value': 'bla bla'}],
+            'link': '/ble/ble',
+            'published': '2023-07-27T03:50:00+00:00',
+            'title': 'Something or other with your momma',
+        }
+    }
+    assert dataset.process_entry(url).to_dict() == {
+        'authors': ['default authors', 'your momma'],
+        'date_published': '2023-07-27T03:50:00Z',
+        'id': None,
+        'source': 'bla',
+        'source_type': 'blog',
+        'summaries': [],
+        'text': 'bla bla',
+        'title': 'Something or other with your momma',
+        'url': 'https://ble.ble.com/ble/ble',
+    }
