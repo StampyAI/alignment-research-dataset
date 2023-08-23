@@ -54,9 +54,7 @@ def fetch_pdf(link):
             link,
         )
 
-    content_type = {
-        c_type.strip().lower() for c_type in res.headers.get("Content-Type").split(";")
-    }
+    content_type = {c_type.strip().lower() for c_type in res.headers.get("Content-Type").split(";")}
     if not content_type & {"application/octet-stream", "application/pdf"}:
         return {
             "error": f"Wrong content type retrieved: {content_type} - {link}",
@@ -71,8 +69,8 @@ def fetch_pdf(link):
             "source_type": "pdf",
         }
     except (TypeError, PdfReadError) as e:
-        logger.error('Could not read PDF file: %s', e)
-        return {'error': str(e)}
+        logger.error("Could not read PDF file: %s", e)
+        return {"error": str(e)}
 
     filenames = [
         i.strip().split("=")[1]
@@ -96,11 +94,7 @@ def get_arxiv_link(doi):
     if res.status_code != 200:
         return None
 
-    vals = [
-        val
-        for val in response.json().get("values")
-        if val.get("type", "").upper() == "URL"
-    ]
+    vals = [val for val in response.json().get("values") if val.get("type", "").upper() == "URL"]
 
     if not vals:
         return None
@@ -135,7 +129,7 @@ def doi_getter(url):
 def parse_vanity(url) -> Dict[str, Any]:
     contents = fetch_element(url, "article")
     if not contents:
-        return {'error': 'Could not fetch from arxiv vanity'}
+        return {"error": "Could not fetch from arxiv vanity"}
 
     if title := contents.select_one("h1.ltx_title"):
         title = title.text

@@ -75,41 +75,68 @@ def test_data_entry_id_from_urls_and_title():
     )
 
 
-@pytest.mark.parametrize('item, error', (
+@pytest.mark.parametrize(
+    "item, error",
     (
-        {"key1": 12, "key2": 312, "title": "wikipedia goes to war on porcupines", "url": "asd"},
-        'missing fields: date_published, source, text'
+        (
+            {
+                "key1": 12,
+                "key2": 312,
+                "title": "wikipedia goes to war on porcupines",
+                "url": "asd",
+            },
+            "missing fields: date_published, source, text",
+        ),
+        (
+            {
+                "key1": 12,
+                "key2": 312,
+                "url": "www.wikipedia.org",
+                "text": "asdasd",
+                "title": "asdasd",
+            },
+            "missing fields: date_published, source",
+        ),
+        (
+            {
+                "key1": 12,
+                "key2": 312,
+                "url": "www.wikipedia.org",
+                "title": "bla",
+                "source": "dwe",
+                "date_published": "dwe",
+            },
+            "missing fields: text",
+        ),
+        (
+            {
+                "key1": 12,
+                "key2": 312,
+                "url": "www.wikipedia.org",
+                "title": "bla",
+                "text": "asdasd",
+                "date_published": "dwe",
+            },
+            "missing fields: source",
+        ),
+        (
+            {
+                "key1": 12,
+                "key2": 312,
+                "url": "www.wikipedia.org",
+                "title": "bla",
+                "text": "asdasd",
+                "source": "dwe",
+            },
+            "missing fields: date_published",
+        ),
     ),
-    (
-        {"key1": 12, "key2": 312, "url": "www.wikipedia.org", "text": "asdasd", "title": "asdasd"},
-        'missing fields: date_published, source'
-    ),
-    (
-        {
-            "key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": "bla",
-            "source": "dwe", "date_published": "dwe"
-        },
-        'missing fields: text'
-    ),
-    (
-        {
-            "key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": "bla",
-            "text": "asdasd", "date_published": "dwe"
-        },
-        'missing fields: source'
-    ),
-    (
-        {
-            "key1": 12, "key2": 312, "url": "www.wikipedia.org", "title": "bla", "text": "asdasd", "source": "dwe"
-        },
-        'missing fields: date_published'
-    ),
-))
+)
 def test_data_entry_missing(item, error):
     dataset = AlignmentDataset(name="blaa")
     entry = dataset.make_data_entry(item)
     Article.before_write(None, None, entry)
-    assert entry.status == 'Missing fields'
+    assert entry.status == "Missing fields"
     assert entry.comments == error
 
 
@@ -136,7 +163,7 @@ def test_data_entry_verify_id_fails():
             "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
         }
     )
-    expected = 'Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 770fe57c8c2130eda08dc392b8696f97'
+    expected = "Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 770fe57c8c2130eda08dc392b8696f97"
     with pytest.raises(AssertionError, match=expected):
         entry.verify_id()
 
@@ -172,7 +199,9 @@ def test_data_entry_verify_fields_fails(data, error):
 
 def test_data_entry_id_fields():
     dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry({"url": "https://www.google.ca/once_upon_a_time", 'title': 'bla'})
+    entry = dataset.make_data_entry(
+        {"url": "https://www.google.ca/once_upon_a_time", "title": "bla"}
+    )
 
     Article.before_write(None, None, entry)
     assert entry.id
@@ -246,16 +275,11 @@ def test_unprocessed_items_some_done(numbers_dataset):
 
 
 def test_fetch_entries(numbers_dataset):
-    assert [i.meta["value"] for i in numbers_dataset.fetch_entries()] == [
-        i**2 for i in range(10)
-    ]
+    assert [i.meta["value"] for i in numbers_dataset.fetch_entries()] == [i**2 for i in range(10)]
 
 
 def test_format_datatime(dataset):
-    assert (
-        dataset._format_datetime(datetime(2022, 1, 1, 12, 23, 43))
-        == "2022-01-01T12:23:43Z"
-    )
+    assert dataset._format_datetime(datetime(2022, 1, 1, 12, 23, 43)) == "2022-01-01T12:23:43Z"
 
 
 def test_format_datatime_ignore_timezone(dataset):

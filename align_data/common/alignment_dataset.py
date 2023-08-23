@@ -164,14 +164,9 @@ class AlignmentDataset:
                 # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
                 # duplicates. The bad thing is that this could potentially return a massive amount of data if there
                 # are lots of items.
-                return set(
-                    session.scalars(select(getattr(Article, self.done_key))).all()
-                )
+                return set(session.scalars(select(getattr(Article, self.done_key))).all())
             # TODO: Properly handle this - it should create a proper SQL JSON select
-            return {
-                item.get(self.done_key)
-                for item in session.scalars(select(Article.meta)).all()
-            }
+            return {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
 
     def not_processed(self, item):
         # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
@@ -214,7 +209,7 @@ class AlignmentDataset:
             if self.COOLDOWN:
                 time.sleep(self.COOLDOWN)
 
-    def process_entry(self, entry) -> Optional[Article]:
+    def process_entry(self, entry) -> Article | None:
         """Process a single entry."""
         raise NotImplementedError
 
@@ -223,7 +218,7 @@ class AlignmentDataset:
         return date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     @staticmethod
-    def _get_published_date(date) -> Optional[datetime]:
+    def _get_published_date(date) -> datetime | None:
         try:
             # Totally ignore any timezone info, forcing everything to UTC
             return parse(str(date)).replace(tzinfo=pytz.UTC)
@@ -239,7 +234,11 @@ class SummaryDataset(AlignmentDataset):
 
         urls = map(self.get_item_key, items)
         with make_session() as session:
-            articles = session.query(Article).options(joinedload(Article.summaries)).filter(Article.url.in_(urls))
+            articles = (
+                session.query(Article)
+                .options(joinedload(Article.summaries))
+                .filter(Article.url.in_(urls))
+            )
             self.articles = {a.url: a for a in articles if a.url}
 
         return items
@@ -249,9 +248,7 @@ class SummaryDataset(AlignmentDataset):
         with make_session() as session:
             return set(
                 session.scalars(
-                    select(Article.url)
-                    .join(Article.summaries)
-                    .filter(Summary.source == self.name)
+                    select(Article.url).join(Article.summaries).filter(Summary.source == self.name)
                 )
             )
 

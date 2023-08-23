@@ -68,9 +68,7 @@ def process_jsonl_files(data_dir):
 
     for id, duplicates in seen_urls.items():
         if len(duplicates) > 1:
-            list_of_duplicates = "\n".join(
-                get_data_dict_str(duplicate) for duplicate in duplicates
-            )
+            list_of_duplicates = "\n".join(get_data_dict_str(duplicate) for duplicate in duplicates)
             print(
                 f"{len(duplicates)} duplicate ids found. \nId: {id}\n{list_of_duplicates}\n\n\n\n"
             )

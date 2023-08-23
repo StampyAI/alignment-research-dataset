@@ -42,6 +42,7 @@ xsi:schemaLocation="http://www.tei-c.org/ns/1.0 https://raw.githubusercontent.co
 </TEI>
 """
 
+
 def test_medium_blog():
     html = """
     <article>
@@ -60,14 +61,14 @@ def test_medium_blog():
     </article>
     """
     with patch("requests.get", return_value=Mock(content=html)):
-        assert MediumParser('html', 'ble')("bla.com") == {
-            'authors': [],
-            'date_published': parse('Oct 7, 2023').replace(tzinfo=pytz.UTC),
-            'source': 'html',
-            'source_type': 'blog',
-            'text': 'bla bla bla [a link](http://ble.com) bla bla',
-            'title': 'This is the title',
-            'url': 'bla.com',
+        assert MediumParser("html", "ble")("bla.com") == {
+            "authors": [],
+            "date_published": parse("Oct 7, 2023").replace(tzinfo=pytz.UTC),
+            "source": "html",
+            "source_type": "blog",
+            "text": "bla bla bla [a link](http://ble.com) bla bla",
+            "title": "This is the title",
+            "url": "bla.com",
         }
 
 
@@ -83,14 +84,14 @@ def test_medium_blog_no_title():
     </article>
     """
     with patch("requests.get", return_value=Mock(content=html)):
-        assert MediumParser(name='html', url='')("bla.com") == {
-            'authors': [],
-            'date_published': None,
-            'source': 'html',
-            'source_type': 'blog',
-            'text': 'bla bla bla [a link](http://ble.com) bla bla',
-            'title': None,
-            'url': 'bla.com',
+        assert MediumParser(name="html", url="")("bla.com") == {
+            "authors": [],
+            "date_published": None,
+            "source": "html",
+            "source_type": "blog",
+            "text": "bla bla bla [a link](http://ble.com) bla bla",
+            "title": None,
+            "url": "bla.com",
         }
 
 
@@ -105,13 +106,13 @@ def test_medium_blog_no_contents():
        </div>
     </div>
     """
-    with patch('requests.get', return_value=Mock(content=html)):
-        assert MediumParser(name='html', url='')('bla.com') == {
-            'authors': [],
-            'date_published': None,
-            'source': 'html',
-            'source_type': 'blog',
-            'text': None,
-            'title': None,
-            'url': 'bla.com',
+    with patch("requests.get", return_value=Mock(content=html)):
+        assert MediumParser(name="html", url="")("bla.com") == {
+            "authors": [],
+            "date_published": None,
+            "source": "html",
+            "source_type": "blog",
+            "text": None,
+            "title": None,
+            "url": "bla.com",
         }

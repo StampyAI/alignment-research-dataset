@@ -91,16 +91,12 @@ def test_html_dataset_items_list(html_dataset):
 
 def test_html_datasetfetch_contents(html_dataset):
     with patch("requests.get", return_value=Mock(content=SAMPLE_HTML)):
-        assert html_dataset.fetch_contents("url") == BeautifulSoup(
-            SAMPLE_HTML, "html.parser"
-        )
+        assert html_dataset.fetch_contents("url") == BeautifulSoup(SAMPLE_HTML, "html.parser")
 
 
 def test_html_dataset_get_text(html_dataset):
     soup = BeautifulSoup(f"<article>{SAMPLE_CONTENTS}</article>", "html.parser")
-    assert (
-        html_dataset._get_text(soup) == "bla bla bla [a link](http://ble.com) bla bla"
-    )
+    assert html_dataset._get_text(soup) == "bla bla bla [a link](http://ble.com) bla bla"
 
 
 def test_html_dataset_find_date(html_dataset):
@@ -125,10 +121,7 @@ def test_html_dataset_find_date(html_dataset):
     ),
 )
 def test_html_dataset_extract_metadata(html_dataset, text):
-    assert (
-        html_dataset._extract_markdown(text)
-        == "bla bla bla [a link](http://ble.com) bla bla"
-    )
+    assert html_dataset._extract_markdown(text) == "bla bla bla [a link](http://ble.com) bla bla"
 
 
 def test_html_dataset_process_entry(html_dataset):
@@ -176,9 +169,7 @@ def test_html_dataset_process_entry_no_text(html_dataset):
     ),
 )
 def test_rss_dataset_extract_authors(item, authors):
-    dataset = RSSDataset(
-        name="bla", url="http://example.org", authors=["default author"]
-    )
+    dataset = RSSDataset(name="bla", url="http://example.org", authors=["default author"])
     assert dataset.extract_authors(item) == authors
 
 
@@ -202,9 +193,7 @@ def test_rss_dataset_get_title():
     ),
 )
 def test_rss_dataset_get_published_date(item, date):
-    dataset = RSSDataset(
-        name="bla", url="http://example.org", authors=["default author"]
-    )
+    dataset = RSSDataset(name="bla", url="http://example.org", authors=["default author"])
     assert dataset._get_published_date(item) == date
 
 
@@ -263,6 +252,4 @@ def test_rss_dataset_items_list():
     }
 
     with patch("feedparser.parse", return_value=contents):
-        assert dataset.items_list == [
-            f"http://example.org/article-{i}" for i in range(5)
-        ]
+        assert dataset.items_list == [f"http://example.org/article-{i}" for i in range(5)]

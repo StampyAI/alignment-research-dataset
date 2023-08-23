@@ -6,7 +6,9 @@ class Distill(RSSDataset):
     done_key = "url"
 
     def extract_authors(self, item):
-        return [a.text for a in item["soup"].select(".authors-affiliations p.author a")] or ["Distill"]
+        return [a.text for a in item["soup"].select(".authors-affiliations p.author a")] or [
+            "Distill"
+        ]
 
     def _get_text(self, item):
         article = item["soup"].find("d-article") or item["soup"].find("dt-article")

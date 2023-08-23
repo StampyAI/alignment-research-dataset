@@ -1,10 +1,13 @@
 import os
 import logging
+from typing import Dict
+import openai
+import torch
 from dotenv import load_dotenv
 
 load_dotenv()
 
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'WARNING').upper()
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "WARNING").upper()
 logging.basicConfig(level=LOG_LEVEL)
 
 ### CODA ###
@@ -24,7 +27,7 @@ METADATA_OUTPUT_SPREADSHEET = os.environ.get(
     "METADATA_OUTPUT_SPREADSHEET", "1l3azVJVukGAvZPgg0GyeqiaQe8bEMZvycBJaA8cRXf4"
 )
 
-### YouTube ###
+### YOUTUBE ###
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
 ### MYSQL ###
@@ -37,13 +40,16 @@ DB_CONNECTION_URI = f"mysql+mysqldb://{user}:{password}@{host}:{port}/{db_name}"
 
 ### EMBEDDINGS ###
 USE_OPENAI_EMBEDDINGS = True  # If false, SentenceTransformer embeddings will be used.
-EMBEDDING_LENGTH_BIAS = {
-    "aisafety.info": 1.05,  # In search, favor AISafety.info entries.
+EMBEDDING_LENGTH_BIAS: Dict[str, float] = {
+    # TODO: Experiement with these values. For now, let's remove the bias.
+    # "aisafety.info": 1.05,  # In search, favor AISafety.info entries.
 }
 
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 OPENAI_EMBEDDINGS_DIMS = 1536
 OPENAI_EMBEDDINGS_RATE_LIMIT = 3500
+openai.api_key = os.environ.get("OPENAI_API_KEY", None)
+openai.organization = os.environ.get("OPENAI_ORGANIZATION", None)
 
 SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL = "sentence-transformers/multi-qa-mpnet-base-cos-v1"
 SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS = 768
@@ -53,15 +59,20 @@ PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "stampy-chat-ard")
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", None)
 PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT", None)
 PINECONE_VALUES_DIMS = (
-    OPENAI_EMBEDDINGS_DIMS
-    if USE_OPENAI_EMBEDDINGS
-    else SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS
+    OPENAI_EMBEDDINGS_DIMS if USE_OPENAI_EMBEDDINGS else SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS
 )
 PINECONE_METRIC = "dotproduct"
-PINECONE_METADATA_KEYS = ["entry_id", "source", "title", "authors", "text", "url"]
+PINECONE_NAMESPACE = os.environ.get("PINECONE_NAMESPACE", "normal")  # "normal" or "finetuned"
+
+### FINE-TUNING ###
+OPENAI_FINETUNED_LAYER_PATH = os.environ.get(
+    "OPENAI_FINETUNED_LAYER_PATH", "align_data/finetuning/data/finetuned_model.pth"
+)
+OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH = os.environ.get(
+    "OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH",
+    "align_data/finetuning/data/best_finetuned_model.pth",
+)
 
 ### MISCELLANEOUS ###
-CHUNK_SIZE = 1750
-MAX_NUM_AUTHORS_IN_SIGNATURE = 3
-
 MIN_CONFIDENCE = 50
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

@@ -26,9 +26,7 @@ BLOG_DATASETS = [
         url="https://deepmindsafetyresearch.medium.com/",
         authors=["DeepMind Safety Research"],
     ),
-    GwernBlog(
-        name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]
-    ),
+    GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"]),
     ColdTakes(
         name="cold_takes",
         url="https://www.cold-takes.com/",

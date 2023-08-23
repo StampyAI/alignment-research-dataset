@@ -24,27 +24,29 @@ def get_pdf_from_page(*link_selectors: str):
     :param List[str] link_selectors: CSS selector used to find the final download link
     :returns: the contents of the pdf file as a string
     """
+
     def getter(url: str):
         link: str = url
         for selector in link_selectors:
             elem = fetch_element(link, selector)
             if not elem:
-                return {'error': f'Could not find pdf download link for {link} using \'{selector}\''}
+                return {"error": f"Could not find pdf download link for {link} using '{selector}'"}
 
-            link = elem.get('href')
-            if not link.startswith('http') or not link.startswith('//'):
+            link = elem.get("href")
+            if not link.startswith("http") or not link.startswith("//"):
                 link = urljoin(url, link)
 
         # Some pages keep link to google drive previews of pdf files, which need to be
         # mangled to get the URL of the actual pdf file
-        if 'drive.google.com' in link and '/view' in link:
+        if "drive.google.com" in link and "/view" in link:
             return extract_gdrive_contents(link)
 
         if parse_domain(link) == "arxiv.org":
             return fetch_arxiv(link)
         if pdf := fetch_pdf(link):
             return pdf
-        return {'error': f'Could not fetch pdf from {link}'}
+        return {"error": f"Could not fetch pdf from {link}"}
+
     return getter
 
 
@@ -77,10 +79,11 @@ class MediumParser(HTMLDataset):
 
 def error(error_msg):
     """Returns a url handler function that just logs the provided `error` string."""
+
     def func(url):
         if error_msg:
             logger.error(error_msg)
-        return {'error': error_msg, 'source_url': url}
+        return {"error": error_msg, "source_url": url}
 
     return func
 
@@ -129,17 +132,17 @@ HTML_PARSERS = {
     "mediangroup.org": element_extractor("div.entry-content"),
     "www.alexirpan.com": element_extractor("article"),
     "www.incompleteideas.net": element_extractor("body"),
-    "ai-alignment.com": MediumParser(name='html', url='ai-alignment.com'),
+    "ai-alignment.com": MediumParser(name="html", url="ai-alignment.com"),
     "aisrp.org": element_extractor("article"),
     "bounded-regret.ghost.io": element_extractor("div.post-content"),
     "carnegieendowment.org": element_extractor(
         "div.article-body", remove=[".no-print", ".related-pubs"]
     ),
-    "casparoesterheld.com": element_extractor(
-        ".entry-content", remove=["div.sharedaddy"]
-    ),
+    "casparoesterheld.com": element_extractor(".entry-content", remove=["div.sharedaddy"]),
     "cullenokeefe.com": element_extractor("div.sqs-block-content"),
-    "deepmindsafetyresearch.medium.com": MediumParser(name='html', url='deepmindsafetyresearch.medium.com'),
+    "deepmindsafetyresearch.medium.com": MediumParser(
+        name="html", url="deepmindsafetyresearch.medium.com"
+    ),
     "docs.google.com": google_doc,
     "docs.microsoft.com": element_extractor("div.content"),
     "digichina.stanford.edu": element_extractor("div.h_editor-content"),
@@ -154,7 +157,7 @@ HTML_PARSERS = {
     "link.springer.com": element_extractor("article.c-article-body"),
     "longtermrisk.org": element_extractor("div.entry-content"),
     "lukemuehlhauser.com": element_extractor("div.entry-content"),
-    "medium.com": MediumParser(name='html', url='medium.com'),
+    "medium.com": MediumParser(name="html", url="medium.com"),
     "openai.com": element_extractor("#content"),
     "ought.org": element_extractor("div.BlogPostBodyContainer"),
     "sideways-view.com": element_extractor("article", remove=["header"]),
@@ -169,10 +172,8 @@ HTML_PARSERS = {
     ),
     "theconversation.com": element_extractor("div.content-body"),
     "thegradient.pub": element_extractor("div.c-content"),
-    "towardsdatascience.com": MediumParser(name='html', url='towardsdatascience.com'),
-    "unstableontology.com": element_extractor(
-        ".entry-content", remove=["div.sharedaddy"]
-    ),
+    "towardsdatascience.com": MediumParser(name="html", url="towardsdatascience.com"),
+    "unstableontology.com": element_extractor(".entry-content", remove=["div.sharedaddy"]),
     "waitbutwhy.com": element_extractor("article", remove=[".entry-header"]),
     "weightagnostic.github.io": element_extractor(
         "dt-article", remove=["#authors_section", "dt-byline"]
@@ -180,9 +181,7 @@ HTML_PARSERS = {
     "cnas.org": element_extractor("#mainbar-toc"),
     "econlib.org": element_extractor("div.post-content"),
     "humanityplus.org": element_extractor("div.content"),
-    "gleech.org": element_extractor(
-        "article.post-content", remove=["center", "div.accordion"]
-    ),
+    "gleech.org": element_extractor("article.post-content", remove=["center", "div.accordion"]),
     "ibm.com": element_extractor("div:has(> p)"),  # IBM's HTML is really ugly...
     "microsoft.com": element_extractor("div.content-container"),
     "mdpi.com": element_extractor(
@@ -259,32 +258,30 @@ PDF_PARSERS = {
     "jstor.org": doi_getter,
     "ri.cmu.edu": get_pdf_from_page("a.pub-link"),
     "risksciences.ucla.edu": get_pdf_from_page('a:-soup-contains("Download")'),
-    "ssrn.com": get_pdf_from_page(
-        '.abstract-buttons a.button-link:-soup-contains("Download")'
-    ),
+    "ssrn.com": get_pdf_from_page('.abstract-buttons a.button-link:-soup-contains("Download")'),
     "yjolt.org": get_pdf_from_page("span.file a"),
 }
 
 
 def parse_domain(url: str) -> str:
-    return url and urlparse(url).netloc.lstrip('www.')
+    return url and urlparse(url).netloc.lstrip("www.")
 
 
 def item_metadata(url) -> Dict[str, any]:
     domain = parse_domain(url)
     try:
-        res = fetch(url, 'head')
+        res = fetch(url, "head")
     except (MissingSchema, InvalidSchema, ConnectionError) as e:
-        return {'error': str(e)}
+        return {"error": str(e)}
 
-    content_type = {item.strip() for item in res.headers.get('Content-Type', '').split(';')}
+    content_type = {item.strip() for item in res.headers.get("Content-Type", "").split(";")}
 
     if content_type & {"text/html", "text/xml"}:
         # If the url points to a html webpage, then it either contains the text as html, or
         # there is a link to a pdf on it
         if parser := HTML_PARSERS.get(domain):
             res = parser(url)
-            if res and 'error' not in res:
+            if res and "error" not in res:
                 # Proper contents were found on the page, so use them
                 return res
 
@@ -296,13 +293,11 @@ def item_metadata(url) -> Dict[str, any]:
         if parser := UNIMPLEMENTED_PARSERS.get(domain):
             return parser(url)
 
-        if domain not in (
-            HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()
-        ):
+        if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()):
             return {"error": "No domain handler defined"}
         return {"error": "could not parse url"}
     elif content_type & {"application/octet-stream", "application/pdf"}:
-        if domain == 'arxiv.org':
+        if domain == "arxiv.org":
             return fetch_arxiv(url)
         # just download it as a pdf
         return fetch_pdf(url)

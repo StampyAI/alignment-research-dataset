@@ -75,7 +75,7 @@ class HTMLDataset(AlignmentDataset):
     def process_entry(self, article):
         article_url = self.get_item_key(article)
         contents = self.get_contents(article_url)
-        if not contents.get('text'):
+        if not contents.get("text"):
             return None
 
         return self.make_data_entry(contents)
