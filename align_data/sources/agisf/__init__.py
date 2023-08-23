@@ -12,7 +12,7 @@ datasets = [
             'title': '[>] Resource',
             'url': '[h] [>] Link',
             'source_type': '[h] [>] Type',
-            'comments': '[h] Resource guide',
+            'summary': '[h] Resource guide',
             'authors': 'Author(s) (from Resources)',
         },
         processors = {

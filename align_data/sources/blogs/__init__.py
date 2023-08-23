@@ -1,6 +1,7 @@
 from align_data.sources.blogs.wp_blog import WordpressBlog
 from align_data.sources.blogs.gwern_blog import GwernBlog
 from align_data.sources.blogs.blogs import (
+    AXRPDataset,
     ColdTakes,
     GenerativeInk,
     CaradoMoe,
@@ -15,6 +16,7 @@ from align_data.common.alignment_dataset import MultiDataset
 
 
 BLOG_DATASETS = [
+    AXRPDataset(name='axrp', url='https://axrp.net', authors=['AXRP']),
     WordpressBlog(name="aiimpacts", url="https://aiimpacts.org"),
     WordpressBlog(name="aisafety.camp", url="https://aisafety.camp"),
     WordpressBlog(name="miri", url="https://intelligence.org"),
