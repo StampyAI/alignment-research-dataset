@@ -137,6 +137,17 @@ class AlignmentDataset:
         names = [name for name in ALL_DATASETS if name not in skip]
         PineconeUpdater().update(names, force_update)
 
+    def pinecone_update_individual_articles(self, hash_ids: str, force_update=False) -> None:
+        """
+        Update the Pinecone entries of specific articles based on their IDs given as a comma-separated string.
+
+        :param str ids: Comma-separated list of article IDs.
+        """
+        names = ALL_DATASETS
+
+        article_ids = [hash_id for hash_id in hash_ids.split(",")]
+        PineconeUpdater().update_articles_by_ids(names, article_ids, force_update)
+
     def train_finetuning_layer(self) -> None:
         """
         This function trains a finetuning layer on top of the OpenAI embeddings.
