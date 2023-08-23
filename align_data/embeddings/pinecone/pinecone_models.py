@@ -1,7 +1,15 @@
 from typing import List, TypedDict
 
 from pydantic import BaseModel, validator
-from pinecone.core.client.models import Vector, ScoredVector, QueryResponse
+from pinecone.core.client.models import Vector
+
+
+class MissingFieldsError(Exception):
+    pass
+
+
+class MissingEmbeddingModelError(Exception):
+    pass
 
 
 class PineconeMetadata(TypedDict):
@@ -23,6 +31,15 @@ class PineconeEntry(BaseModel):
     authors: List[str]
     text_chunks: List[str]
     embeddings: List[List[float]]
+
+    def __new__(cls, **data):
+        """If any of the fields are falsy, raise an error."""
+        missing_fields = [field for field, value in data.items() if not value]
+        if missing_fields:
+            raise MissingFieldsError(f"Missing fields: {missing_fields}")
+
+        # If all fields are truthy, proceed with the creation of the object
+        return super().__new__(cls)
 
     def __repr__(self):
         def make_small(chunk: str) -> str:
