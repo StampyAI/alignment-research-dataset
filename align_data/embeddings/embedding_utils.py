@@ -17,6 +17,7 @@ from tenacity import (
     retry_if_exception,
 )
 
+from align_data.embeddings.pinecone.pinecone_models import MissingEmbeddingModelError
 from align_data.settings import (
     USE_OPENAI_EMBEDDINGS,
     OPENAI_EMBEDDINGS_MODEL,
@@ -92,14 +93,13 @@ def moderation_check(texts: List[str]) -> List[ModerationInfoType]:
 
 
 @handle_openai_errors
-def _compute_openai_embeddings(non_flagged_texts: List[str], engine: str, **kwargs) -> List[List[float]]:
-    data = openai.Embedding.create(input=non_flagged_texts, engine=engine, **kwargs).data
+def _compute_openai_embeddings(non_flagged_texts: List[str], **kwargs) -> List[List[float]]:
+    data = openai.Embedding.create(input=non_flagged_texts, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs).data
     return [d["embedding"] for d in data]
 
 
 def get_embeddings_without_moderation(
     texts: List[str],
-    engine: str = OPENAI_EMBEDDINGS_MODEL,
     source: Optional[str] = None,
     **kwargs,
 ) -> List[List[float]]:
@@ -108,7 +108,6 @@ def get_embeddings_without_moderation(
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
-    - engine (str, optional): Embedding engine to use (relevant for OpenAI). Defaults to OPENAI_EMBEDDINGS_MODEL.
     - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
     - **kwargs: Additional keyword arguments passed to the embedding function.
 
@@ -120,14 +119,14 @@ def get_embeddings_without_moderation(
 
     texts = [text.replace("\n", " ") for text in texts]
     if USE_OPENAI_EMBEDDINGS:
-        embeddings = _compute_openai_embeddings(texts, engine, **kwargs)
+        embeddings = _compute_openai_embeddings(texts, **kwargs)
     elif hf_embedding_model:
         embeddings = hf_embedding_model.embed_documents(texts)
     else:
-        raise ValueError("No embedding model available.")
+        raise MissingEmbeddingModelError("No embedding model available.")
 
     # Bias adjustment
-    if bias := EMBEDDING_LENGTH_BIAS.get(source or "", 1.0):
+    if source and (bias := EMBEDDING_LENGTH_BIAS.get(source, 1.0)):
         embeddings = [[bias * e for e in embedding] for embedding in embeddings]
 
     return embeddings
@@ -135,7 +134,6 @@ def get_embeddings_without_moderation(
 
 def get_embeddings_or_none_if_flagged(
     texts: List[str],
-    engine=OPENAI_EMBEDDINGS_MODEL,
     source: Optional[str] = None,
     **kwargs,
 ) -> Tuple[List[List[float]] | None, List[ModerationInfoType]]:
@@ -145,7 +143,6 @@ def get_embeddings_or_none_if_flagged(
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
-    - engine (str, optional): Embedding engine to use (relevant for OpenAI). Defaults to OPENAI_EMBEDDINGS_MODEL.
     - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
     - **kwargs: Additional keyword arguments passed to the embedding function.
 
@@ -156,13 +153,12 @@ def get_embeddings_or_none_if_flagged(
     if any(result["flagged"] for result in moderation_results):
         return None, moderation_results
 
-    embeddings = get_embeddings_without_moderation(texts, source, engine, **kwargs)
+    embeddings = get_embeddings_without_moderation(texts, source, **kwargs)
     return embeddings, moderation_results
 
 
 def get_embeddings(
     texts: List[str],
-    engine=OPENAI_EMBEDDINGS_MODEL,
     source: Optional[str] = None,
     **kwargs,
 ) -> Tuple[List[List[float] | None], List[ModerationInfoType]]:
@@ -171,7 +167,6 @@ def get_embeddings(
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
-    - engine (str, optional): Embedding engine to use (relevant for OpenAI). Defaults to OPENAI_EMBEDDINGS_MODEL.
     - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
     - **kwargs: Additional keyword arguments passed to the embedding function.
 
@@ -190,15 +185,15 @@ def get_embeddings(
 
     non_flagged_texts = [text for text, flag in zip(texts, flags) if not flag]
     non_flagged_embeddings = get_embeddings_without_moderation(
-        non_flagged_texts, engine, source, **kwargs
+        non_flagged_texts, source, **kwargs
     )
     embeddings = [None if flag else non_flagged_embeddings.pop(0) for flag in flags]
     return embeddings, moderation_results
 
 
 def get_embedding(
-    text: str, engine=OPENAI_EMBEDDINGS_MODEL, source: Optional[str] = None, **kwargs
+    text: str, source: Optional[str] = None, **kwargs
 ) -> Tuple[List[float] | None, ModerationInfoType]:
     """Obtain an embedding for a single text."""
-    embedding, moderation_result = get_embeddings([text], engine, source, **kwargs)
+    embedding, moderation_result = get_embeddings([text], source, **kwargs)
     return embedding[0], moderation_result[0]

@@ -10,7 +10,9 @@ from align_data.embeddings.embedding_utils import get_embeddings
 from align_data.db.models import Article
 from align_data.db.session import make_session, stream_pinecone_updates
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
-from align_data.embeddings.pinecone.pinecone_models import PineconeEntry
+from align_data.embeddings.pinecone.pinecone_models import (
+    PineconeEntry, MissingFieldsError, MissingEmbeddingModelError
+)
 from align_data.embeddings.text_splitter import ParagraphSentenceUnitTextSplitter
 
 
@@ -46,18 +48,10 @@ class PineconeUpdater:
                 self.pinecone_db.upsert_entry(pinecone_entry)
 
                 article.pinecone_update_required = False
-
-                comments = self._handle_flagged_chunks(pinecone_entry)
-                if comments:
-                    prefix = (
-                        "Comments from this article that were flagged by the moderation model:\n"
-                    )
-                    article.comments = (
-                        (article.comments + "\n\n" if article.comments else "") + prefix + comments
-                    )
-
                 session.add(article)
+
             session.commit()
+
         except Exception as e:
             # Rollback on any kind of error. The next run will redo this batch, but in the meantime keep trucking
             logger.error(e)
@@ -74,11 +68,15 @@ class PineconeUpdater:
             ]
 
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
-        text_chunks = get_text_chunks(article, self.text_splitter)
-        embeddings, _ = get_embeddings(text_chunks, article.source)
-
-        assert isinstance(article.date_published, datetime)
         try:
+            text_chunks = get_text_chunks(article, self.text_splitter)
+            embeddings, moderation_results = get_embeddings(text_chunks, article.source)
+
+            if any(result['flagged'] for result in moderation_results):
+                flagged_text_chunks = [f"Chunk {i}: \"{text}\"" for i, (text, result) in enumerate(zip(text_chunks, moderation_results)) if result["flagged"]]
+                logger.warning(f"OpenAI moderation flagged text chunks for the following article: {article.id}")
+                article.append_comment(f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}")
+
             return PineconeEntry(
                 hash_id=article.id,  # the hash_id of the article
                 source=article.source,
@@ -89,16 +87,14 @@ class PineconeUpdater:
                 text_chunks=text_chunks,
                 embeddings=embeddings,
             )
-        except (ValueError, ValidationError) as e:
-            logger.exception(e)
+        except (ValueError, TypeError, AttributeError, ValidationError, MissingFieldsError, MissingEmbeddingModelError) as e:
+            logger.warning(e)
+            article.append_comment(f"Error encountered while processing this article: {e}")
             return None
-
-    def _handle_flagged_chunks(self, entry: PineconeEntry) -> str:
-        """Handle flagged text chunks and return comments for them."""
-        comments = ""
-        for i, (chunk, embedding) in enumerate(zip(entry.text_chunks, entry.embeddings)):
-            comments += f'Chunk {i}: "{chunk}"\n' if not embedding else ""
-        return comments
+        
+        except Exception as e:
+            logger.error(e)
+            raise
 
 
 def get_text_chunks(

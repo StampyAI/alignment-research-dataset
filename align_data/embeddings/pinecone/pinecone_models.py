@@ -1,7 +1,15 @@
 from typing import List, TypedDict
 
 from pydantic import BaseModel, validator
-from pinecone.core.client.models import Vector, ScoredVector, QueryResponse
+from pinecone.core.client.models import Vector
+
+
+class MissingFieldsError(Exception):
+    pass
+
+
+class MissingEmbeddingModelError(Exception):
+    pass
 
 
 class PineconeMetadata(TypedDict):
@@ -24,6 +32,15 @@ class PineconeEntry(BaseModel):
     text_chunks: List[str]
     embeddings: List[List[float]]
 
+    def __init__(self, **data):
+        """Check for missing (falsy) fields before initializing."""
+        missing_fields = [field for field, value in data.items() if not str(value).strip()]
+
+        if missing_fields:
+            raise MissingFieldsError(f"Missing fields: {missing_fields}")
+
+        super().__init__(**data)
+
     def __repr__(self):
         def make_small(chunk: str) -> str:
             return (chunk[:45] + " [...] " + chunk[-45:]) if len(chunk) > 100 else chunk
@@ -35,23 +52,6 @@ class PineconeEntry(BaseModel):
             )
 
         return f"PineconeEntry(hash_id={self.hash_id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={display_chunks(self.text_chunks)})"
-
-    @validator(
-        "hash_id",
-        "source",
-        "title",
-        "url",
-        "date_published",
-        "authors",
-        "text_chunks",
-        "embeddings",
-        pre=True,
-        always=True,
-    )
-    def empty_strings_not_allowed(cls, value):
-        if not str(value).strip():
-            raise ValueError("Attribute should not be empty.")
-        return value
 
     @property
     def chunk_num(self) -> int:

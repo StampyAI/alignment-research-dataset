@@ -65,7 +65,7 @@ class FinetuningDataset(IterableDataset):
         embeddings = []
         for (_, chunk), (_, embedding) in zip(chunks, _embeddings):
             if embedding is None:
-                embedding, _ = get_embedding(chunk, source=article.source)
+                embedding, _ = get_embedding(chunk, article.source)
             embeddings.append(torch.tensor(embedding))
 
         return embeddings
