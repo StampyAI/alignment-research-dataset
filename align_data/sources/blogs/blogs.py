@@ -161,3 +161,26 @@ class TransformerCircuits(HTMLDataset):
                     sup.extract()
             return [a.text.strip().strip(",*") for a in authors]
         return []
+
+
+class AXRPDataset(RSSDataset):
+
+    @property
+    def feed_url(self):
+        return f"{self.url}/feed.xml"
+
+    def _extract_item_url(self, item) -> str | None:
+        if path := item.get('link'):
+            return self.url + path
+        return None
+
+    def extract_authors(self, item):
+        if "authors" in item:
+            authors = [name for a in item["authors"] if (name := (a.get("name") or '').strip())]
+            if authors:
+                return authors
+
+        bits = item.get('title', '').split(' with ')
+        if len(bits) > 1 and bits[-1].strip():
+            return self.authors + [bits[-1].strip()]
+        return self.authors
