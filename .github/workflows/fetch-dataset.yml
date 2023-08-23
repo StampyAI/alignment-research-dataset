@@ -9,6 +9,9 @@ on:
       coda_token:
         type: string
         required: true
+      airtable_api_key:
+        type: string
+        required: true
       youtube_api_key:
         type: string
         required: true
@@ -28,45 +31,19 @@ on:
         type: choice
         options:
           - agentmodels
-          - aiimpacts
-          - aisafety.camp
+          - agisf
           - aisafety.info
-          - ai_alignment_playlist
-          - ai_explained
-          - ai_safety_talks
-          - ai_safety_reading_group
-          - ai_tech_tu_delft
-          - alignmentforum
           - alignment_newsletter
+          - alignmentforum
           - arbital
           - arxiv
-          - carado.moe
-          - cold_takes
-          - deepmind_blog
-          - deepmind_technical_blog
+          - blogs
           - distill
           - eaforum
-          - ebooks
-          - eleuther.ai
-          - gdocs
-          - generative.ink
-          - gwern_blog
-          - html_articles
-          - importai
           - indices
-          - jsteinhardt_blog
           - lesswrong
-          - markdown
-          - miri
-          - ml_safety_newsletter
-          - openai.research
-          - pdfs
-          - rob_miles_ai_safety
           - special_docs
-          - transformer-circuits
-          - vkrakovna_blog
-          - yudkowsky_blog
-          - xmls
+          - youtube
 
 jobs:
   build-dataset:
@@ -94,6 +71,7 @@ jobs:
     - name: Process dataset
       env:
         CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
+        AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY || inputs.airtable_api_key }}
         YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}
         ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
         ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}

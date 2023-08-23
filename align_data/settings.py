@@ -30,6 +30,9 @@ METADATA_OUTPUT_SPREADSHEET = os.environ.get(
 ### YOUTUBE ###
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
+### Airtable ###
+AIRTABLE_API_KEY = os.environ.get("AIRTABLE_API_KEY")
+
 ### MYSQL ###
 user = os.environ.get("ARD_DB_USER", "user")
 password = os.environ.get("ARD_DB_PASSWORD", "we all live in a yellow submarine")
@@ -37,6 +40,7 @@ host = os.environ.get("ARD_DB_HOST", "127.0.0.1")
 port = os.environ.get("ARD_DB_PORT", "3306")
 db_name = os.environ.get("ARD_DB_NAME", "alignment_research_dataset")
 DB_CONNECTION_URI = f"mysql+mysqldb://{user}:{password}@{host}:{port}/{db_name}"
+ARTICLE_MAIN_KEYS = ["id", "source", 'source_type', "title", "authors", "text", "url", "date_published", "status", "comments"]
 
 ### EMBEDDINGS ###
 USE_OPENAI_EMBEDDINGS = True  # If false, SentenceTransformer embeddings will be used.

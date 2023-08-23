@@ -24,38 +24,17 @@ on:
         options:
           - all
           - agentmodels
-          - aiimpacts
-          - aisafety.camp
+          - agisf
           - aisafety.info
-          - ai_alignment_playlist
-          - ai_explained
-          - ai_safety_talks
-          - ai_safety_reading_group
-          - ai_tech_tu_delft
           - alignmentforum
           - arbital
           - arxiv
-          - carado.moe
-          - cold_takes
-          - deepmind_blog
-          - deepmind_technical_blog
+          - blogs
           - distill
           - eaforum
-          - eleuther.ai
-          - gdocs
-          - generative.ink
-          - gwern_blog
-          - importai
-          - jsteinhardt_blog
           - lesswrong
-          - miri
-          - ml_safety_newsletter
-          - openai.research
-          - rob_miles_ai_safety
           - special_docs
-          - transformer-circuits
-          - vkrakovna_blog
-          - yudkowsky_blog
+          - youtube
 
 jobs:
   generate-dataset:

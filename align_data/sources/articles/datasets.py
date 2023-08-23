@@ -3,10 +3,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
-from urllib.parse import urlparse
 
 import pandas as pd
-from align_data.sources.articles import articles
 from gdown.download import download
 from markdownify import markdownify
 from pypandoc import convert_file

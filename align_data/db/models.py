@@ -133,7 +133,7 @@ class Article(Base):
 
     @hybrid_property
     def is_valid(self):
-        return (
+        return bool(
             self.text
             and self.text.strip()
             and self.url
@@ -159,6 +159,8 @@ class Article(Base):
         if not target.status and target.missing_fields:
             target.status = "Missing fields"
             target.comments = f'missing fields: {", ".join(target.missing_fields)}'
+
+        target.pinecone_update_required = target.is_valid
 
         if target.id:
             target.verify_id()

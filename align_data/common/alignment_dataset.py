@@ -15,19 +15,9 @@ from dateutil.parser import parse, ParserError
 from tqdm import tqdm
 from align_data.db.models import Article, Summary
 from align_data.db.session import make_session
+from align_data.settings import ARTICLE_MAIN_KEYS
+from align_data.sources.utils import merge_dicts
 
-INIT_DICT = {
-    "source": None,
-    "id": None,
-    "text": None,
-    "date_published": None,
-    "title": None,
-    "url": None,
-    "authors": lambda: [],
-    "source_type": None,
-    "status": None,
-    "comments": None,
-}
 
 logger = logging.getLogger(__name__)
 
@@ -79,14 +69,14 @@ class AlignmentDataset:
         return article
 
     def make_data_entry(self, data, **kwargs) -> Article:
-        data = dict(data, **kwargs)
+        data = merge_dicts(data, kwargs)
         summary = data.pop("summary", None)
         authors = data.pop("authors", [])
 
         article = Article(
             pinecone_update_required=True,
-            meta={k: v for k, v in data.items() if k not in INIT_DICT and v is not None},
-            **{k: v for k, v in data.items() if k in INIT_DICT},
+            meta={k: v for k, v in data.items() if k not in ARTICLE_MAIN_KEYS and v is not None},
+            **{k: v for k, v in data.items() if k in ARTICLE_MAIN_KEYS},
         )
         self._add_authors(article, authors)
         if summary:
