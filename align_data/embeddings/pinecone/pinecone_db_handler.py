@@ -1,12 +1,12 @@
 # dataset/pinecone_db_handler.py
 import logging
-from typing import Dict, List, Tuple, Union
+from typing import List, Tuple
 
 import pinecone
-from pinecone.core.client.models import Vector, ScoredVector
+from pinecone.core.client.models import ScoredVector
 
-from align_data.pinecone.embedding_utils import get_embedding
-from align_data.pinecone.pinecone_models import (
+from align_data.embeddings.embedding_utils import get_embedding
+from align_data.embeddings.pinecone.pinecone_models import (
     PineconeEntry,
     PineconeMetadata,
 )
@@ -92,7 +92,7 @@ class PineconeDB:
         include_metadata: bool = True,
         **kwargs,
     ) -> List[ScoredVector]:
-        query_vector = get_embedding(query)
+        query_vector = get_embedding(query)[0]
         return self.query_vector(
             query=query_vector,
             top_k=top_k,

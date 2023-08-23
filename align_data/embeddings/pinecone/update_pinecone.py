@@ -73,7 +73,7 @@ class PineconeUpdater:
                 if (pinecone_entry := self._make_pinecone_entry(article)) is not None
             ]
 
-    def _make_pinecone_entry(self, article: Article) -> Optional[PineconeEntry]:
+    def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
         text_chunks = get_text_chunks(article, self.text_splitter)
         embeddings, _ = get_embeddings(text_chunks, article.source)
 

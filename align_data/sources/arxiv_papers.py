@@ -21,7 +21,7 @@ def get_arxiv_metadata(paper_id) -> arxiv.Result:
     return None
 
 
-def get_id(url: str) -> Optional[str]:
+def get_id(url: str) -> str | None:
     if res := re.search(r"https?://arxiv.org/(?:abs|pdf)/(.*?)(?:v\d+)?(?:/|\.pdf)?$", url):
         return res.group(1)
 
@@ -44,7 +44,7 @@ def get_contents(paper_id: str) -> Dict[str, Any]:
     return fetch_pdf(f"https://arxiv.org/pdf/{paper_id}.pdf")
 
 
-def get_version(id: str) -> Optional[str]:
+def get_version(id: str) -> str | None:
     if res := re.search(r".*v(\d+)$", id):
         return res.group(1)
 

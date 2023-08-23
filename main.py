@@ -12,8 +12,8 @@ from align_data.sources.articles.articles import (
     check_new_articles,
     update_articles,
 )
-from align_data.pinecone.update_pinecone import PineconeUpdater
-from align_data.finetuning.training import finetune_embeddings
+from align_data.embeddings.pinecone.update_pinecone import PineconeUpdater
+from align_data.embeddings.finetuning.training import finetune_embeddings
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,

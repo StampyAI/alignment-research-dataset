@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from align_data.finetuning.finetuning_dataset import FinetuningDataset
+from align_data.embeddings.finetuning.finetuning_dataset import FinetuningDataset
 from align_data.settings import (
     PINECONE_VALUES_DIMS,
     DEVICE,

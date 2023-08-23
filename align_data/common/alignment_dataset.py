@@ -209,7 +209,7 @@ class AlignmentDataset:
             if self.COOLDOWN:
                 time.sleep(self.COOLDOWN)
 
-    def process_entry(self, entry) -> Optional[Article]:
+    def process_entry(self, entry) -> Article | None:
         """Process a single entry."""
         raise NotImplementedError
 
@@ -218,7 +218,7 @@ class AlignmentDataset:
         return date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     @staticmethod
-    def _get_published_date(date) -> Optional[datetime]:
+    def _get_published_date(date) -> datetime | None:
         try:
             # Totally ignore any timezone info, forcing everything to UTC
             return parse(str(date)).replace(tzinfo=pytz.UTC)

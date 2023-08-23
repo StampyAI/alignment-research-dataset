@@ -32,7 +32,7 @@ from align_data.settings import (
 
 logger = logging.getLogger(__name__)
 
-hf_embedding_model: Optional[HuggingFaceEmbeddings] = None
+hf_embedding_model = None
 if not USE_OPENAI_EMBEDDINGS:
     hf_embedding_model = HuggingFaceEmbeddings(
         model_name=SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
