@@ -32,9 +32,9 @@ from align_data.settings import (
 
 logger = logging.getLogger(__name__)
 
-hf_embeddings = None
+hf_embedding_model: Optional[HuggingFaceEmbeddings] = None
 if not USE_OPENAI_EMBEDDINGS:
-    hf_embeddings = HuggingFaceEmbeddings(
+    hf_embedding_model = HuggingFaceEmbeddings(
         model_name=SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
         model_kwargs={"device": DEVICE},
         encode_kwargs={"show_progress_bar": False},
@@ -88,20 +88,20 @@ def handle_openai_errors(func):
 
 
 @handle_openai_errors
-def moderation_check(texts):
+def moderation_check(texts: List[str]):
     return openai.Moderation.create(input=texts)["results"]
 
 
 @handle_openai_errors
-def compute_openai_embeddings(non_flagged_texts, engine, **kwargs):
+def compute_openai_embeddings(non_flagged_texts: List[str], engine: str, **kwargs):
     data = openai.Embedding.create(input=non_flagged_texts, engine=engine, **kwargs).data
     return [d["embedding"] for d in data]
 
 
 def get_embeddings_without_moderation(
     texts: List[str],
-    source: str = "no source",
     engine=OPENAI_EMBEDDINGS_MODEL,
+    source: Optional[str] = None,
     **kwargs,
 ) -> List[EmbeddingType]:
     """
@@ -109,8 +109,8 @@ def get_embeddings_without_moderation(
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
-    - source (str, optional): Source identifier to potentially adjust embedding bias. Defaults to "no source".
     - engine (str, optional): Embedding engine to use (relevant for OpenAI). Defaults to OPENAI_EMBEDDINGS_MODEL.
+    - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
     - **kwargs: Additional keyword arguments passed to the embedding function.
 
     Returns:
@@ -121,9 +121,10 @@ def get_embeddings_without_moderation(
     if texts:  # Only call the embedding function if there are non-flagged texts
         if USE_OPENAI_EMBEDDINGS:
             embeddings = compute_openai_embeddings(texts, engine, **kwargs)
+        elif hf_embedding_model:
+            embeddings = hf_embedding_model.embed_documents(texts)
         else:
-            embeddings = hf_embeddings.embed_documents(texts)
-
+            raise ValueError("No embedding model available.")
     # Bias adjustment
     if bias := EMBEDDING_LENGTH_BIAS.get(source, 1.0):
         embeddings = [[bias * e for e in embedding] for embedding in embeddings]
@@ -133,8 +134,8 @@ def get_embeddings_without_moderation(
 
 def get_embeddings_or_none_if_flagged(
     texts: List[str],
-    source: str = "no source",
     engine=OPENAI_EMBEDDINGS_MODEL,
+    source: Optional[str] = None,
     **kwargs,
 ) -> Tuple[Optional[List[EmbeddingType]], List[ModerationInfoType]]:
     """
@@ -143,6 +144,9 @@ def get_embeddings_or_none_if_flagged(
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
+    - engine (str, optional): Embedding engine to use (relevant for OpenAI). Defaults to OPENAI_EMBEDDINGS_MODEL.
+    - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
+    - **kwargs: Additional keyword arguments passed to the embedding function.
 
     Returns:
     - Tuple[Optional[List[EmbeddingType]], ModerationInfoListType]: Tuple containing the list of embeddings (or None if any text is flagged) and the moderation results.
@@ -157,8 +161,8 @@ def get_embeddings_or_none_if_flagged(
 
 def get_embeddings(
     texts: List[str],
-    source: str = "no source",
     engine=OPENAI_EMBEDDINGS_MODEL,
+    source: Optional[str] = None,
     **kwargs,
 ) -> Tuple[List[Optional[EmbeddingType]], List[ModerationInfoType]]:
     """
@@ -166,8 +170,8 @@ def get_embeddings(
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
-    - source (str, optional): Source identifier to potentially adjust embedding bias. Defaults to "no source".
     - engine (str, optional): Embedding engine to use (relevant for OpenAI). Defaults to OPENAI_EMBEDDINGS_MODEL.
+    - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
     - **kwargs: Additional keyword arguments passed to the embedding function.
 
     Returns:
@@ -185,7 +189,7 @@ def get_embeddings(
 
     non_flagged_texts = [text for text, flagged in zip(texts, flagged_bools) if not flagged]
     non_flagged_embeddings = get_embeddings_without_moderation(
-        non_flagged_texts, source, engine, **kwargs
+        non_flagged_texts, engine, source, **kwargs
     )
 
     embeddings = []
@@ -196,8 +200,8 @@ def get_embeddings(
 
 
 def get_embedding(
-    text: str, source: str = "no source", engine=OPENAI_EMBEDDINGS_MODEL, **kwargs
-) -> Tuple[EmbeddingType, ModerationInfoType]:
+    text: str, engine=OPENAI_EMBEDDINGS_MODEL, source: Optional[str] = None, **kwargs
+) -> Tuple[Optional[EmbeddingType], ModerationInfoType]:
     """Obtain an embedding for a single text."""
-    embedding, moderation_result = get_embeddings([text], source=source, engine=engine, **kwargs)
+    embedding, moderation_result = get_embeddings([text], engine, source, **kwargs)
     return embedding[0], moderation_result[0]

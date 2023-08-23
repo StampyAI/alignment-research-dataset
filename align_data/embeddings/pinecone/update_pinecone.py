@@ -1,7 +1,7 @@
 from datetime import datetime
 import logging
 from itertools import islice
-from typing import Callable, List, Tuple, Generator, Iterator, Any, Dict
+from typing import Callable, List, Tuple, Generator, Iterator, Optional
 
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
@@ -11,7 +11,7 @@ from align_data.db.models import Article
 from align_data.db.session import make_session, stream_pinecone_updates
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
 from align_data.embeddings.pinecone.pinecone_models import PineconeEntry
-from align_data.embeddings.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
+from align_data.embeddings.text_splitter import ParagraphSentenceUnitTextSplitter
 
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class PineconeUpdater:
                 if (pinecone_entry := self._make_pinecone_entry(article)) is not None
             ]
 
-    def _make_pinecone_entry(self, article: Article) -> PineconeEntry:
+    def _make_pinecone_entry(self, article: Article) -> Optional[PineconeEntry]:
         text_chunks = get_text_chunks(article, self.text_splitter)
         embeddings, _ = get_embeddings(text_chunks, article.source)
 
@@ -91,6 +91,7 @@ class PineconeUpdater:
             )
         except (ValueError, ValidationError) as e:
             logger.exception(e)
+            return None
 
     def _handle_flagged_chunks(self, entry: PineconeEntry) -> str:
         """Handle flagged text chunks and return comments for them."""

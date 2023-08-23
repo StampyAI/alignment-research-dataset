@@ -1,5 +1,3 @@
-# dataset/text_splitter.py
-
 from typing import List, Callable, Any
 from langchain.text_splitter import TextSplitter
 from nltk.tokenize import sent_tokenize
@@ -91,7 +89,7 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
     def _truncate_large_block(self, current_block: str, blocks: List[str]) -> str:
         while self._length_function(current_block) > self.max_chunk_size:
             # Truncate current_block to max size, set remaining text as current_block
-            truncated_block = self._truncate_function(current_block, self.max_chunk_size)
+            truncated_block = self._truncate_function(current_block, self.max_chunk_size, False)
             blocks.append(truncated_block)
 
             current_block = current_block[len(truncated_block) :].lstrip()
@@ -106,9 +104,7 @@ class ParagraphSentenceUnitTextSplitter(TextSplitter):
             if self.min_chunk_size - len_last_block > 0:
                 # Add text from previous block to last block if last_block is too short
                 part_prev_block = self._truncate_function(
-                    string=blocks[-1],
-                    length=self.min_chunk_size - len_last_block,
-                    from_end=True,
+                    blocks[-1], self.min_chunk_size - len_last_block, True
                 )
                 last_block = part_prev_block + last_block
 

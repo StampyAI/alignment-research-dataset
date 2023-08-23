@@ -11,7 +11,7 @@ from sqlalchemy.sql import func
 from align_data.db.session import make_session, get_all_valid_article_ids
 from align_data.embeddings.embedding_utils import get_embedding
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
-from align_data.embeddings.pinecone.text_splitter import ParagraphSentenceUnitTextSplitter
+from align_data.embeddings.text_splitter import ParagraphSentenceUnitTextSplitter
 from align_data.embeddings.pinecone.update_pinecone import get_text_chunks
 from align_data.db.models import Article
 
@@ -48,20 +48,29 @@ class FinetuningDataset(IterableDataset):
         random_selected_ids = random.sample(self.all_article_ids, batch_size)
         return session.query(Article).filter(Article.id.in_(random_selected_ids)).all()
 
-    def _get_random_chunks(self, article: Article, num_chunks: int = 2) -> List[Tuple[int, str]]:
-        chunks = get_text_chunks(article, self.text_splitter)
-        if len(chunks) < num_chunks:
-            return None
-        random_chunk_indices = random.sample(range(len(chunks)), num_chunks)
-        random_chunks = [chunks[idx] for idx in random_chunk_indices]
-        return list(zip(random_chunk_indices, random_chunks))
+    # def _get_random_chunks(self, article: Article, num_chunks: int = 2) -> List[Tuple[int, str]]:
+    #     chunks = get_text_chunks(article, self.text_splitter)
+    #     if len(chunks) < num_chunks:
+    #         return None
+    #     random_chunk_indices = random.sample(range(len(chunks)), num_chunks)
+    #     random_chunks = [chunks[idx] for idx in random_chunk_indices]
+    #     return list(zip(random_chunk_indices, random_chunks))
 
-    def _get_embeddings(self, article: Article, chunks: List[Tuple[str, str]]) -> List[List[float]]:
+    def _get_random_chunks(self, article: Article, num_chunks: int = 2) -> List[Tuple[int, str]]:
+        chunked_text = get_text_chunks(article, self.text_splitter)
+
+        chunks = list(enumerate(chunked_text))
+        if len(chunks) < num_chunks:
+            return []
+
+        return random.sample(chunks, num_chunks)
+
+    def _get_embeddings(self, article: Article, chunks: List[Tuple[int, str]]) -> List[List[float]]:
         full_ids = [f"{article.id}_{str(idx).zfill(6)}" for idx, _ in chunks]
         _embeddings = self.pinecone_db.get_embeddings_by_ids(full_ids)
 
         embeddings = []
-        for (chunk_idx, chunk), (full_id, embedding) in zip(chunks, _embeddings):
+        for (_, chunk), (_, embedding) in zip(chunks, _embeddings):
             if embedding is None:
                 embedding, _ = get_embedding(chunk)
             embeddings.append(torch.tensor(embedding))
@@ -80,6 +89,8 @@ class FinetuningDataset(IterableDataset):
                 # Positive pairs
                 article = self._fetch_random_articles(session)[0]
                 chunks = self._get_random_chunks(article, 2)
+                if not chunks:
+                    continue
                 embedding_1, embedding_2 = self._get_embeddings(article, chunks)
                 label = 1
             else:
@@ -92,9 +103,9 @@ class FinetuningDataset(IterableDataset):
                     self._get_embeddings(article2, chunk2)[0],
                 )
                 label = 0
-            yield embedding_1.squeeze(), embedding_2.squeeze(), torch.tensor(
-                label, dtype=torch.int64
-            )
+            yield torch.tensor(embedding_1, dtype=torch.int64), torch.tensor(
+                embedding_2, dtype=torch.int64
+            ), torch.tensor(label, dtype=torch.int64)
             batches_yielded += 1
 
             if self.num_batches_per_epoch and batches_yielded >= self.num_batches_per_epoch:
