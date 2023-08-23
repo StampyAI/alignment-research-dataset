@@ -32,14 +32,14 @@ class PineconeEntry(BaseModel):
     text_chunks: List[str]
     embeddings: List[List[float]]
 
-    def __new__(cls, **data):
-        """If any of the fields are falsy, raise an error."""
+    def __init__(self, **data):
+        """Check for missing (falsy) fields before initializing."""
         missing_fields = [field for field, value in data.items() if not value]
+
         if missing_fields:
             raise MissingFieldsError(f"Missing fields: {missing_fields}")
 
-        # If all fields are truthy, proceed with the creation of the object
-        return super().__new__(cls)
+        super().__init__(**data)
 
     def __repr__(self):
         def make_small(chunk: str) -> str:
