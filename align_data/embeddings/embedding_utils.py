@@ -88,13 +88,33 @@ def handle_openai_errors(func):
 
 
 @handle_openai_errors
-def moderation_check(texts: List[str]) -> List[ModerationInfoType]:
-    return openai.Moderation.create(input=texts)["results"]
+def moderation_check(texts: List[str], max_texts_num: int = 32) -> List[ModerationInfoType]:
+    """
+    Check moderation on a list of texts.
+
+    Parameters:
+    - texts (List[str]): List of texts to be checked for moderation.
+    - max_texts_num (int): Number of texts to check at once. Defaults to 32.
+
+    Returns:
+    - List[ModerationInfoType]: List of moderation results for the provided texts.
+    """
+    total_texts = len(texts)
+    results = []
+
+    for i in range(0, total_texts, max_texts_num):
+        batch_texts = texts[i : i + max_texts_num]
+        batch_results = openai.Moderation.create(input=batch_texts)["results"]
+        results.extend(batch_results)
+
+    return results
 
 
 @handle_openai_errors
 def _compute_openai_embeddings(non_flagged_texts: List[str], **kwargs) -> List[List[float]]:
-    data = openai.Embedding.create(input=non_flagged_texts, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs).data
+    data = openai.Embedding.create(
+        input=non_flagged_texts, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs
+    ).data
     return [d["embedding"] for d in data]
 
 
@@ -184,9 +204,7 @@ def get_embeddings(
     flags = [result["flagged"] for result in moderation_results]
 
     non_flagged_texts = [text for text, flag in zip(texts, flags) if not flag]
-    non_flagged_embeddings = get_embeddings_without_moderation(
-        non_flagged_texts, source, **kwargs
-    )
+    non_flagged_embeddings = get_embeddings_without_moderation(non_flagged_texts, source, **kwargs)
     embeddings = [None if flag else non_flagged_embeddings.pop(0) for flag in flags]
     return embeddings, moderation_results
 
