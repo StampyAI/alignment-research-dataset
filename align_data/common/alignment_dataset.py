@@ -253,7 +253,6 @@ class SummaryDataset(AlignmentDataset):
 
 @dataclass
 class MultiDataset(AlignmentDataset):
-
     datasets: List[AlignmentDataset]
 
     @property
@@ -276,13 +275,13 @@ class MultiDataset(AlignmentDataset):
     def process_entry(self, entry) -> Optional[Article]:
         item, dataset = entry
         article = dataset.process_entry(item)
-        article.add_meta('initial_source', article.source)
+        article.add_meta("initial_source", article.source)
         article.source = self.name
 
     def fetch_entries(self):
         for dataset in self.datasets:
             for article in dataset.fetch_entries():
                 if article.source != self.name:
-                    article.add_meta('initial_source', article.source)
+                    article.add_meta("initial_source", article.source)
                     article.source = self.name
                 yield article
