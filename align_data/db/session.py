@@ -36,7 +36,7 @@ def stream_pinecone_updates(
     )
 
 
-def get_all_valid_article_ids(session: Session):
+def get_all_valid_article_ids(session: Session) -> List[str]:
     """Return all valid article IDs."""
     query_result = (
         session.query(Article.id)

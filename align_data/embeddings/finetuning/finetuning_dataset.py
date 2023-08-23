@@ -7,6 +7,7 @@ import torch
 from torch.utils.data import IterableDataset, get_worker_info
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql import func
+from sqlalchemy.orm import Session
 
 from align_data.db.session import make_session, get_all_valid_article_ids
 from align_data.embeddings.embedding_utils import get_embedding
@@ -17,7 +18,7 @@ from align_data.db.models import Article
 
 
 class FinetuningDataset(IterableDataset):
-    def __init__(self, num_batches_per_epoch, cache_size=1280):
+    def __init__(self, num_batches_per_epoch: int, cache_size: int = 1280):
         self.num_batches_per_epoch = num_batches_per_epoch
         self.article_cache = deque(maxlen=cache_size)
 
@@ -42,19 +43,11 @@ class FinetuningDataset(IterableDataset):
         with make_session() as session:
             return self._generate_pairs(session, start, end)
 
-    def _fetch_random_articles(self, session, batch_size=1) -> List[Article]:
+    def _fetch_random_articles(self, session: Session, batch_size: int = 1) -> List[Article]:
         """Fetch a batch of random articles."""
         # If the list has fewer IDs than needed, raise an exception
         random_selected_ids = random.sample(self.all_article_ids, batch_size)
         return session.query(Article).filter(Article.id.in_(random_selected_ids)).all()
-
-    # def _get_random_chunks(self, article: Article, num_chunks: int = 2) -> List[Tuple[int, str]]:
-    #     chunks = get_text_chunks(article, self.text_splitter)
-    #     if len(chunks) < num_chunks:
-    #         return None
-    #     random_chunk_indices = random.sample(range(len(chunks)), num_chunks)
-    #     random_chunks = [chunks[idx] for idx in random_chunk_indices]
-    #     return list(zip(random_chunk_indices, random_chunks))
 
     def _get_random_chunks(self, article: Article, num_chunks: int = 2) -> List[Tuple[int, str]]:
         chunked_text = get_text_chunks(article, self.text_splitter)
