@@ -16,7 +16,7 @@ from align_data.common.alignment_dataset import MultiDataset
 
 
 BLOG_DATASETS = [
-    AXRPDataset(name='axrp', url='https://axrp.net', authors=['AXRP']),
+    AXRPDataset(name="axrp", url="https://axrp.net", authors=["AXRP"]),
     WordpressBlog(name="aiimpacts", url="https://aiimpacts.org"),
     WordpressBlog(name="aisafety.camp", url="https://aisafety.camp"),
     WordpressBlog(name="miri", url="https://intelligence.org"),
