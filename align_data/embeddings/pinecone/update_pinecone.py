@@ -74,7 +74,7 @@ class PineconeUpdater:
         if any(result['flagged'] for result in moderation_results):
             flagged_text_chunks = [f"Chunk {i}: \"{text}\"" for i, (text, result) in enumerate(zip(text_chunks, moderation_results)) if result["flagged"]]
             logger.warning(f"OpenAI moderation flagged text chunks for the following article: {article.id}")
-            article.add_comment(f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}")
+            article.append_comment(f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}")
 
         try:
             if not isinstance(article.date_published, datetime):
@@ -91,7 +91,7 @@ class PineconeUpdater:
             )
         except (ValueError, TypeError, ValidationError, MissingFieldsError, MissingEmbeddingModelError) as e:
             logger.warning(e)
-            article.add_comment(f"Error encountered while processing this article: {e}")
+            article.append_comment(f"Error encountered while processing this article: {e}")
             return None
         
         except Exception as e:

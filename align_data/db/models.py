@@ -125,8 +125,8 @@ class Article(Base):
             self.meta = {}
         self.meta[key] = val
 
-    def add_comment(self, comment: str):
-        """Add a comment to the article. You must run session.commit() to save the comment to the database."""
+    def append_comment(self, comment: str):
+        """Appends a comment to the article.comments field. You must run session.commit() to save the comment to the database."""
         if self.comments is None:
             self.comments = ""
         self.comments = f"{self.comments}\n\n{comment}".strip()
