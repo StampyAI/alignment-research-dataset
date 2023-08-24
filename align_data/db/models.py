@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 import pytz
 import hashlib
@@ -71,7 +72,16 @@ class Article(Base):
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
 
     def generate_id_string(self) -> bytes:
-        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
+        id_str = ""
+        for field in self.__id_fields:
+            val = str(getattr(self, field))
+
+            if field == "title": # remove non-alphanumeric characters, lowercase
+                val = re.sub(r'[^a-zA-Z0-9\s]', '', val).strip().lower()
+            
+            id_str += val
+
+        return id_str.encode("utf-8")
 
     @property
     def __id_fields(self):
