@@ -34,7 +34,6 @@ def get_pinecone_articles_to_update(
         .filter(Article.is_valid)
         .filter(Article.source.in_(custom_sources))
         .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
-        # .yield_per(10)
     )
 
 
@@ -55,7 +54,6 @@ def get_pinecone_articles_by_ids(
         .filter(Article.source.in_(custom_sources))
         .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
         .filter(Article.id.in_(hash_ids))
-        # .yield_per(10)
     )
 
 
