@@ -72,8 +72,7 @@ class AlignmentDataset:
         data = merge_dicts(data, kwargs)
         summary = data.pop("summary", None)
         authors = data.pop("authors", [])
-        if isinstance((title := data.get("title")), str):
-            data["title"] = title.replace('\n', ' ')
+        data['title'] = (data.get('title') or '').replace('\n', ' ')
 
         article = Article(
             pinecone_update_required=True,

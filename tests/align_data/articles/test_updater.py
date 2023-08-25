@@ -195,7 +195,7 @@ def test_process_entry(csv_file):
         assert dataset.process_entry(Item(updates, article)).to_dict() == {
             "authors": ["mr. blobby", "johnny"],
             "date_published": "2000-12-23T10:32:43Z",
-            "id": "d8d8cad8d28739a0862654a0e6e8ce6e",
+            "id": "1440e2979ac3fe4db1154c5ea5483bea", # id str is 'httpblacombla bla'
             "source": "tests",
             "source_type": None,
             "summaries": [],

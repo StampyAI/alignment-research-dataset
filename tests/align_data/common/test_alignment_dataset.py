@@ -42,7 +42,7 @@ def test_data_entry_default_fields():
         "date_published": None,
         "source": None,
         "source_type": None,
-        "title": None,
+        "title": '',
         "url": None,
         "id": None,
         "text": None,
@@ -64,7 +64,7 @@ def test_data_entry_id_from_urls_and_title():
     assert entry.to_dict() == dict(
         {
             "date_published": None,
-            "id": "770fe57c8c2130eda08dc392b8696f97",
+            "id": "8ec4b9deaa0af64c87be9d813dbbfa5f",
             "source": None,
             "source_type": None,
             "text": None,
@@ -148,7 +148,7 @@ def test_data_entry_verify_id_passes():
             "text": "once upon a time",
             "url": "www.arbital.org",
             "title": "once upon a time",
-            "id": "770fe57c8c2130eda08dc392b8696f97",
+            "id": "8ec4b9deaa0af64c87be9d813dbbfa5f",
         }
     )
     entry.verify_id()
@@ -163,9 +163,34 @@ def test_data_entry_verify_id_fails():
             "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
         }
     )
-    expected = "Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 770fe57c8c2130eda08dc392b8696f97"
+    expected = "Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 8ec4b9deaa0af64c87be9d813dbbfa5f"
     with pytest.raises(AssertionError, match=expected):
         entry.verify_id()
+
+def test_generate_id_string():
+    dataset = AlignmentDataset(name="blaa")
+    entry = dataset.make_data_entry(
+        {
+            "url": "www.arbital.org",
+            "title": "once upon a time",
+            "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
+        }
+    )
+    assert entry.generate_id_string() == b"wwwarbitalorgonce upon a time"
+
+
+def test_generate_id_string_fails():
+    dataset = AlignmentDataset(name="blaa")
+    entry = dataset.make_data_entry(
+        {
+            "url": "www.arbital.org",
+            "title": "once upon a time",
+            "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
+        }
+    )
+
+    with pytest.raises(AssertionError):
+        assert entry.generate_id_string() == b"www.arbital.orgonce upon a time"
 
 
 @pytest.mark.parametrize(

@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Iterable
 
 import pandas as pd
 from gdown.download import download
@@ -47,7 +47,7 @@ class SpreadsheetDataset(AlignmentDataset):
         return self.maybe(item, self.done_key)
 
     @property
-    def items_list(self):
+    def items_list(self) -> Iterable[tuple]:
         url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}"
         logger.info(f"Fetching {url}")
         df = pd.read_csv(url)
@@ -63,7 +63,7 @@ class SpreadsheetDataset(AlignmentDataset):
             return []
         return [author.strip() for author in item.authors.split(",") if author.strip()]
 
-    def process_entry(self, item):
+    def process_entry(self, item: tuple):
         text = self._get_text(item)
         if not text:
             logger.error("Could not get text for %s - skipping for now", item.title)

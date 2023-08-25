@@ -679,7 +679,7 @@ def test_openai_research_process_entry():
                     "source_type": "blog",
                     "summaries": [],
                     "text": "bla bla bla",
-                    "title": None,
+                    "title": '',
                     "url": "https://arxiv.org",
                 }
 
