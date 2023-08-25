@@ -79,10 +79,6 @@ def test_greaterwrong_tags_ok_missing(dataset, tags):
     assert not dataset.tags_ok({"tags": tags})
 
 
-def test_greaterwrong_get_item_key(dataset):
-    assert dataset.get_item_key({"pageUrl": "item key"}) == "item key"
-
-
 def test_greaterwrong_get_published_date(dataset):
     assert dataset._get_published_date({"postedAt": "2021/02/01"}) == parse("2021-02-01T00:00:00Z")
 
@@ -230,3 +226,55 @@ def test_process_entry_no_authors(dataset):
         "votes": 12,
         "words": 123,
     }
+
+
+@pytest.mark.parametrize('item', (
+    {
+        # non seen url
+        'pageUrl': 'http://bla.bla',
+        'title': 'new item', 'coauthors': [{'displayName': 'your momma'}]
+    },
+    {
+        # already seen title, but different authors
+        'title': 'this has already been seen',
+        'pageUrl': 'http://bla.bla', 'coauthors':  [{'displayName': 'your momma'}]
+    },
+    {
+        # new title, but same authors
+        'coauthors':  [{'displayName': 'johnny'}],
+        'title': 'new item', 'pageUrl': 'http://bla.bla'
+    },
+))
+def test_not_processed_true(item, dataset):
+    dataset._outputted_items = (
+        {'http://already.seen'},
+        {('this has been seen', 'johnny')}
+    )
+    item['user'] = None
+    assert dataset.not_processed(item)
+
+
+@pytest.mark.parametrize('item', (
+    {
+        # url seen
+        'pageUrl': 'http://already.seen',
+        'title': 'new item', 'coauthors':  [{'displayName': 'your momma'}]
+    },
+    {
+        # already seen title and authors pair, but different url
+        'title': 'this has already been seen', 'coauthors':  [{'displayName': 'johnny'}],
+        'pageUrl': 'http://bla.bla',
+    },
+    {
+        # already seen everything
+        'pageUrl': 'http://already.seen',
+        'title': 'this has already been seen', 'coauthors':  [{'displayName': 'johnny'}],
+    }
+))
+def test_not_processed_false(item, dataset):
+    dataset._outputted_items = (
+        {'http://already.seen'},
+        {('this has already been seen', 'johnny')}
+    )
+    item['user'] = None
+    assert not dataset.not_processed(item)

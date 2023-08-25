@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 ROOT_PASSWORD=my-secret-pw
 
-docker start alignment-research-dataset
+docker start stampy-db
 if [ $? -ne 0 ]; then
     echo 'No docker container found - creating a new one'
-    docker run --name alignment-research-dataset -p 3306:3306 -e MYSQL_ROOT_PASSWORD=$ROOT_PASSWORD -d mysql:latest
+    docker run --name stampy-db -p 3306:3306 -e MYSQL_ROOT_PASSWORD=$ROOT_PASSWORD -d mysql:latest
 fi
 
 echo "Waiting till mysql is available..."
