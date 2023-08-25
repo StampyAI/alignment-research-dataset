@@ -171,9 +171,10 @@ class AXRPDataset(RSSDataset):
         return f"{self.url}/feed.xml"
 
     def _extract_item_url(self, item) -> str | None:
-        if path := item.get('link'):
+        path = item.get('link')
+        if path and not path.startswith('http'):
             return self.url + path
-        return None
+        return path
 
     def extract_authors(self, item):
         if "authors" in item:

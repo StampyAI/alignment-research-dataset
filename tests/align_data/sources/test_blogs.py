@@ -853,9 +853,14 @@ def test_transformer_circuits_process_item():
         }
 
 
-def test_axrp_dataset_extract_item_url():
+@pytest.mark.parametrize('url, expected', (
+    ('/a/path', 'https://ble.ble.com/a/path'),
+    ('http://ble.ble.com/bla', 'http://ble.ble.com/bla'),
+    ('https://ble.ble.com/bla', 'https://ble.ble.com/bla'),
+))
+def test_axrp_dataset_extract_item_url(url, expected):
     dataset = AXRPDataset(name='bla', url='https://ble.ble.com')
-    assert dataset._extract_item_url({'link': '/a/path'}) == 'https://ble.ble.com/a/path'
+    assert dataset._extract_item_url({'link': url}) == expected
 
 
 @pytest.mark.parametrize('item, expected', (
