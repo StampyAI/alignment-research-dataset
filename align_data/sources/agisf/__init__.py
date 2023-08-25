@@ -15,7 +15,6 @@ datasets = [
             "comments": "[h] Resource guide",
             "authors": "Author(s) (from Resources)",
         },
-        },
     ),
     AGISFPodcastDataset(
         name="agisf_readings_alignment",
