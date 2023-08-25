@@ -64,7 +64,7 @@ def test_data_entry_id_from_urls_and_title():
     assert entry.to_dict() == dict(
         {
             "date_published": None,
-            "id": "8ec4b9deaa0af64c87be9d813dbbfa5f",
+            "id": "761edb1a245f56b2ece52d652658b8eb",
             "source": None,
             "source_type": None,
             "text": None,
@@ -148,7 +148,7 @@ def test_data_entry_verify_id_passes():
             "text": "once upon a time",
             "url": "www.arbital.org",
             "title": "once upon a time",
-            "id": "8ec4b9deaa0af64c87be9d813dbbfa5f",
+            "id": "761edb1a245f56b2ece52d652658b8eb",
         }
     )
     entry.verify_id()
@@ -163,7 +163,7 @@ def test_data_entry_verify_id_fails():
             "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
         }
     )
-    expected = "Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 8ec4b9deaa0af64c87be9d813dbbfa5f"
+    expected = "Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 761edb1a245f56b2ece52d652658b8eb"
     with pytest.raises(AssertionError, match=expected):
         entry.verify_id()
 
@@ -176,7 +176,7 @@ def test_generate_id_string():
             "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
         }
     )
-    assert entry.generate_id_string() == b"wwwarbitalorgonce upon a time"
+    assert entry.generate_id_string() == b"wwwarbitalorg"
 
 
 def test_generate_id_string_fails():
@@ -196,22 +196,23 @@ def test_generate_id_string_fails():
 @pytest.mark.parametrize(
     "data, error",
     (
-        ({"id": "123"}, "Entry is missing the following fields: \\['url', 'title'\\]"),
+        ({"id": "123"}, "Entry is missing the following fields: \\['url'\\]"),
         (
             {"id": "123", "url": None},
-            "Entry is missing the following fields: \\['url', 'title'\\]",
+            "Entry is missing the following fields: \\['url'\\]",
         ),
-        (
-            {"id": "123", "url": "www.google.com/"},
-            "Entry is missing the following fields: \\['title'\\]",
-        ),
-        (
-            {"id": "123", "url": "google", "text": None},
-            "Entry is missing the following fields: \\['title'\\]",
-        ),
+        # removed while id_fields excludes title
+        # (
+        #     {"id": "123", "url": "www.google.com/"},
+        #     "Entry is missing the following fields: \\['title'\\]",
+        # ),
+        # (
+        #     {"id": "123", "url": "google", "text": None},
+        #     "Entry is missing the following fields: \\['title'\\]",
+        # ),
         (
             {"id": "123", "url": "", "title": ""},
-            "Entry is missing the following fields: \\['url', 'title'\\]",
+            "Entry is missing the following fields: \\['url'\\]",
         ),
     ),
 )

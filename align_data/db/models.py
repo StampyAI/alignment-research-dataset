@@ -79,14 +79,9 @@ class Article(Base):
 
     @property
     def __id_fields(self) -> List[str]:
-        # if self.source in ["importai", "ml_safety_newsletter", "alignment_newsletter"]:
-        #     return ["url", "source"]
-        # return ["url"]
-        if self.source == "aisafety.info":
-            return ["url"]
         if self.source in ["importai", "ml_safety_newsletter", "alignment_newsletter"]:
-            return ["url", "title", "source"]
-        return ["url", "title"]
+            return ["url", "source"]
+        return ["url"]
 
     @property
     def missing_fields(self) -> List[str]:
