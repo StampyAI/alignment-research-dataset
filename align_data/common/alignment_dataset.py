@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from itertools import islice
 import logging
@@ -72,7 +73,7 @@ class AlignmentDataset:
         data = merge_dicts(data, kwargs)
         summary = data.pop("summary", None)
         authors = data.pop("authors", [])
-        data['title'] = (data.get('title') or '').replace('\n', ' ')
+        data['title'] = (data.get('title') or '').replace('\n', ' ').replace('\r', '') or None
 
         article = Article(
             pinecone_update_required=True,
@@ -141,7 +142,7 @@ class AlignmentDataset:
         """Returns a collection of items to be processed."""
         return []
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str:
         """Get the identifier of the given `item` so it can be checked to see whether it's been output.
 
         The default assumption is that the `item` is a Path to a file.
@@ -270,7 +271,7 @@ class MultiDataset(AlignmentDataset):
         for dataset in self.datasets:
             dataset.setup()
 
-    def get_item_key(self, entry):
+    def get_item_key(self, entry) -> str:
         item, dataset = entry
         return dataset.get_item_key(item)
 

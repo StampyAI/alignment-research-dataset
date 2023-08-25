@@ -139,6 +139,6 @@ def test_process_entry():
             'source_type': 'some kind of thing',
             'summaries': [],
             'text': 'bla bla bla',
-            'title': '',
+            'title': None,
             'url': 'http://bla.cle',
         }
