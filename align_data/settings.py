@@ -39,7 +39,7 @@ password = os.environ.get("ARD_DB_PASSWORD", "we all live in a yellow submarine"
 host = os.environ.get("ARD_DB_HOST", "127.0.0.1")
 port = os.environ.get("ARD_DB_PORT", "3306")
 db_name = os.environ.get("ARD_DB_NAME", "alignment_research_dataset")
-DB_CONNECTION_URI = f"mysql+mysqldb://{user}:{password}@{host}:{port}/{db_name}"
+DB_CONNECTION_URI = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"
 ARTICLE_MAIN_KEYS = ["id", "source", 'source_type', "title", "authors", "text", "url", "date_published", "status", "comments"]
 
 ### EMBEDDINGS ###

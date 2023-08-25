@@ -31,7 +31,7 @@ youtube-transcript-api
 airtable
 
 alembic
-mysqlclient
+mysql-connector-python
 
 openai
 langchain
