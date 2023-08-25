@@ -179,20 +179,6 @@ def test_generate_id_string():
     assert entry.generate_id_string() == b"wwwarbitalorg"
 
 
-def test_generate_id_string_fails():
-    dataset = AlignmentDataset(name="blaa")
-    entry = dataset.make_data_entry(
-        {
-            "url": "www.arbital.org",
-            "title": "once upon a time",
-            "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
-        }
-    )
-
-    with pytest.raises(AssertionError):
-        assert entry.generate_id_string() == b"www.arbital.orgonce upon a time"
-
-
 @pytest.mark.parametrize(
     "data, error",
     (
@@ -201,15 +187,6 @@ def test_generate_id_string_fails():
             {"id": "123", "url": None},
             "Entry is missing the following fields: \\['url'\\]",
         ),
-        # removed while id_fields excludes title
-        # (
-        #     {"id": "123", "url": "www.google.com/"},
-        #     "Entry is missing the following fields: \\['title'\\]",
-        # ),
-        # (
-        #     {"id": "123", "url": "google", "text": None},
-        #     "Entry is missing the following fields: \\['title'\\]",
-        # ),
         (
             {"id": "123", "url": "", "title": ""},
             "Entry is missing the following fields: \\['url'\\]",
