@@ -119,7 +119,7 @@ class Arbital(AlignmentDataset):
         logger.info("Got %s page aliases", len(items))
         return items
 
-    def get_item_key(self, item):
+    def get_item_key(self, item: str) -> str:
         return item
 
     def process_entry(self, alias):

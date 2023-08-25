@@ -19,7 +19,7 @@ class ReplacerDataset(AlignmentDataset):
     delimiter: str
     done_key = "url"
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> None:
         return None
 
     @staticmethod

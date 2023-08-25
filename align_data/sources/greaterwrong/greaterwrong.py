@@ -79,7 +79,7 @@ class GreaterWrong(AlignmentDataset):
     def tags_ok(self, post):
         return not self.ai_tags or {t["name"] for t in post["tags"] if t.get("name")} & self.ai_tags
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str:
         return item["pageUrl"]
 
     def _get_published_date(self, item):

@@ -39,7 +39,7 @@ class HTMLDataset(AlignmentDataset):
     def extract_authors(self, article):
         return self.authors
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str:
         article_url = item.find_all("a")[0]["href"].split("?")[0]
         return urljoin(self.url, article_url)
 
@@ -55,7 +55,7 @@ class HTMLDataset(AlignmentDataset):
     def _extra_values(self, contents):
         return {}
 
-    def get_contents(self, article_url):
+    def get_contents(self, article_url: str):
         contents = self.fetch_contents(article_url)
 
         title = self._get_title(contents)
@@ -112,7 +112,7 @@ class HTMLDataset(AlignmentDataset):
 class RSSDataset(HTMLDataset):
     date_format = "%a, %d %b %Y %H:%M:%S %z"
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str:
         return item
 
     @property

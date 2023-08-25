@@ -245,7 +245,7 @@ class IndicesDataset(AlignmentDataset):
     def items_list(self):
         return fetch_all().values()
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str | None:
         return item.get("url")
 
     @staticmethod

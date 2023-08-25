@@ -37,7 +37,7 @@ class AirtableDataset(AlignmentDataset):
         if (mapped.get('url') or '').startswith('http'):
             return mapped
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str:
         return item.get('url')
 
     @property
