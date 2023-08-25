@@ -85,7 +85,7 @@ def markdownify_text(current, view):
 
 
 def extract_text(text):
-    parts = [i for i in re.split("([\[\]()])", text) if i]
+    parts = [i for i in re.split(r"([\[\]()])", text) if i]
     return markdownify_text([], zip(parts, parts[1:] + [None]))
 
 

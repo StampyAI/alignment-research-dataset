@@ -42,7 +42,7 @@ def test_data_entry_default_fields():
         "date_published": None,
         "source": None,
         "source_type": None,
-        "title": '',
+        "title": None,
         "url": None,
         "id": None,
         "text": None,
@@ -236,8 +236,8 @@ def numbers_dataset():
         def items_list(self):
             return self.nums
 
-        def get_item_key(self, item):
-            return item
+        def get_item_key(self, item) -> str:
+            return str(item)
 
         def process_entry(self, item):
             return self.make_data_entry(
@@ -265,14 +265,14 @@ def test_unprocessed_items_fresh(numbers_dataset):
 
 def test_unprocessed_items_all_done(numbers_dataset):
     """Getting the unprocessed items from a dataset that has already processed everything should return an empty list."""
-    seen = set(range(0, 10))
+    seen = set(str(i) for i in range(0, 10))
     with patch.object(numbers_dataset, "_load_outputted_items", return_value=seen):
         assert list(numbers_dataset.unprocessed_items()) == []
 
 
 def test_unprocessed_items_some_done(numbers_dataset):
     """Getting the uprocessed items from a dataset that has partially completed should return the items that haven't been processed."""
-    seen = set(range(0, 10, 2))
+    seen = set(str(i) for i in range(0, 10, 2))
     with patch.object(numbers_dataset, "_load_outputted_items", return_value=seen):
         assert list(numbers_dataset.unprocessed_items()) == list(range(1, 10, 2))
 

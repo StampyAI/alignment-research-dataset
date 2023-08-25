@@ -101,7 +101,7 @@ class HTMLDataset(AlignmentDataset):
 
     def _find_date(self, items):
         for i in items:
-            if re.match("\w+ \d{1,2}, \d{4}", i.text):
+            if re.match(r"\w+ \d{1,2}, \d{4}", i.text):
                 return datetime.strptime(i.text, "%b %d, %Y").replace(tzinfo=pytz.UTC)
 
     def _extract_markdown(self, element):
