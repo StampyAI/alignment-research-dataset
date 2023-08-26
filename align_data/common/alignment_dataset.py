@@ -167,10 +167,7 @@ class AlignmentDataset:
         url = re.sub(r'/index\.html?$', '', url)
 
         # Convert youtu.be links to youtube.com
-        youtube_short_match = re.match(r'https://youtu\.be/([a-zA-Z0-9_-]+)', url)
-        if youtube_short_match:
-            video_id = youtube_short_match.group(1)
-            url = f'https://youtube.com/watch?v={video_id}'
+        url = url.replace("https://youtu.be/", "https://youtube.com/watch?v=")
 
         # Additional rules for mirror domains can be added here
 
