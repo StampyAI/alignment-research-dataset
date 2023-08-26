@@ -94,7 +94,7 @@ class Article(Base):
         }
         return sorted([field for field in fields if not getattr(self, field, None)])
 
-    def verify_id(self) :
+    def verify_id(self):
         assert self.id is not None, "Entry is missing id"
 
         id_string = self.generate_id_string()
