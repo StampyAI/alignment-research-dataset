@@ -2,13 +2,16 @@ from datetime import datetime
 import logging
 import time
 from dataclasses import dataclass
+from typing import Set, Tuple
 
 import requests
 import jsonlines
 from bs4 import BeautifulSoup
 from markdownify import markdownify
+from sqlalchemy import select
 
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.db.session import make_session
 from align_data.db.models import Article
 
 logger = logging.getLogger(__name__)
@@ -69,6 +72,8 @@ class GreaterWrong(AlignmentDataset):
     summary_key: str = "summary"
     done_key = "url"
     lazy_eval = True
+    source_type = 'GreaterWrong'
+    _outputted_items = (set(), set())
 
     def setup(self):
         super().setup()
@@ -79,8 +84,29 @@ class GreaterWrong(AlignmentDataset):
     def tags_ok(self, post):
         return not self.ai_tags or {t["name"] for t in post["tags"] if t.get("name")} & self.ai_tags
 
-    def get_item_key(self, item) -> str:
-        return item["pageUrl"]
+    def _load_outputted_items(self) -> Tuple[Set[str], Set[Tuple[str, str]]]:
+        """Load the output file (if it exists) in order to know which items have already been output."""
+        with make_session() as session:
+            articles = (
+                session
+                .query(Article.url, Article.title, Article.authors)
+                .where(Article.source_type == self.source_type)
+                .all()
+            )
+            return (
+                {a.url for a in articles},
+                {(a.title.replace('\n', '').strip(), a.authors) for a in articles},
+            )
+
+    def not_processed(self, item):
+        title = item["title"]
+        url = item["pageUrl"]
+        authors = ','.join(self.extract_authors(item))
+
+        return (
+            url not in self._outputted_items[0]
+            and (title, authors) not in self._outputted_items[1]
+        )
 
     def _get_published_date(self, item):
         return super()._get_published_date(item.get("postedAt"))
@@ -167,11 +193,14 @@ class GreaterWrong(AlignmentDataset):
             next_date = posts["results"][-1]["postedAt"]
             time.sleep(self.COOLDOWN)
 
-    def process_entry(self, item):
+    def extract_authors(self, item):
         authors = item["coauthors"]
         if item["user"]:
             authors = [item["user"]] + authors
-        authors = [a["displayName"] for a in authors] or ["anonymous"]
+        # Some posts don't have authors, for some reaason
+        return [a["displayName"] for a in authors] or ["anonymous"]
+
+    def process_entry(self, item):
         return self.make_data_entry(
             {
                 "title": item["title"],
@@ -180,13 +209,12 @@ class GreaterWrong(AlignmentDataset):
                 "date_published": self._get_published_date(item),
                 "modified_at": item["modifiedAt"],
                 "source": self.name,
-                "source_type": "GreaterWrong",
+                "source_type": self.source_type,
                 "votes": item["voteCount"],
                 "karma": item["baseScore"],
                 "tags": [t["name"] for t in item["tags"]],
                 "words": item["wordCount"],
                 "comment_count": item["commentCount"],
-                # Some posts don't have authors, for some reaason
-                "authors": authors,
+                "authors": self.extract_authors(item),
             }
         )

@@ -64,8 +64,6 @@ Additional keys may be available depending on the source document.
 
 ## Development Environment
 
-Follow the [instructions to install **mysqlclient** on your operating system](https://pypi.org/project/mysqlclient/) toward the middle to bottom of the linked page.
-
 To set up the development environment, run the following steps:
 
 ```bash

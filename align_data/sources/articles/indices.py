@@ -60,7 +60,7 @@ def aisafetysupport():
 
 def format_mlsafety_course(a):
     if (a.get("href") or "").startswith("http"):
-        return {"title": a.text, "url": a.get("href")}
+        return {"title": a.text, "url": a.get("href"), "initial_source": "mlsafety_course"}
 
 
 def format_anthropic(post):
@@ -75,6 +75,7 @@ def format_anthropic(post):
         "title": get_text(post, "div.post-heading"),
         "url": url,
         "source_url": source_url,
+        "initial_source": "anthropic",
         "date_published": date_published,
     }
 
@@ -84,6 +85,7 @@ def format_safe_ai(item):
         "title": get_text(item, "h4"),
         "url": item.find("a").get("href"),
         "source_url": item.find("a").get("href"),
+        "initial_source": "safe.ai",
         "authors": get_text(item, "h4 ~ p"),
     }
 
@@ -94,6 +96,7 @@ def format_far_ai(item):
         "url": f'https://www.safe.ai/research{item.select_one(".article-title a").get("href")}',
         "source_url": item.select_one('div.btn-links a:-soup-contains("PDF")').get("href"),
         "authors": ", ".join(i.text for i in item.select(".article-metadata a")),
+        "initial_source": "far.ai",
     }
 
 
@@ -114,6 +117,7 @@ def format_redwoodresearch(item):
         "source_url": url,
         "authors": authors,
         "date_published": date_published,
+        "initial_source": "redwood_research",
     }
 
 
@@ -134,6 +138,7 @@ def format_chai_research(item):
         "source_url": url,
         "authors": ", ".join(authors),
         "date_published": date_published,
+        "initial_source": "chai_research",
     }
 
 
@@ -151,6 +156,7 @@ def format_chai_newsletter(item):
             "title": item.text,
             "url": item.get("href"),
             "source_url": item.get("href"),
+            "initial_source": "chai_newsletter",
         }
 
 
@@ -168,6 +174,7 @@ def format_neel_nanda_fav(item):
         "title": title.replace("\n", " "),
         "url": url,
         "summary": MarkdownConverter().convert_soup(item).strip(),
+        "initial_source": "neelnanda",
     }
 
 
@@ -281,12 +288,14 @@ class IndicesDataset(AlignmentDataset):
                     "authors": self.extract_authors(item),
                     "status": "Ignored",
                     "comments": "Added from indices",
+                    "initial_source": item.get("initial_source"),
                 }
             )
 
         return self.make_data_entry(
             {
                 "source": "arxiv",
+                "initial_source": item.get("initial_source"),
                 "url": contents.get("url") or self.get_item_key(item),
                 "title": item.get("title"),
                 "date_published": self._get_published_date(item.get("date_published")),
