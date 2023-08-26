@@ -1,9 +1,10 @@
 import json
+import re
 import logging
 import pytz
 import hashlib
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import (
     JSON,
     DateTime,
@@ -71,18 +72,19 @@ class Article(Base):
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
 
     def generate_id_string(self) -> bytes:
-        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
+        return "".join(
+            re.sub(r'[^a-zA-Z0-9\s]', '', str(getattr(self, field))).strip().lower()
+            for field in self.__id_fields
+        ).encode("utf-8")
 
     @property
-    def __id_fields(self):
-        if self.source == "aisafety.info":
-            return ["url"]
+    def __id_fields(self) -> List[str]:
         if self.source in ["importai", "ml_safety_newsletter", "alignment_newsletter"]:
-            return ["url", "title", "source"]
-        return ["url", "title"]
+            return ["url", "source"]
+        return ["url"]
 
     @property
-    def missing_fields(self):
+    def missing_fields(self) -> List[str]:
         fields = set(self.__id_fields) | {
             "text",
             "title",
@@ -105,7 +107,7 @@ class Article(Base):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
         assert not missing, f"Entry is missing the following fields: {missing}"
 
-    def update(self, other):
+    def update(self, other: "Article") -> "Article":
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
                 setattr(self, field, getattr(other, field))
@@ -120,7 +122,7 @@ class Article(Base):
         id_string = self.generate_id_string()
         self.id = hashlib.md5(id_string).hexdigest()
 
-    def add_meta(self, key, val):
+    def add_meta(self, key: str, val):
         if self.meta is None:
             self.meta = {}
         self.meta[key] = val
@@ -153,7 +155,7 @@ class Article(Base):
         )
 
     @classmethod
-    def before_write(cls, _mapper, _connection, target):
+    def before_write(cls, _mapper, _connection, target: "Article"):
         target.verify_id_fields()
 
         if not target.status and target.missing_fields:
@@ -167,7 +169,7 @@ class Article(Base):
         else:
             target._set_id()
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         if date := self.date_published:
             date = date.replace(tzinfo=pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         meta = json.loads(self.meta) if isinstance(self.meta, str) else self.meta

@@ -34,14 +34,14 @@ SAMPLE_HTML = f"""
 """
 
 
-def test_html_dataset_extract_authors(html_dataset):
+def test_html_dataset_extract_authors(html_dataset: HTMLDataset):
     assert html_dataset.extract_authors("dummy variable") == [
         "John Smith",
         "Your momma",
     ]
 
 
-def test_html_dataset_get_title(html_dataset):
+def test_html_dataset_get_title(html_dataset: HTMLDataset):
     item = f"""
     <article>
       <h1>   This is the title
@@ -153,6 +153,33 @@ def test_html_dataset_process_entry_no_text(html_dataset):
 
     with patch("requests.get", return_value=Mock(content="")):
         assert html_dataset.process_entry(article) is None
+
+
+def test_html_dataset_newline_in_title(html_dataset: HTMLDataset):
+    html_with_newline_title = f"""
+    <article>
+        <h1>
+            the title\nwith a newline
+        </h1>
+            <div>
+                bla bla bla <a href="{html_dataset.url}/path/to/article">click to read more</a> bla bla
+            </div>
+    </article>
+    """
+    article = BeautifulSoup(html_with_newline_title, "html.parser")
+
+    with patch("requests.get", return_value=Mock(content=html_with_newline_title)):
+        assert html_dataset.process_entry(article).to_dict() == {
+            "authors": ["John Smith", "Your momma"],
+            "date_published": None,
+            "id": None,
+            "source": "bla",
+            "source_type": "blog",
+            "summaries": [],
+            "text": "bla bla bla [click to read more](http://example.com/path/to/article) bla bla",
+            "title": "the title with a newline",
+            "url": "http://example.com/path/to/article",
+        }
 
 
 @pytest.mark.parametrize(

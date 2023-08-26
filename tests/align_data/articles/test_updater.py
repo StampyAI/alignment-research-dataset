@@ -195,7 +195,7 @@ def test_process_entry(csv_file):
         assert dataset.process_entry(Item(updates, article)).to_dict() == {
             "authors": ["mr. blobby", "johnny"],
             "date_published": "2000-12-23T10:32:43Z",
-            "id": "d8d8cad8d28739a0862654a0e6e8ce6e",
+            "id": "3073112dd44a96a7efdf0253f8575e56", # id str is 'httpblacom'
             "source": "tests",
             "source_type": None,
             "summaries": [],
@@ -238,7 +238,7 @@ def test_process_entry_empty(csv_file):
         assert dataset.process_entry(Item(updates, article)).to_dict() == {
             "authors": ["this should not be changed"],
             "date_published": "2000-12-23T10:32:43Z",
-            "id": "606e9224254f508d297bcb17bcc6d104",
+            "id": "283f362287e87a2d4a036d69c04b436b",
             "source": "this should not be changed",
             "source_type": None,
             "summaries": [],

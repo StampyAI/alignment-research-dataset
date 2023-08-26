@@ -3,8 +3,6 @@ import re
 import logging
 from dataclasses import dataclass
 from codaio import Coda, Document
-from datetime import timezone
-from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
@@ -35,7 +33,7 @@ class Stampy(AlignmentDataset):
         table = doc.get_table(ON_SITE_TABLE)
         return table.to_dict()  # a list of dicts
 
-    def get_item_key(self, entry):
+    def get_item_key(self, entry) -> str:
         return html.unescape(entry["Question"])
 
     def _get_published_date(self, entry):

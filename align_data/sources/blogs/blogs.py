@@ -131,7 +131,7 @@ class TransformerCircuits(HTMLDataset):
     item_selector = "div.toc a"
     text_selector = 'h3'
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str:
         article_url = item.get("href").split("?")[0]
         return urljoin(self.url, article_url)
 

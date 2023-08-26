@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from itertools import islice
 import logging
@@ -72,6 +73,7 @@ class AlignmentDataset:
         data = merge_dicts(data, kwargs)
         summary = data.pop("summary", None)
         authors = data.pop("authors", [])
+        data['title'] = (data.get('title') or '').replace('\n', ' ').replace('\r', '') or None
 
         article = Article(
             pinecone_update_required=True,
@@ -140,30 +142,64 @@ class AlignmentDataset:
         """Returns a collection of items to be processed."""
         return []
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str:
         """Get the identifier of the given `item` so it can be checked to see whether it's been output.
 
         The default assumption is that the `item` is a Path to a file.
         """
         return item.name
 
+    @staticmethod
+    def _normalize_url(url: str | None) -> str | None:
+        if not url:
+            return url
+
+        # ending '/'
+        url = url.rstrip("/")
+
+        # Remove http and use https consistently
+        url = url.replace("http://", "https://")
+
+        # Remove www
+        url = url.replace("https://www.", "https://")
+
+        # Remove index.html or index.htm
+        url = re.sub(r'/index\.html?$', '', url)
+
+        # Convert youtu.be links to youtube.com
+        url = url.replace("https://youtu.be/", "https://youtube.com/watch?v=")
+
+        # Additional rules for mirror domains can be added here
+
+        # agisafetyfundamentals.com -> aisafetyfundamentals.com
+        url = url.replace("https://agisafetyfundamentals.com", "https://aisafetyfundamentals.com")
+
+        return url
+    
+    def _normalize_urls(self, urls: Iterable[str]) -> Set[str]:
+        return {self._normalize_url(url) for url in urls}
+
+
     def _load_outputted_items(self) -> Set[str]:
         """Load the output file (if it exists) in order to know which items have already been output."""
         with make_session() as session:
+            items = set()
             if hasattr(Article, self.done_key):
                 # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
                 # duplicates. The bad thing is that this could potentially return a massive amount of data if there
                 # are lots of items.
-                return set(session.scalars(select(getattr(Article, self.done_key))).all())
+                items =  set(session.scalars(select(getattr(Article, self.done_key))).all())
             # TODO: Properly handle this - it should create a proper SQL JSON select
-            return {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
+            else:
+                items = {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
+            return self._normalize_urls(items)
 
-    def not_processed(self, item):
+    def not_processed(self, item) -> bool:
         # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
         # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
         # this function runs a query to check if the item is in the database rather than first getting all done_keys.
         # If it get's to that level, consider batching it somehow
-        return self.get_item_key(item) not in self._outputted_items
+        return self._normalize_url(self.get_item_key(item)) not in self._outputted_items
 
     def unprocessed_items(self, items=None) -> Iterable:
         """Return a list of all items to be processed.
@@ -269,7 +305,7 @@ class MultiDataset(AlignmentDataset):
         for dataset in self.datasets:
             dataset.setup()
 
-    def get_item_key(self, entry):
+    def get_item_key(self, entry) -> str | None:
         item, dataset = entry
         return dataset.get_item_key(item)
 
