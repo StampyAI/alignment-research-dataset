@@ -150,7 +150,10 @@ class AlignmentDataset:
         return item.name
 
     @staticmethod
-    def _normalize_url(url: str) -> str:
+    def _normalize_url(url: str | None) -> str | None:
+        if not url:
+            return url
+
         # ending '/'
         url = url.rstrip("/")
 
