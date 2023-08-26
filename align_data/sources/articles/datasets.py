@@ -43,7 +43,7 @@ class SpreadsheetDataset(AlignmentDataset):
             return None
         return val
 
-    def get_item_key(self, item) -> str:
+    def get_item_key(self, item) -> str | None:
         return self.maybe(item, self.done_key)
 
     @property

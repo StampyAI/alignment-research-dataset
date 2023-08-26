@@ -112,7 +112,7 @@ class HTMLDataset(AlignmentDataset):
 class RSSDataset(HTMLDataset):
     date_format = "%a, %d %b %Y %H:%M:%S %z"
 
-    def get_item_key(self, item) -> str:
+    def get_item_key(self, item: str) -> str:
         return item
 
     @property

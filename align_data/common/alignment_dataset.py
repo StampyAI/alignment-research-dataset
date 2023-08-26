@@ -305,7 +305,7 @@ class MultiDataset(AlignmentDataset):
         for dataset in self.datasets:
             dataset.setup()
 
-    def get_item_key(self, entry) -> str:
+    def get_item_key(self, entry) -> str | None:
         item, dataset = entry
         return dataset.get_item_key(item)
 
