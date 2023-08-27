@@ -1,10 +1,12 @@
+import re
 import json
 import re
 import logging
 import pytz
 import hashlib
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import (
     JSON,
     DateTime,
@@ -16,9 +18,11 @@ from sqlalchemy import (
     event,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm.attributes import get_history
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.ext.hybrid import hybrid_property
 
+from align_data.embeddings.pinecone.pinecone_models import PineconeMetadata
 
 logger = logging.getLogger(__name__)
 OK_STATUS = None
@@ -73,7 +77,7 @@ class Article(Base):
 
     def generate_id_string(self) -> bytes:
         return "".join(
-            re.sub(r'[^a-zA-Z0-9\s]', '', str(getattr(self, field))).strip().lower()
+            re.sub(r"[^a-zA-Z0-9\s]", "", str(getattr(self, field))).strip().lower()
             for field in self.__id_fields
         ).encode("utf-8")
 
@@ -109,9 +113,14 @@ class Article(Base):
 
     def update(self, other: "Article") -> "Article":
         for field in self.__table__.columns.keys():
-            if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
-                setattr(self, field, getattr(other, field))
-        self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
+            if field not in ["id", "hash_id", "metadata"]:
+                new_value = getattr(other, field)
+                if new_value and getattr(self, field) != new_value:
+                    setattr(self, field, new_value)
+
+        updated_meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
+        if self.meta != updated_meta:
+            self.meta = updated_meta
 
         if other._id:
             self._id = other._id
@@ -128,24 +137,27 @@ class Article(Base):
         self.meta[key] = val
 
     def append_comment(self, comment: str):
-        """Appends a comment to the article.comments field. You must run session.commit() to save the comment to the database."""
         if self.comments is None:
             self.comments = ""
         self.comments = f"{self.comments}\n\n{comment}".strip()
 
     @hybrid_property
-    def is_valid(self):
-        return bool(
-            self.text
-            and self.text.strip()
-            and self.url
-            and self.title
-            and self.authors is not None
-            and self.status == OK_STATUS
+    def is_valid(self) -> bool:
+        # Check if the basic attributes are present and non-empty
+        basic_check = all(
+            [
+                self.text and self.text.strip(),
+                self.url and self.url.strip(),
+                self.title and self.title.strip(),
+                self.authors,
+                self.status == OK_STATUS,
+            ]
         )
 
+        return basic_check
+
     @is_valid.expression
-    def is_valid(cls):
+    def is_valid(cls) -> bool:
         return (
             (cls.status == OK_STATUS)
             & (cls.text != None)
@@ -162,12 +174,20 @@ class Article(Base):
             target.status = "Missing fields"
             target.comments = f'missing fields: {", ".join(target.missing_fields)}'
 
-        target.pinecone_update_required = target.is_valid
-
         if target.id:
             target.verify_id()
         else:
             target._set_id()
+
+    @classmethod
+    def check_for_changes(cls, mapper, connection, target):
+        if not target.is_valid:
+            return
+        monitored_attributes = list(PineconeMetadata.__annotations__.keys())
+        monitored_attributes.remove("hash_id")
+
+        changed = any(get_history(target, attr).has_changes() for attr in monitored_attributes)
+        target.pinecone_update_required = changed
 
     def to_dict(self) -> Dict[str, Any]:
         if date := self.date_published:
@@ -194,3 +214,4 @@ class Article(Base):
 
 event.listen(Article, "before_insert", Article.before_write)
 event.listen(Article, "before_update", Article.before_write)
+event.listen(Article, "before_update", Article.check_for_changes)

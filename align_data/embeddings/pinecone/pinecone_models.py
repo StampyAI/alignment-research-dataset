@@ -30,7 +30,7 @@ class PineconeEntry(BaseModel):
     date_published: float
     authors: List[str]
     text_chunks: List[str]
-    embeddings: List[List[float]]
+    embeddings: List[List[float] | None]
 
     def __init__(self, **data):
         """Check for missing (falsy) fields before initializing."""

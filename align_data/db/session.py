@@ -22,18 +22,33 @@ def make_session(auto_commit=False):
             session.commit()
 
 
-def stream_pinecone_updates(
-    session: Session, custom_sources: List[str], force_update: bool = False
+def get_pinecone(
+    session: Session,
+    force_update: bool = False,
 ):
-    """Yield Pinecone entries that require an update."""
     yield from (
         session.query(Article)
         .filter(or_(Article.pinecone_update_required.is_(True), force_update))
         .filter(Article.is_valid)
-        .filter(Article.source.in_(custom_sources))
         .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
-        .yield_per(1000)
     )
+
+
+def get_pinecone_from_sources(
+    session: Session,
+    custom_sources: List[str],
+    force_update: bool = False,
+):
+    yield from get_pinecone(session, force_update).filter(Article.source.in_(custom_sources))
+
+
+def get_pinecone_articles_by_ids(
+    session: Session,
+    hash_ids: List[int],
+    force_update: bool = False,
+):
+    """Yield Pinecone entries that require an update and match the given IDs."""
+    yield from get_pinecone_from_sources(session, force_update).filter(Article.id.in_(hash_ids))
 
 
 def get_all_valid_article_ids(session: Session) -> List[str]:

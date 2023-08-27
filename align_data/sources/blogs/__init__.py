@@ -16,7 +16,7 @@ from align_data.common.alignment_dataset import MultiDataset
 
 
 BLOG_DATASETS = [
-    AXRPDataset(name='axrp', url='https://axrp.net', authors=['AXRP']),
+    AXRPDataset(name="axrp", url="https://axrp.net", authors=["AXRP"]),
     WordpressBlog(name="aiimpacts", url="https://aiimpacts.org"),
     WordpressBlog(name="aisafety.camp", url="https://aisafety.camp"),
     WordpressBlog(name="miri", url="https://intelligence.org"),
@@ -58,10 +58,10 @@ BLOG_DATASETS = [
         name="deepmind_technical_blog",
         url="https://www.deepmind.com/blog-categories/technical-blogs",
     ),
-    TransformerCircuits(name='transformer-circuits', url='https://transformer-circuits.pub/'),
+    TransformerCircuits(name="transformer-circuits", url="https://transformer-circuits.pub/"),
 ]
 
 
 BLOG_REGISTRY = [
-    MultiDataset(name='blogs', datasets=BLOG_DATASETS),
+    MultiDataset(name="blogs", datasets=BLOG_DATASETS),
 ]

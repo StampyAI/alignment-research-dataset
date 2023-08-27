@@ -127,9 +127,8 @@ class DeepMindTechnicalBlog(HTMLDataset):
 
 
 class TransformerCircuits(HTMLDataset):
-
     item_selector = "div.toc a"
-    text_selector = 'h3'
+    text_selector = "h3"
 
     def get_item_key(self, item) -> str:
         article_url = item.get("href").split("?")[0]
@@ -140,7 +139,7 @@ class TransformerCircuits(HTMLDataset):
         return [i for i in super().items_list if self.get_item_key(i).startswith(self.url)]
 
     def _metadata(self, contents, selector):
-        if meta := contents.select_one('div.d-byline'):
+        if meta := contents.select_one("div.d-byline"):
             return meta.select(selector)
 
     def _get_title(self, contents):
@@ -148,7 +147,7 @@ class TransformerCircuits(HTMLDataset):
         return title and title.text.strip()
 
     def _get_published_date(self, contents):
-        if date := self._metadata(contents, 'div.published div'):
+        if date := self._metadata(contents, "div.published div"):
             return super()._get_published_date(date[0].text)
 
     def _get_text(self, contents):
@@ -156,16 +155,15 @@ class TransformerCircuits(HTMLDataset):
         return self._extract_markdown(article)
 
     def extract_authors(self, contents):
-        if authors := self._metadata(contents, 'span.author'):
+        if authors := self._metadata(contents, "span.author"):
             for a in authors:
-                for sup in a.select('sup'):
+                for sup in a.select("sup"):
                     sup.extract()
-            return [a.text.strip().strip(',*') for a in authors]
+            return [a.text.strip().strip(",*") for a in authors]
         return []
 
 
 class AXRPDataset(RSSDataset):
-
     @property
     def feed_url(self):
         return f"{self.url}/feed.xml"
@@ -178,11 +176,11 @@ class AXRPDataset(RSSDataset):
 
     def extract_authors(self, item):
         if "authors" in item:
-            authors = [name for a in item["authors"] if (name := (a.get("name") or '').strip())]
+            authors = [name for a in item["authors"] if (name := (a.get("name") or "").strip())]
             if authors:
                 return authors
 
-        bits = item.get('title', '').split(' with ')
+        bits = item.get("title", "").split(" with ")
         if len(bits) > 1 and bits[-1].strip():
             return self.authors + [bits[-1].strip()]
         return self.authors

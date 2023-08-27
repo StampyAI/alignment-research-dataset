@@ -44,5 +44,5 @@ YOUTUBE_DATASETS = [
 
 
 YOUTUBE_REGISTRY = [
-    MultiDataset(name='youtube', datasets=YOUTUBE_DATASETS),
+    MultiDataset(name="youtube", datasets=YOUTUBE_DATASETS),
 ]
