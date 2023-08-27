@@ -4,63 +4,69 @@ The AI Alignment Research Dataset is a collection of documents related to AI Ali
 
 ## Sources
 
-The following list of sources may change and items may be renamed:
+Here are the list of sources along with sample contents:
 
-- [agentmodels](https://agentmodels.org/)
-- [aiimpacts](https://aiimpacts.org/)
-- [aisafety.camp](https://aisafety.camp/)
-- [aisafety.info](https://aisafety.info/)
-- [ai_alignment_playlist]()
-- [ai_explained](https://www.youtube.com/@ai-explained-)
-- [ai_safety_talks](https://www.youtube.com/@aisafetytalks)
-- [ai_safety_reading_group](https://www.youtube.com/@aisafetyreadinggroup/videos)
-- [ai_tech_tu_delft](https://www.youtube.com/@AiTechTUDelft/)
+- [agentmodel](https://agentmodels.org/)
+- [agisf](https://course.aisafetyfundamentals.com/) - recommended readings from AGI Safety Fundamentals
+- [aisafety.info](https://aisafety.info/) - Stampy's FAQ
 - [alignmentforum](https://www.alignmentforum.org)
 - [alignment_newsletter](https://rohinshah.com/alignment-newsletter/)
 - [arbital](https://arbital.com/)
-- arxiv - alignment research papers from [arxiv](https://arxiv.org/)
-- [carado.moe](https://carado.moe/)
-- [cold_takes](https://www.cold-takes.com/)
-- [deepmind_blog](https://deepmindsafetyresearch.medium.com/)
-- [deepmind_technical_blog](https://www.deepmind.com/blog-categories/technical-blogs)
+- [arxiv](https://arxiv.org/) - relevant research papers
+
+- blogs - entire websites automatically scraped
+  - [AI Impacts](https://aiimpacts.org/)
+  - [AI Safety Camp](https://aisafety.camp/)
+  - [carado.moe](https://carado.moe/)
+  - [Cold Takes](https://www.cold-takes.com/)
+  - [DeepMind technical blogs](https://www.deepmind.com/blog-categories/technical-blogs)
+  - [DeepMind AI Safety Research](https://deepmindsafetyresearch.medium.com/)
+  - [EleutherAI](https://blog.eleuther.ai/)
+  - [generative.ink](https://generative.ink/posts/)
+  - [Gwern Branwen's blog](https://gwern.net/)
+  - [Jack Clark's Import AI](https://importai.substack.com/)
+  - [MIRI](https://intelligence.org/)
+  - [Jacob Steinhardt's blog](https://jsteinhardt.wordpress.com/)
+  - [ML Safety Newsletter](https://newsletter.mlsafety.org/)
+  - [Transformer Circuits Thread](https://transformer-circuits.pub/)
+  - [Open AI Research](https://openai.com/research/)
+  - [Victoria Krakovna's blog](https://vkrakovna.wordpress.com/)
+  - [Eliezer Yudkowsky's blog](https://www.yudkowsky.net/)
+
 - [distill](https://distill.pub/)
 - [eaforum](https://forum.effectivealtruism.org/) - selected posts
-- [eleuther.ai](https://blog.eleuther.ai/)
-- [generative.ink](https://generative.ink/posts/)
-- [gwern_blog](https://gwern.net/)
-- gdocs - various doc files stored on Google drive
-- html_articles - various articles on websites
-- [import.ai](https://importai.substack.com)
-- [jsteinhardt_blog](https://jsteinhardt.wordpress.com/)
 - [lesswrong](https://www.lesswrong.com/) - selected posts
-- markdown
-- [miri](https://intelligence.org/) - MIRI
-- [ml_safety_newsletter](https://newsletter.mlsafety.org)
-- [openai.research](https://openai.com/research)
-- pdfs - various pdfs from different places
-- [rob_miles_ai_safety](https://www.youtube.com/@RobertMilesAI)
-- [vkrakovna_blog](https://vkrakovna.wordpress.com)
-- [waitbutwhy](https://waitbutwhy.com/)
-- [yudkowsky_blog](https://www.yudkowsky.net/)
-- xmls - various articles stored as XML files
 
+- special_docs - individual documents curated from various resources
+  - [Make a suggestion](https://bit.ly/ard-suggestion) for sources not already in the dataset
+
+- youtube - playlists & channels
+  - [AI Alignment playlist](https://www.youtube.com/playlist?list=PLCRVRLd2RhZTpdUdEzJjo3qhmX3y3skWA) and other lists
+  - [AI Explained](https://www.youtube.com/@aiexplained-official)
+  - [Evan Hubinger's AI Safety Talks](https://www.youtube.com/@aisafetytalks)
+  - [AI Safety Reading Group](https://www.youtube.com/@aisafetyreadinggroup/videos)
+  - [AiTech - TU Delft](https://www.youtube.com/@AiTechTUDelft/)
+  - [Rob Miles AI](https://www.youtube.com/@RobertMilesAI)
 
 ## Keys
 
-Not all of the entries contain the same keys, but they all have the following:
+All entries contain the following keys:
 
-- `id` - unique identifier
-- `source` - based on the data source listed in the previous section
-- `title` - title of document
+- `id` - string of unique identifier
+- `source` - string of data source listed above
+- `title` - string of document title of document
+- `authors` - list of strings
 - `text` - full text of document content
-- `url` - some values may be `'n/a'`, still being updated
-- `date_published` - some `'n/a'`
+- `url` - string of valid link to text content
+- `date_published` - in UTC format
 
-The values of the keys are still being cleaned up for consistency. Additional keys are available depending on the source document.
+Additional keys may be available depending on the source document.
 
 ## Development Environment
 
-To set up the development environment, run the following steps. You'll have to also set up [mysqlclient](https://pypi.org/project/mysqlclient/):
+Follow the [instructions to install **mysqlclient** on your operating system](https://pypi.org/project/mysqlclient/) toward the middle to bottom of the linked page.
+
+To set up the development environment, run the following steps:
 
 ```bash
 git clone https://github.com/StampyAI/alignment-research-dataset

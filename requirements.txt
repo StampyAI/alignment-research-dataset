@@ -28,6 +28,7 @@ google-auth-httplib2
 google-api-python-client
 gspread
 youtube-transcript-api
+airtable
 
 alembic
 mysqlclient
@@ -36,3 +37,5 @@ openai
 langchain
 nltk
 pinecone-client
+
+torch

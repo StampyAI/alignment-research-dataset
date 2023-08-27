@@ -7,8 +7,13 @@ import fire
 
 from align_data import ALL_DATASETS, get_dataset
 from align_data.analysis.count_tokens import count_token
-from align_data.sources.articles.articles import update_new_items, check_new_articles, update_articles
-from align_data.pinecone.update_pinecone import PineconeUpdater
+from align_data.sources.articles.articles import (
+    update_new_items,
+    check_new_articles,
+    update_articles,
+)
+from align_data.embeddings.pinecone.update_pinecone import PineconeUpdater
+from align_data.embeddings.finetuning.training import finetune_embeddings
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,
@@ -75,12 +80,10 @@ class AlignmentDataset:
         This function counts the number of tokens, words, and characters in the dataset
         :return: None
         """
-        assert os.path.exists(
-            merged_dataset_path
-        ), "The path to the merged dataset does not exist"
+        assert os.path.exists(merged_dataset_path), "The path to the merged dataset does not exist"
         count_token(merged_dataset_path)
 
-    def update(self, csv_path, delimiter=','):
+    def update(self, csv_path, delimiter=","):
         """Update all articles in the provided csv files, overwriting the provided values and fetching new text if a different url provided.
 
         :param str csv_path: The path to the csv file to be processed
@@ -114,7 +117,7 @@ class AlignmentDataset:
         """
         return check_new_articles(source_spreadsheet, source_sheet)
 
-    def pinecone_update(self, *names) -> None:
+    def pinecone_update(self, *names, force_update=False) -> None:
         """
         This function updates the Pinecone vector DB.
 
@@ -124,14 +127,20 @@ class AlignmentDataset:
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
-        PineconeUpdater().update(names)
+        PineconeUpdater().update(names, force_update)
 
-    def pinecone_update_all(self, *skip) -> None:
+    def pinecone_update_all(self, *skip, force_update=False) -> None:
         """
         This function updates the Pinecone vector DB.
         """
         names = [name for name in ALL_DATASETS if name not in skip]
-        PineconeUpdater().update(names)
+        PineconeUpdater().update(names, force_update)
+
+    def train_finetuning_layer(self) -> None:
+        """
+        This function trains a finetuning layer on top of the OpenAI embeddings.
+        """
+        finetune_embeddings()
 
 
 if __name__ == "__main__":

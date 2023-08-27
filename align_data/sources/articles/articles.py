@@ -146,8 +146,7 @@ def check_new_articles(source_spreadsheet_id: str, source_sheet_name: str):
     missing = [
         item
         for title, item in indices_items.items()
-        if title not in current
-        and not {item.get("url"), item.get("source_url")} & seen_urls
+        if title not in current and not {item.get("url"), item.get("source_url")} & seen_urls
     ]
     if not missing:
         logger.info("No new articles found")
@@ -163,14 +162,12 @@ def check_new_articles(source_spreadsheet_id: str, source_sheet_name: str):
         "publication_title",
         "source_type",
     ]
-    res = source_sheet.append_rows(
-        [[item.get(col) for col in columns] for item in missing]
-    )
+    res = source_sheet.append_rows([[item.get(col) for col in columns] for item in missing])
     updated = res["updates"]["updatedRows"]
     logger.info("Added %s rows", updated)
     return updated
 
 
 def update_articles(csv_file, delimiter):
-    dataset = ReplacerDataset(name='updater', csv_path=csv_file, delimiter=delimiter)
+    dataset = ReplacerDataset(name="updater", csv_path=csv_file, delimiter=delimiter)
     dataset.add_entries(dataset.fetch_entries())

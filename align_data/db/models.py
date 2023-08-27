@@ -17,7 +17,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.ext.hybrid import hybrid_property
-from align_data.settings import PINECONE_METADATA_KEYS
 
 
 logger = logging.getLogger(__name__)
@@ -71,35 +70,26 @@ class Article(Base):
     def __repr__(self) -> str:
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
 
-    def is_metadata_keys_equal(self, other):
-        if not isinstance(other, Article):
-            raise TypeError(
-                f"Expected an instance of Article, got {type(other).__name__}"
-            )
-        return all(
-            getattr(self, key, None) == getattr(other, key, None)
-            for key in PINECONE_METADATA_KEYS
-        ) # entry_id is implicitly ignored
-
     def generate_id_string(self) -> bytes:
-        return (
-            "".join(
-                str(getattr(self, field))
-                for field in self.__id_fields
-            ).encode("utf-8")
-        )
+        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
 
     @property
     def __id_fields(self):
-        if self.source == 'aisafety.info':
-            return ['url']
-        if self.source in ['importai', 'ml_safety_newsletter', 'alignment_newsletter']:
-            return ['url', 'title', 'source']
+        if self.source == "aisafety.info":
+            return ["url"]
+        if self.source in ["importai", "ml_safety_newsletter", "alignment_newsletter"]:
+            return ["url", "title", "source"]
         return ["url", "title"]
 
     @property
     def missing_fields(self):
-        fields = set(self.__id_fields) | {'text', 'title', 'url', 'source', 'date_published'}
+        fields = set(self.__id_fields) | {
+            "text",
+            "title",
+            "url",
+            "source",
+            "date_published",
+        }
         return sorted([field for field in fields if not getattr(self, field, None)])
 
     def verify_id(self):
@@ -142,13 +132,21 @@ class Article(Base):
         # TODO: verify that this actually updates the meta column; 
         # https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 
+    def append_comment(self, comment: str):
+        """Appends a comment to the article.comments field. You must run session.commit() to save the comment to the database."""
+        if self.comments is None:
+            self.comments = ""
+        self.comments = f"{self.comments}\n\n{comment}".strip()
+
     @hybrid_property
     def is_valid(self):
-        return (
-            self.text and self.text.strip() and
-            self.url and self.title and
-            self.authors is not None and
-            self.status == OK_STATUS
+        return bool(
+            self.text
+            and self.text.strip()
+            and self.url
+            and self.title
+            and self.authors is not None
+            and self.status == OK_STATUS
         )
 
     @is_valid.expression
@@ -166,8 +164,10 @@ class Article(Base):
         target.verify_id_fields()
 
         if not target.status and target.missing_fields:
-            target.status = 'Missing fields'
+            target.status = "Missing fields"
             target.comments = f'missing fields: {", ".join(target.missing_fields)}'
+
+        target.pinecone_update_required = target.is_valid
 
         if target.id:
             target.verify_id()

@@ -41,9 +41,7 @@ class WordpressBlog(RSSDataset):
                     self.items[item["link"]] = item
 
                 # update the tqdm progress bar
-                pbar.set_postfix_str(
-                    f"page {page_number}", refresh=True
-                )  # Set postfix to "page X"
+                pbar.set_postfix_str(f"page {page_number}", refresh=True)  # Set postfix to "page X"
                 pbar.update()  # Here we increment the progress bar by 1
 
         logger.info(f"Got {len(self.items)} pages")

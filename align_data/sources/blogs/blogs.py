@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -51,12 +52,7 @@ class EleutherAI(HTMLDataset):
             return ""
 
     def extract_authors(self, article):
-        return (
-            article.select_one("header .post-meta")
-            .text.split("·")[1]
-            .strip()
-            .split(", ")
-        )
+        return article.select_one("header .post-meta").text.split("·")[1].strip().split(", ")
 
 
 class OpenAIResearch(HTMLDataset):
@@ -116,9 +112,7 @@ class DeepMindTechnicalBlog(HTMLDataset):
                 page += 1
 
                 # update the tqdm progress bar
-                pbar.set_postfix_str(
-                    f"page {page}", refresh=True
-                )  # Set postfix to "page X"
+                pbar.set_postfix_str(f"page {page}", refresh=True)  # Set postfix to "page X"
                 pbar.update()  # Here we increment the progress bar by 1
 
         logger.info("Got %s pages", len(articles))
@@ -135,3 +129,64 @@ class DeepMindTechnicalBlog(HTMLDataset):
         ):
             return [author.strip() for author in div.text.split(",")]
         return []
+
+
+class TransformerCircuits(HTMLDataset):
+
+    item_selector = "div.toc a"
+    text_selector = 'h3'
+
+    def get_item_key(self, item):
+        article_url = item.get("href").split("?")[0]
+        return urljoin(self.url, article_url)
+
+    @property
+    def items_list(self):
+        return [i for i in super().items_list if self.get_item_key(i).startswith(self.url)]
+
+    def _metadata(self, contents, selector):
+        if meta := contents.select_one('div.d-byline'):
+            return meta.select(selector)
+
+    def _get_title(self, contents):
+        title = contents.find("title")
+        return title and title.text.strip()
+
+    def _get_published_date(self, contents):
+        if date := self._metadata(contents, 'div.published div'):
+            return super()._get_published_date(date[0].text)
+
+    def _get_text(self, contents):
+        article = contents.find("d-article") or contents.find("dt-article")
+        return self._extract_markdown(article)
+
+    def extract_authors(self, contents):
+        if authors := self._metadata(contents, 'span.author'):
+            for a in authors:
+                for sup in a.select('sup'):
+                    sup.extract()
+            return [a.text.strip().strip(',*') for a in authors]
+        return []
+
+
+class AXRPDataset(RSSDataset):
+
+    @property
+    def feed_url(self):
+        return f"{self.url}/feed.xml"
+
+    def _extract_item_url(self, item) -> str | None:
+        if path := item.get('link'):
+            return self.url + path
+        return None
+
+    def extract_authors(self, item):
+        if "authors" in item:
+            authors = [name for a in item["authors"] if (name := (a.get("name") or '').strip())]
+            if authors:
+                return authors
+
+        bits = item.get('title', '').split(' with ')
+        if len(bits) > 1 and bits[-1].strip():
+            return self.authors + [bits[-1].strip()]
+        return self.authors

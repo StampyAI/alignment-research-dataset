@@ -15,10 +15,16 @@ from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.db.models import Article
 from align_data.sources.articles.google_cloud import fetch_file, fetch_markdown
 from align_data.sources.articles.parsers import (
-    HTML_PARSERS, extract_gdrive_contents, item_metadata, parse_domain
+    HTML_PARSERS,
+    extract_gdrive_contents,
+    item_metadata,
+    parse_domain,
 )
 from align_data.sources.articles.pdf import read_pdf
-from align_data.sources.arxiv_papers import fetch_arxiv, canonical_url as arxiv_canonical_url
+from align_data.sources.arxiv_papers import (
+    fetch_arxiv,
+    canonical_url as arxiv_cannonical_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +49,8 @@ class SpreadsheetDataset(AlignmentDataset):
 
     @property
     def items_list(self):
-        url = f'https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}'
-        logger.info(f'Fetching {url}')
+        url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}"
+        logger.info(f"Fetching {url}")
         df = pd.read_csv(url)
         return (
             item 
@@ -88,7 +94,6 @@ class SpreadsheetDataset(AlignmentDataset):
 
 
 class SpecialDocs(SpreadsheetDataset):
-
     @property
     def _query_items(self) -> Select[Tuple[Article]]:
         special_docs_types = ["pdf", "html", "xml", "markdown", "docx"]
@@ -99,35 +104,39 @@ class SpecialDocs(SpreadsheetDataset):
         if url := self.maybe(item, "source_url") or self.maybe(item, "url"):
             contents = item_metadata(url)
 
-        return dict(contents, **{
-            'url': self.maybe(item, "url"),
-            'title': self.maybe(item, "title") or contents.get('title'),
-            'source': contents.get('source_type') or self.name,
-            'source_url': self.maybe(item, "source_url"),
-            'source_type': contents.get('source_type') or self.maybe(item, "source_type"),
-            'date_published': self._get_published_date(self.maybe(item, 'date_published')) or contents.get('date_published'),
-            'authors': self.extract_authors(item) or contents.get('authors', []),
-            'text': contents.get('text'),
-            'status': 'Invalid' if contents.get('error') else None,
-            'comments': contents.get('error'),
-        })
+        return dict(
+            contents,
+            **{
+                "url": self.maybe(item, "url"),
+                "title": self.maybe(item, "title") or contents.get("title"),
+                "source": contents.get("source_type") or self.name,
+                "source_url": self.maybe(item, "source_url"),
+                "source_type": contents.get("source_type") or self.maybe(item, "source_type"),
+                "date_published": self._get_published_date(self.maybe(item, "date_published"))
+                or contents.get("date_published"),
+                "authors": self.extract_authors(item) or contents.get("authors", []),
+                "text": contents.get("text"),
+                "status": "Invalid" if contents.get("error") else None,
+                "comments": contents.get("error"),
+            },
+        )
 
     def not_processed(self, item):
-        url = self.maybe(item, 'url')
-        source_url = self.maybe(item, 'source_url')
+        url = self.maybe(item, "url")
+        source_url = self.maybe(item, "source_url")
 
         return (
-            self.get_item_key(item) not in self._outputted_items and
-            url not in self._outputted_items and
-            source_url not in self._outputted_items and
-            (not url or arxiv_canonical_url(url) not in self._outputted_items) and
-            (not source_url or arxiv_canonical_url(source_url) not in self._outputted_items)
+            self.get_item_key(item) not in self._outputted_items
+            and url not in self._outputted_items
+            and source_url not in self._outputted_items
+            and (not url or arxiv_cannonical_url(url) not in self._outputted_items)
+            and (not source_url or arxiv_cannonical_url(source_url) not in self._outputted_items)
         )
 
     def process_entry(self, item):
         if ArxivPapers.is_arxiv(item.url):
             contents = ArxivPapers.get_contents(item)
-            contents['source'] = 'arxiv'
+            contents["source"] = "arxiv"
         else:
             contents = self.get_contents(item)
 
@@ -156,7 +165,7 @@ class HTMLArticles(SpreadsheetDataset):
         domain = parse_domain(item.source_url)
         if parser := HTML_PARSERS.get(domain):
             res = parser(item.source_url)
-            return res and res.get('text')
+            return res and res.get("text")
 
 
 class EbookArticles(SpreadsheetDataset):
@@ -170,9 +179,7 @@ class EbookArticles(SpreadsheetDataset):
 
     def _get_text(self, item):
         file_id = item.source_url.split("/")[-2]
-        filename = download(
-            output=str(self.files_path / f"{item.title}.epub"), id=file_id
-        )
+        filename = download(output=str(self.files_path / f"{item.title}.epub"), id=file_id)
         return convert_file(filename, "plain", "epub", extra_args=["--wrap=none"])
 
 
@@ -181,7 +188,7 @@ class XMLArticles(SpreadsheetDataset):
 
     def _get_text(self, item):
         vals = extract_gdrive_contents(item.source_url)
-        return vals["text"]
+        return vals.get("text")
 
 
 class MarkdownArticles(SpreadsheetDataset):
@@ -190,7 +197,7 @@ class MarkdownArticles(SpreadsheetDataset):
     def _get_text(self, item):
         file_id = item.source_url.split("/")[-2]
         vals = fetch_markdown(file_id)
-        return vals["text"]
+        return vals.get("text")
 
 
 class DocArticles(SpreadsheetDataset):
@@ -223,12 +230,12 @@ class ArxivPapers(SpreadsheetDataset):
         contents = fetch_arxiv(item.url or item.source_url)
 
         if cls.maybe(item, "authors") and item.authors.strip():
-            contents['authors'] = [i.strip() for i in item.authors.split(',')]
+            contents["authors"] = [i.strip() for i in item.authors.split(",")]
         if cls.maybe(item, "title"):
-            contents['title'] = cls.maybe(item, "title")
+            contents["title"] = cls.maybe(item, "title")
 
-        contents['date_published'] = cls._get_published_date(
-            cls.maybe(item, "date_published") or contents.get('date_published')
+        contents["date_published"] = cls._get_published_date(
+            cls.maybe(item, "date_published") or contents.get("date_published")
         )
         return contents
 

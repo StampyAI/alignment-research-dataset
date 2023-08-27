@@ -29,9 +29,7 @@ class AgentModels(AlignmentDataset):
         self.files_path = self.base_dir / "chapters"
 
     def _get_published_date(self, filename):
-        last_commit = next(
-            self.repository.iter_commits(paths=f"chapters/{filename.name}")
-        )
+        last_commit = next(self.repository.iter_commits(paths=f"chapters/{filename.name}"))
         return last_commit.committed_datetime.astimezone(timezone.utc)
 
     def process_entry(self, filename):

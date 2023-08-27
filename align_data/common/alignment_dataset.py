@@ -17,6 +17,8 @@ from tqdm import tqdm
 from align_data.db.models import Article, Summary
 from align_data.db.session import make_session
 from align_data.settings import ARTICLE_MAIN_KEYS
+from align_data.sources.utils import merge_dicts
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,12 +71,13 @@ class AlignmentDataset:
             article.authors = ",".join(article.authors[:1024].split(",")[:-1])
         return article
 
-    def make_data_entry(self, data: Dict[str, Any], **kwargs) -> Article:
-        data = dict(data, **kwargs)
+    def make_data_entry(self, data, **kwargs) -> Article:
+        data = merge_dicts(data, kwargs)
         summary = data.pop("summary", None)
         authors = data.pop("authors", [])
 
         article = Article(
+            pinecone_update_required=True,
             meta={k: v for k, v in data.items() if k not in ARTICLE_MAIN_KEYS and v is not None},
             **{k: v for k, v in data.items() if k in ARTICLE_MAIN_KEYS},
         )
@@ -158,14 +161,9 @@ class AlignmentDataset:
                 # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
                 # duplicates. The bad thing is that this could potentially return a massive amount of data if there
                 # are lots of items.
-                return set(
-                    session.scalars(select(getattr(Article, self.done_key))).all()
-                )
-            return {
-                meta[self.done_key]
-                for meta in session.scalars(select(Article.meta)).all()
-                if isinstance(meta, JSON) and meta.get(self.done_key)
-            }
+                return set(session.scalars(select(getattr(Article, self.done_key))).all())
+            # TODO: Properly handle this - it should create a proper SQL JSON select
+            return {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
 
     def not_processed(self, item):
         # NOTE: `self._outputted_items` reads in all items. Which could potentially be a lot. If this starts to
@@ -209,7 +207,7 @@ class AlignmentDataset:
             if self.COOLDOWN:
                 time.sleep(self.COOLDOWN)
 
-    def process_entry(self, entry) -> Optional[Article]:
+    def process_entry(self, entry) -> Article | None:
         """Process a single entry."""
         raise NotImplementedError
 
@@ -218,7 +216,7 @@ class AlignmentDataset:
         return date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     @staticmethod
-    def _get_published_date(date: str) -> Optional[datetime]:
+    def _get_published_date(date) -> datetime | None:
         try:
             # Totally ignore any timezone info, forcing everything to UTC
             return parse(str(date)).replace(tzinfo=pytz.UTC)
@@ -234,7 +232,11 @@ class SummaryDataset(AlignmentDataset):
 
         urls = map(self.get_item_key, items)
         with make_session() as session:
-            articles = session.query(Article).options(joinedload(Article.summaries)).filter(Article.url.in_(urls))
+            articles = (
+                session.query(Article)
+                .options(joinedload(Article.summaries))
+                .filter(Article.url.in_(urls))
+            )
             self.articles = {a.url: a for a in articles if a.url}
 
         return items
@@ -244,9 +246,7 @@ class SummaryDataset(AlignmentDataset):
         with make_session() as session:
             return set(
                 session.scalars(
-                    select(Article.url)
-                    .join(Article.summaries)
-                    .filter(Summary.source == self.name)
+                    select(Article.url).join(Article.summaries).filter(Summary.source == self.name)
                 )
             )
 
@@ -257,3 +257,40 @@ class SummaryDataset(AlignmentDataset):
             return item
 
         session.add_all(map(merge, batch))
+
+
+@dataclass
+class MultiDataset(AlignmentDataset):
+
+    datasets: List[AlignmentDataset]
+
+    @property
+    def names(self):
+        return [dataset.name for dataset in self.datasets]
+
+    @property
+    def items_list(self) -> Iterable:
+        """Returns a collection of items to be processed."""
+        return ((item, dataset) for dataset in self.datasets for item in dataset.items_list)
+
+    def setup(self):
+        for dataset in self.datasets:
+            dataset.setup()
+
+    def get_item_key(self, entry):
+        item, dataset = entry
+        return dataset.get_item_key(item)
+
+    def process_entry(self, entry) -> Optional[Article]:
+        item, dataset = entry
+        article = dataset.process_entry(item)
+        article.add_meta('initial_source', article.source)
+        article.source = self.name
+
+    def fetch_entries(self):
+        for dataset in self.datasets:
+            for article in dataset.fetch_entries():
+                if article.source != self.name:
+                    article.add_meta('initial_source', article.source)
+                    article.source = self.name
+                yield article

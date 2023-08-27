@@ -93,7 +93,7 @@ def error(error_msg: str):
     def func(url: str) -> Dict[str, Any]:
         if error_msg:
             logger.error(error_msg)
-        return {'error': error_msg, 'source_url': url}
+        return {"error": error_msg, "source_url": url}
 
     return func
 
@@ -160,17 +160,17 @@ HTML_PARSERS: Dict[str, ParserFunc] = {
     "mediangroup.org": element_extractor("div.entry-content"),
     "www.alexirpan.com": element_extractor("article"),
     "www.incompleteideas.net": element_extractor("body"),
-    "ai-alignment.com": MediumParser(name='html', url='ai-alignment.com'),
+    "ai-alignment.com": MediumParser(name="html", url="ai-alignment.com"),
     "aisrp.org": element_extractor("article"),
     "bounded-regret.ghost.io": element_extractor("div.post-content"),
     "carnegieendowment.org": element_extractor(
         "div.article-body", remove=[".no-print", ".related-pubs"]
     ),
-    "casparoesterheld.com": element_extractor(
-        ".entry-content", remove=["div.sharedaddy"]
-    ),
+    "casparoesterheld.com": element_extractor(".entry-content", remove=["div.sharedaddy"]),
     "cullenokeefe.com": element_extractor("div.sqs-block-content"),
-    "deepmindsafetyresearch.medium.com": MediumParser(name='html', url='deepmindsafetyresearch.medium.com'),
+    "deepmindsafetyresearch.medium.com": MediumParser(
+        name="html", url="deepmindsafetyresearch.medium.com"
+    ),
     "docs.google.com": google_doc,
     "docs.microsoft.com": element_extractor("div.content"),
     "digichina.stanford.edu": element_extractor("div.h_editor-content"),
@@ -185,7 +185,7 @@ HTML_PARSERS: Dict[str, ParserFunc] = {
     "link.springer.com": element_extractor("article.c-article-body"),
     "longtermrisk.org": element_extractor("div.entry-content"),
     "lukemuehlhauser.com": element_extractor("div.entry-content"),
-    "medium.com": MediumParser(name='html', url='medium.com'),
+    "medium.com": MediumParser(name="html", url="medium.com"),
     "openai.com": element_extractor("#content"),
     "ought.org": element_extractor("div.BlogPostBodyContainer"),
     "sideways-view.com": element_extractor("article", remove=["header"]),
@@ -200,10 +200,8 @@ HTML_PARSERS: Dict[str, ParserFunc] = {
     ),
     "theconversation.com": element_extractor("div.content-body"),
     "thegradient.pub": element_extractor("div.c-content"),
-    "towardsdatascience.com": MediumParser(name='html', url='towardsdatascience.com'),
-    "unstableontology.com": element_extractor(
-        ".entry-content", remove=["div.sharedaddy"]
-    ),
+    "towardsdatascience.com": MediumParser(name="html", url="towardsdatascience.com"),
+    "unstableontology.com": element_extractor(".entry-content", remove=["div.sharedaddy"]),
     "waitbutwhy.com": element_extractor("article", remove=[".entry-header"]),
     "weightagnostic.github.io": element_extractor(
         "dt-article", remove=["#authors_section", "dt-byline"]
@@ -211,9 +209,7 @@ HTML_PARSERS: Dict[str, ParserFunc] = {
     "cnas.org": element_extractor("#mainbar-toc"),
     "econlib.org": element_extractor("div.post-content"),
     "humanityplus.org": element_extractor("div.content"),
-    "gleech.org": element_extractor(
-        "article.post-content", remove=["center", "div.accordion"]
-    ),
+    "gleech.org": element_extractor("article.post-content", remove=["center", "div.accordion"]),
     "ibm.com": element_extractor("div:has(> p)"),  # IBM's HTML is really ugly...
     "microsoft.com": element_extractor("div.content-container"),
     "mdpi.com": element_extractor(
@@ -289,9 +285,7 @@ PDF_PARSERS: Dict[str, ParserFunc] = {
     "jstor.org": doi_getter,
     "ri.cmu.edu": get_pdf_from_page("a.pub-link"),
     "risksciences.ucla.edu": get_pdf_from_page('a:-soup-contains("Download")'),
-    "ssrn.com": get_pdf_from_page(
-        '.abstract-buttons a.button-link:-soup-contains("Download")'
-    ),
+    "ssrn.com": get_pdf_from_page('.abstract-buttons a.button-link:-soup-contains("Download")'),
     "yjolt.org": get_pdf_from_page("span.file a"),
 }
 
@@ -320,7 +314,7 @@ def item_metadata(url: str) -> Dict[str, Any]:
         # there is a link to a pdf on it
         if parser := HTML_PARSERS.get(domain):
             res = parser(url)
-            if res and 'error' not in res:
+            if res and "error" not in res:
                 # Proper contents were found on the page, so use them
                 return res
 
@@ -338,7 +332,9 @@ def item_metadata(url: str) -> Dict[str, Any]:
             return {"error": f"No domain handler defined for {domain}"}
         return {"error": "could not parse url"}
     elif content_type & {"application/octet-stream", "application/pdf"}:
-        # this looks like it could be a pdf - try to download it as one
+        if domain == "arxiv.org":
+            return fetch_arxiv(url)
+        # just download it as a pdf
         return fetch_pdf(url)
     elif content_type & {"application/epub+zip", "application/epub"}:
         # it looks like an ebook. Assume it's fine.

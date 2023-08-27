@@ -1,9 +1,10 @@
+from align_data.common.alignment_dataset import MultiDataset
 from align_data.sources.youtube.youtube import (
     YouTubeChannelDataset,
     YouTubePlaylistDataset,
 )
 
-YOUTUBE_REGISTRY = [
+YOUTUBE_DATASETS = [
     YouTubeChannelDataset(
         name="rob_miles_ai_safety",
         channel_id="UCLB7AzTwc6VFZrBsO2ucBMg",
@@ -39,4 +40,9 @@ YOUTUBE_REGISTRY = [
             "PLTYHZYmxohXpn5uf8JZ2OouB1PsDJAk-x",
         ],
     ),
+]
+
+
+YOUTUBE_REGISTRY = [
+    MultiDataset(name='youtube', datasets=YOUTUBE_DATASETS),
 ]

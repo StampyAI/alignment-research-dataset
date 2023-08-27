@@ -37,8 +37,9 @@ class ReplacerDataset(AlignmentDataset):
     def items_list(self) -> List[Item]:
         df = pd.read_csv(self.csv_path, delimiter=self.delimiter)
         self.csv_items = [
-            item for item in df.itertuples()
-            if self.maybe(item, 'id') or self.maybe(item, 'hash_id')
+            item
+            for item in df.itertuples()
+            if self.maybe(item, "id") or self.maybe(item, "hash_id")
         ]
         by_id = {id: item for item in self.csv_items if (id := self.maybe(item, 'id'))}
         by_hash_id = {hash_id: item for item in self.csv_items if (hash_id := self.maybe(item, 'hash_id'))}
@@ -53,39 +54,39 @@ class ReplacerDataset(AlignmentDataset):
 
     @property
     def _query_items(self) -> Select[Tuple[Article]]:
-        ids = [i.id for i in self.csv_items if self.maybe(i, 'id')]
-        hash_ids = [i.hash_id for i in self.csv_items if self.maybe(i, 'hash_id')]
+        ids = [i.id for i in self.csv_items if self.maybe(i, "id")]
+        hash_ids = [i.hash_id for i in self.csv_items if self.maybe(i, "hash_id")]
         return select(Article).where(or_(Article.id.in_(hash_ids), Article._id.in_(ids)))
 
     def update_text(self, updates: NamedTuple, article: Article):
         # If the url is the same as it was before, and there isn't a source url provided, assume that the
         # previous text is still valid
-        if article.url == self.maybe(updates, 'url') and not self.maybe(updates, 'source_url'):
+        if article.url == self.maybe(updates, "url") and not self.maybe(updates, "source_url"):
             return
 
         # If no url found, then don't bother fetching the text - assume it was successfully fetched previously
-        url = self.maybe(updates, 'source_url') or self.maybe(updates, 'url')
+        url = self.maybe(updates, "source_url") or self.maybe(updates, "url")
         if not url:
             return
 
         if article.url != url:
-            article.add_meta('source_url', url)
+            article.add_meta("source_url", url)
 
         metadata = item_metadata(url)
         # Only change the text if it could be fetched - better to have outdated values than none
-        if metadata.get('text'):
-            article.text = metadata['text']
-        article.status = metadata.get('error')
+        if metadata.get("text"):
+            article.text = metadata["text"]
+        article.status = metadata.get("error")
 
     def process_entry(self, item: Item) -> Article:
         updates, article = item
 
-        for key in ['url', 'title', 'source', 'authors', 'comment', 'confidence']:
+        for key in ["url", "title", "source", "authors", "comment", "confidence"]:
             value = self.maybe(updates, key)
             if value and getattr(article, key, None) != value:
                 setattr(article, key, value)
 
-        if date := getattr(updates, 'date_published', None):
+        if date := getattr(updates, "date_published", None):
             article.date_published = self._get_published_date(date)
 
         self.update_text(updates, article)

@@ -32,43 +32,18 @@ on:
         options:
           - all
           - agentmodels
-          - aiimpacts
-          - aisafety.camp
+          - agisf
           - aisafety.info
-          - ai_alignment_playlist
-          - ai_explained
-          - ai_safety_talks
-          - ai_safety_reading_group
-          - ai_tech_tu_delft
           - alignmentforum
           - arbital
           - arxiv
-          - carado.moe
-          - cold_takes
-          - deepmind_blog
-          - deepmind_technical_blog
+          - blogs
           - distill
           - eaforum
-          - ebooks
-          - eleuther.ai
-          - gdocs
-          - generative.ink
-          - gwern_blog
-          - html_articles
-          - importai
           - indices
-          - jsteinhardt_blog
           - lesswrong
-          - markdown
-          - miri
-          - ml_safety_newsletter
-          - openai.research
-          - pdfs
-          - rob_miles_ai_safety
           - special_docs
-          - vkrakovna_blog
-          - yudkowsky_blog
-          - xmls
+          - youtube
 
 jobs:
   build-dataset:
@@ -78,28 +53,28 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Setup Python environment
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
+    # - name: Setup Python environment
+    #   uses: actions/setup-python@v2
+    #   with:
+    #     python-version: '3.x'
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt;
-        python -c 'import nltk; nltk.download("punkt")'
+    # - name: Install dependencies
+    #   run: |
+    #     pip install -r requirements.txt;
+    #     python -c 'import nltk; nltk.download("punkt")'
 
-    - name: Process dataset
-      env:
-        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
-        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
-        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
-        ARD_DB_NAME: alignment_research_dataset
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
-        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY || inputs.pinecone_api_key }}
-        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT || inputs.pinecone_environment }}
-      run: |
-        if [ "${{ inputs.datasource }}" = "all" ]; then
-          python main.py pinecone_update_all
-        else
-          python main.py pinecone_update ${{ inputs.datasource }}
-        fi
+    # - name: Process dataset
+    #   env:
+    #     ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
+    #     ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
+    #     ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
+    #     ARD_DB_NAME: alignment_research_dataset
+    #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
+    #     PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY || inputs.pinecone_api_key }}
+    #     PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT || inputs.pinecone_environment }}
+    #   run: |
+    #     if [ "${{ inputs.datasource }}" = "all" ]; then
+    #       python main.py pinecone_update_all
+    #     else
+    #       python main.py pinecone_update ${{ inputs.datasource }}
+    #     fi

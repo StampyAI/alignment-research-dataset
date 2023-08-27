@@ -158,19 +158,19 @@ def fetch_markdown(file_id: str) -> Dict[str, str]:
             "source_type": "markdown",
         }
     except Exception as e:
-        return {'error': str(e)}
+        return {"error": str(e)}
 
 
 def parse_grobid(contents: str | bytes) -> Dict[str, Any]:
     if isinstance(contents, bytes):
         contents = contents.decode('utf-8')
     doc_dict = grobid_tei_xml.parse_document_xml(contents).to_dict()
-    authors: List[str] = [author["full_name"].strip(' !') for author in doc_dict.get("header", {}).get("authors", [])]
+    authors: List[str] = [author["full_name"].strip(" !") for author in doc_dict.get("header", {}).get("authors", [])]
 
-    if not doc_dict.get('body'):
+    if not doc_dict.get("body"):
         return {
-            'error': 'No contents in XML file',
-            'source_type': 'xml',
+            "error": "No contents in XML file",
+            "source_type": "xml",
         }
 
     return {
@@ -183,21 +183,21 @@ def parse_grobid(contents: str | bytes) -> Dict[str, Any]:
 
 
 def get_content_type(res: requests.Response) -> Set[str]:
-    header = res.headers.get('Content-Type') or ''
-    parts = [c_type.strip().lower() for c_type in header.split(';')]
+    header = res.headers.get("Content-Type") or ""
+    parts = [c_type.strip().lower() for c_type in header.split(";")]
     return set(filter(None, parts))
 
 
 def extract_gdrive_contents(link: str) -> Dict[str, Any]:
-    file_id = link.split('/')[-2]
-    url = f'https://drive.google.com/uc?id={file_id}'
-    res = fetch(url, 'head')
+    file_id = link.split("/")[-2]
+    url = f"https://drive.google.com/uc?id={file_id}"
+    res = fetch(url, "head")
     if res.status_code == 403:
-        logger.error('Could not fetch the file at %s - 403 returned', link)
-        return {'error': 'Could not read file from google drive - forbidden'}
+        logger.error("Could not fetch the file at %s - 403 returned", link)
+        return {"error": "Could not read file from google drive - forbidden"}
     if res.status_code >= 400:
-        logger.error('Could not fetch the file at %s - are you sure that link is correct?', link)
-        return {'error': 'Could not read file from google drive'}
+        logger.error("Could not fetch the file at %s - are you sure that link is correct?", link)
+        return {"error": "Could not read file from google drive"}
 
     result: Dict[str, Any] = {
         'source_url': link,
@@ -206,16 +206,16 @@ def extract_gdrive_contents(link: str) -> Dict[str, Any]:
 
     content_type = get_content_type(res)
     if not content_type:
-        result['error'] = 'no content type'
-    elif content_type & {'application/octet-stream', 'application/pdf'}:
+        result["error"] = "no content type"
+    elif content_type & {"application/octet-stream", "application/pdf"}:
         result.update(fetch_pdf(url))
-    elif content_type & {'text/markdown'}:
+    elif content_type & {"text/markdown"}:
         result.update(fetch_markdown(file_id))
-    elif content_type & {'application/epub+zip', 'application/epub'}:
-        result['source_type'] = 'ebook'
-    elif content_type & {'text/html'}:
+    elif content_type & {"application/epub+zip", "application/epub"}:
+        result["source_type"] = "ebook"
+    elif content_type & {"text/html"}:
         res = fetch(url)
-        if 'Google Drive - Virus scan warning' in res.text:
+        if "Google Drive - Virus scan warning" in res.text:
             soup = BeautifulSoup(res.content, "html.parser")
             
             form_tag = soup.select_one('form')
@@ -229,30 +229,35 @@ def extract_gdrive_contents(link: str) -> Dict[str, Any]:
             res = fetch(form_action_url)
 
         content_type = get_content_type(res)
-        if content_type & {'text/xml'}:
+        if content_type & {"text/xml"}:
             result.update(parse_grobid(res.content))
-        elif content_type & {'text/html'}:
+        elif content_type & {"text/html"}:
             soup = BeautifulSoup(res.content, "html.parser")
-            result.update({
-                'text': MarkdownConverter().convert_soup(soup.select_one('body')).strip(),
-                'source_type': 'html',
-            })
+            result.update(
+                {
+                    "text": MarkdownConverter().convert_soup(soup.select_one("body")).strip(),
+                    "source_type": "html",
+                }
+            )
         else:
-            result['error'] = f'unknown content type: {content_type}'
+            result["error"] = f"unknown content type: {content_type}"
     else:
-        result['error'] = f'unknown content type: {content_type}'
+        result["error"] = f"unknown content type: {content_type}"
 
     return result
 
 
 def google_doc(url: str) -> Dict[str, Any]:
     """Fetch the contents of the given gdoc url as markdown."""
-    res = re.search(r'https://docs.google.com/document/(?:u/)?(?:0/)?d/(.*?)/', url)
+    res = re.search(r"https://docs.google.com/document/(?:u/)?(?:0/)?d/(.*?)/", url)
     if not res:
         return {}
 
     doc_id = res.group(1)
-    body = fetch_element(f'https://docs.google.com/document/d/{doc_id}/export?format=html', 'body')
+    body = fetch_element(f"https://docs.google.com/document/d/{doc_id}/export?format=html", "body")
     if body:
-        return {'text': MarkdownConverter().convert_soup(body).strip(), 'source_url': url}
+        return {
+            "text": MarkdownConverter().convert_soup(body).strip(),
+            "source_url": url,
+        }
     return {}

@@ -75,7 +75,7 @@ class HTMLDataset(AlignmentDataset):
     def process_entry(self, article: Tag) -> Article:
         article_url = self.get_item_key(article)
         contents = self.get_contents(article_url)
-        if not contents.get('text'):
+        if not contents.get("text"):
             return None
 
         return self.make_data_entry(contents)
@@ -149,9 +149,12 @@ class RSSDataset(HTMLDataset):
             soup=soup,
         )
 
+    def _extract_item_url(self, item) -> str | None:
+        return item.get('link')
+
     @property
     def items_list(self):
         logger.info(f"Fetching entries from {self.feed_url}")
         feed = feedparser.parse(self.feed_url)
-        self.items = {item["link"]: item for item in feed["entries"]}
+        self.items = {url: item for item in feed["entries"] if (url := self._extract_item_url(item))}
         return list(self.items.keys())

@@ -1,5 +1,6 @@
 import align_data.sources.arbital as arbital
 import align_data.sources.articles as articles
+import align_data.sources.agisf as agisf
 import align_data.sources.blogs as blogs
 import align_data.sources.ebooks as ebooks
 import align_data.sources.greaterwrong as greaterwrong
@@ -11,6 +12,7 @@ import align_data.sources.youtube as youtube
 DATASET_REGISTRY = (
     arbital.ARBITAL_REGISTRY
     + articles.ARTICLES_REGISTRY
+    + agisf.AGISF_DATASETS
     + blogs.BLOG_REGISTRY
     + ebooks.EBOOK_REGISTRY
     + greaterwrong.GREATERWRONG_REGISTRY
