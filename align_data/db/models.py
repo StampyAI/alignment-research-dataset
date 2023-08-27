@@ -77,7 +77,7 @@ class Article(Base):
 
     def generate_id_string(self) -> bytes:
         return "".join(
-            re.sub(r'[^a-zA-Z0-9\s]', '', str(getattr(self, field))).strip().lower()
+            re.sub(r"[^a-zA-Z0-9\s]", "", str(getattr(self, field))).strip().lower()
             for field in self.__id_fields
         ).encode("utf-8")
 
@@ -181,12 +181,13 @@ class Article(Base):
 
     @classmethod
     def check_for_changes(cls, mapper, connection, target):
+        if not target.is_valid:
+            return
         monitored_attributes = list(PineconeMetadata.__annotations__.keys())
         monitored_attributes.remove("hash_id")
 
-        if target.is_valid:
-            changed = any(get_history(target, attr).has_changes() for attr in monitored_attributes)
-            target.pinecone_update_required = changed
+        changed = any(get_history(target, attr).has_changes() for attr in monitored_attributes)
+        target.pinecone_update_required = changed
 
     def to_dict(self) -> Dict[str, Any]:
         if date := self.date_published:
