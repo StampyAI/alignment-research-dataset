@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 from urllib.parse import urlparse
 from pathlib import Path
 from typing import Dict, Any
+from dateutil.parser import ParserError, parse
 
 import requests
 from PyPDF2 import PdfReader
@@ -53,7 +54,7 @@ def read_pdf(filename: Path) -> str | None:
 
 
 @with_retry(times=3)
-def fetch_pdf(link: str) -> Dict[str, Any]:
+def fetch_pdf(link: str) -> Dict[str, str]:
     """Return the contents of the pdf file at `link` as a markdown string.
 
     :param str link: the URL to check for a pdf file
@@ -66,13 +67,10 @@ def fetch_pdf(link: str) -> Dict[str, Any]:
         )
         return {"error": "Could not read pdf file"}
 
-    content_type = {
-        c_type.strip().lower() for c_type in res.headers.get("Content-Type", "").split(";")
-    }
+    content_type = {c_type.strip().lower() for c_type in res.headers.get("Content-Type").split(";")}
     if not content_type & {"application/octet-stream", "application/pdf"}:
         return {
             "error": f"Wrong content type retrieved: {content_type} - {link}",
-            "contents": res.content.decode('utf-8'),
         }
 
     try:
@@ -114,9 +112,7 @@ def get_arxiv_link(doi: str) -> str | None:
         if val.get("type", "").upper() == "URL"
     ]
 
-    if not vals:
-        return None
-    return vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
+    return vals and vals[0]["data"]["value"].replace("/abs/", "/pdf/") + ".pdf"
 
 
 def get_doi(doi: str) -> Dict[str, Any]:
@@ -145,7 +141,7 @@ def doi_getter(url: str) -> Dict[str, Any]:
 def parse_vanity(url: str) -> Dict[str, Any]:
     contents = fetch_element(url, "article")
     if not contents:
-        return {'error': 'Could not fetch from arxiv vanity'}
+        return {"error": "Could not fetch from arxiv vanity"}
 
     selected_title = contents.select_one("h1.ltx_title")
     title = selected_title.text if selected_title else None
@@ -163,7 +159,10 @@ def parse_vanity(url: str) -> Dict[str, Any]:
     ]
 
     selected_date = contents.select_one("div.ltx_dates")
-    date_published = selected_date.text.strip("()") if selected_date else None
+    try:
+        date_published = parse(selected_date.text.strip("()")) if selected_date else None
+    except ParserError:
+        date_published = None
 
     text = "\n\n".join(
         MarkdownConverter().convert_soup(elem).strip()
