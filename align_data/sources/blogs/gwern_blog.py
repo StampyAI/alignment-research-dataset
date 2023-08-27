@@ -16,7 +16,7 @@ class GwernBlog(HTMLDataset):
     COOLDOWN: int = 1
     done_key = "url"
 
-    def get_item_key(self, item):
+    def get_item_key(self, item: str) -> str:
         return item
 
     @property

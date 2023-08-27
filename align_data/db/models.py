@@ -1,11 +1,11 @@
 import re
 import json
+import re
 import logging
 import pytz
 import hashlib
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
 
 from sqlalchemy import (
     JSON,
@@ -76,15 +76,16 @@ class Article(Base):
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
 
     def generate_id_string(self) -> bytes:
-        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
+        return "".join(
+            re.sub(r'[^a-zA-Z0-9\s]', '', str(getattr(self, field))).strip().lower()
+            for field in self.__id_fields
+        ).encode("utf-8")
 
     @property
     def __id_fields(self) -> List[str]:
-        if self.source == "aisafety.info":
-            return ["url"]
         if self.source in ["importai", "ml_safety_newsletter", "alignment_newsletter"]:
-            return ["url", "title", "source"]
-        return ["url", "title"]
+            return ["url", "source"]
+        return ["url"]
 
     @property
     def missing_fields(self) -> List[str]:
@@ -110,7 +111,7 @@ class Article(Base):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
         assert not missing, f"Entry is missing the following fields: {missing}"
 
-    def update(self, other):
+    def update(self, other: "Article") -> "Article":
         for field in self.__table__.columns.keys():
             if field not in ["id", "hash_id", "metadata"]:
                 new_value = getattr(other, field)
@@ -130,7 +131,7 @@ class Article(Base):
         id_string = self.generate_id_string()
         self.id = hashlib.md5(id_string).hexdigest()
 
-    def add_meta(self, key: str, val: Any):
+    def add_meta(self, key: str, val):
         if self.meta is None:
             self.meta = {}
         self.meta[key] = val
@@ -166,7 +167,7 @@ class Article(Base):
         )
 
     @classmethod
-    def before_write(cls, _mapper, _connection, target):
+    def before_write(cls, _mapper, _connection, target: "Article"):
         target.verify_id_fields()
 
         if not target.status and target.missing_fields:

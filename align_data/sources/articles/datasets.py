@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Iterable
 
 import pandas as pd
 from gdown.download import download
@@ -22,7 +22,7 @@ from align_data.sources.articles.parsers import (
 from align_data.sources.articles.pdf import read_pdf
 from align_data.sources.arxiv_papers import (
     fetch_arxiv,
-    canonical_url as arxiv_cannonical_url,
+    canonical_url as arxiv_canonical_url,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,11 +43,11 @@ class SpreadsheetDataset(AlignmentDataset):
             return None
         return val
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str | None:
         return self.maybe(item, self.done_key)
 
     @property
-    def items_list(self):
+    def items_list(self) -> Iterable[tuple]:
         url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}"
         logger.info(f"Fetching {url}")
         df = pd.read_csv(url)
@@ -63,7 +63,7 @@ class SpreadsheetDataset(AlignmentDataset):
             return []
         return [author.strip() for author in item.authors.split(",") if author.strip()]
 
-    def process_entry(self, item):
+    def process_entry(self, item: tuple):
         text = self._get_text(item)
         if not text:
             logger.error("Could not get text for %s - skipping for now", item.title)
@@ -116,17 +116,26 @@ class SpecialDocs(SpreadsheetDataset):
             },
         )
 
-    def not_processed(self, item):
+
+    def not_processed(self, item: tuple) -> bool:
+        item_key = self.get_item_key(item)
         url = self.maybe(item, "url")
         source_url = self.maybe(item, "source_url")
 
-        return (
-            self.get_item_key(item) not in self._outputted_items
-            and url not in self._outputted_items
-            and source_url not in self._outputted_items
-            and (not url or arxiv_cannonical_url(url) not in self._outputted_items)
-            and (not source_url or arxiv_cannonical_url(source_url) not in self._outputted_items)
-        )
+        if item_key and self._normalize_url(item_key) in self._outputted_items:
+            return False
+        
+        for given_url in [url, source_url]:
+            if given_url:
+                norm_url = self._normalize_url(given_url)
+                if norm_url in self._outputted_items:
+                    return False
+
+                norm_canonical_url = self._normalize_url(arxiv_canonical_url(given_url))
+                if norm_canonical_url in self._outputted_items:
+                    return False
+
+        return True
 
     def process_entry(self, item):
         if ArxivPapers.is_arxiv(item.url):
