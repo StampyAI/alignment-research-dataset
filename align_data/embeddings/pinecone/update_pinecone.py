@@ -54,7 +54,7 @@ class PineconeUpdater:
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
             articles_to_update_stream = get_pinecone_articles_by_ids(
-                session, custom_sources, force_update, hash_ids
+                session, hash_ids, custom_sources, force_update
             )
             for batch in self.batch_entries(articles_to_update_stream):
                 self.save_batch(session, batch)

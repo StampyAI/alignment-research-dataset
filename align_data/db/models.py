@@ -153,14 +153,7 @@ class Article(Base):
             ]
         )
 
-        # URL validation
-        try:
-            result = urlparse(self.url)
-            url_check = all([result.scheme in ["http", "https"], result.netloc])
-        except:
-            url_check = False
-
-        return basic_check and url_check
+        return basic_check
 
     @is_valid.expression
     def is_valid(cls) -> bool:
@@ -187,14 +180,12 @@ class Article(Base):
 
     @classmethod
     def check_for_changes(cls, mapper, connection, target):
-        # Attributes we want to monitor for changes
         monitored_attributes = list(PineconeMetadata.__annotations__.keys())
         monitored_attributes.remove("hash_id")
 
-        changed = any(get_history(target, attr).has_changes() for attr in monitored_attributes)
-
-        if changed and target.is_valid:
-            target.pinecone_update_required = True
+        if target.is_valid:
+            changed = any(get_history(target, attr).has_changes() for attr in monitored_attributes)
+            target.pinecone_update_required = changed
 
     def to_dict(self) -> Dict[str, Any]:
         if date := self.date_published:
