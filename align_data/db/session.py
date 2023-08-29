@@ -22,11 +22,11 @@ def make_session(auto_commit=False):
             session.commit()
 
 
-def get_pinecone(
+def get_pinecone_articles(
     session: Session,
     force_update: bool = False,
 ):
-    yield from (
+    return (
         session.query(Article)
         .filter(or_(Article.pinecone_update_required.is_(True), force_update))
         .filter(Article.is_valid)
@@ -34,12 +34,12 @@ def get_pinecone(
     )
 
 
-def get_pinecone_from_sources(
+def get_pinecone_articles_by_sources(
     session: Session,
     custom_sources: List[str],
     force_update: bool = False,
 ):
-    yield from get_pinecone(session, force_update).filter(Article.source.in_(custom_sources))
+    return get_pinecone_articles(session, force_update).filter(Article.source.in_(custom_sources))
 
 
 def get_pinecone_articles_by_ids(
@@ -47,8 +47,7 @@ def get_pinecone_articles_by_ids(
     hash_ids: List[int],
     force_update: bool = False,
 ):
-    """Yield Pinecone entries that require an update and match the given IDs."""
-    yield from get_pinecone_from_sources(session, force_update).filter(Article.id.in_(hash_ids))
+    return get_pinecone_articles(session, force_update).filter(Article.id.in_(hash_ids))
 
 
 def get_all_valid_article_ids(session: Session) -> List[str]:

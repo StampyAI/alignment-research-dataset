@@ -143,9 +143,7 @@ class AlignmentDataset:
 
         :param str hash_ids: space-separated list of article IDs.
         """
-        names = ALL_DATASETS
-
-        PineconeUpdater().update_articles_by_ids(names, hash_ids, force_update)
+        PineconeUpdater().update_articles_by_ids(hash_ids, force_update)
 
     def train_finetuning_layer(self) -> None:
         """
