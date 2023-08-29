@@ -10,8 +10,8 @@ from align_data.embeddings.embedding_utils import get_embeddings
 from align_data.db.models import Article
 from align_data.db.session import (
     make_session,
-    get_pinecone_from_sources_query,
-    get_pinecone_articles_by_ids_query,
+    get_pinecone_articles_by_sources,
+    get_pinecone_articles_by_ids,
 )
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
 from align_data.embeddings.pinecone.pinecone_models import (
@@ -42,7 +42,7 @@ class PineconeUpdater:
         :param custom_sources: List of sources to update.
         """
         with make_session() as session:
-            articles_to_update_query = get_pinecone_from_sources_query(
+            articles_to_update_query = get_pinecone_articles_by_sources(
                 session, custom_sources, force_update
             )
             for batch in self.batch_entries(articles_to_update_query):
@@ -53,7 +53,7 @@ class PineconeUpdater:
     ):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
-            articles_to_update_query = get_pinecone_articles_by_ids_query(
+            articles_to_update_query = get_pinecone_articles_by_ids(
                 session, hash_ids, custom_sources, force_update
             )
             for batch in self.batch_entries(articles_to_update_query):
