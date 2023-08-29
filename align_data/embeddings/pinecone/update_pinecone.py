@@ -42,10 +42,10 @@ class PineconeUpdater:
         :param custom_sources: List of sources to update.
         """
         with make_session() as session:
-            articles_to_update_query = get_pinecone_articles_by_sources(
+            articles_to_update = get_pinecone_articles_by_sources(
                 session, custom_sources, force_update
             )
-            for batch in self.batch_entries(articles_to_update_query):
+            for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
 
     def update_articles_by_ids(
@@ -53,10 +53,10 @@ class PineconeUpdater:
     ):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
-            articles_to_update_query = get_pinecone_articles_by_ids(
+            articles_to_update = get_pinecone_articles_by_ids(
                 session, hash_ids, custom_sources, force_update
             )
-            for batch in self.batch_entries(articles_to_update_query):
+            for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
 
     def save_batch(self, session: Session, batch: List[Tuple[Article, PineconeEntry]]):
