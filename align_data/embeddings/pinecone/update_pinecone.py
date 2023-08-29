@@ -10,8 +10,8 @@ from align_data.embeddings.embedding_utils import get_embeddings
 from align_data.db.models import Article
 from align_data.db.session import (
     make_session,
-    get_pinecone_articles_to_update,
-    get_pinecone_articles_by_ids,
+    get_pinecone_from_sources_query,
+    get_pinecone_articles_by_ids_query,
 )
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
 from align_data.embeddings.pinecone.pinecone_models import (
@@ -42,10 +42,10 @@ class PineconeUpdater:
         :param custom_sources: List of sources to update.
         """
         with make_session() as session:
-            articles_to_update_stream = get_pinecone_articles_to_update(
+            articles_to_update_query = get_pinecone_from_sources_query(
                 session, custom_sources, force_update
             )
-            for batch in self.batch_entries(articles_to_update_stream):
+            for batch in self.batch_entries(articles_to_update_query):
                 self.save_batch(session, batch)
 
     def update_articles_by_ids(
@@ -53,10 +53,10 @@ class PineconeUpdater:
     ):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
-            articles_to_update_stream = get_pinecone_articles_by_ids(
+            articles_to_update_query = get_pinecone_articles_by_ids_query(
                 session, hash_ids, custom_sources, force_update
             )
-            for batch in self.batch_entries(articles_to_update_stream):
+            for batch in self.batch_entries(articles_to_update_query):
                 self.save_batch(session, batch)
 
     def save_batch(self, session: Session, batch: List[Tuple[Article, PineconeEntry]]):
@@ -108,6 +108,7 @@ class PineconeUpdater:
                 authors=[author.strip() for author in article.authors.split(",") if author.strip()],
                 text_chunks=text_chunks,
                 embeddings=embeddings,
+                confidence=article.confidence,
             )
         except (
             ValueError,
@@ -135,7 +136,11 @@ def get_text_chunks(
     authors = get_authors_str(authors_lst)
 
     signature = f"Title: {title}; Author(s): {authors}."
+
     text_chunks = text_splitter.split_text(article.text)
+    for summary in article.summaries:
+        text_chunks += text_splitter.split_text(summary.text)
+
     return [f'###{signature}###\n"""{text_chunk}"""' for text_chunk in text_chunks]
 
 
