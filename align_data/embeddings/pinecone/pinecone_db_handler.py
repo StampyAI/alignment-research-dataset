@@ -100,6 +100,10 @@ class PineconeDB:
         **kwargs,
     ) -> List[ScoredVector]:
         query_vector = get_embedding(query)[0]
+        if query_vector is None:
+            print("The query is invalid.")
+            return []
+
         return self.query_vector(
             query=query_vector,
             top_k=top_k,

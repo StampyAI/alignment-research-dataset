@@ -55,7 +55,7 @@ class PineconeUpdater:
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
 
-    def save_batch(self, session: Session, batch: List[Tuple[Article, PineconeEntry]]):
+    def save_batch(self, session: Session, batch: List[Tuple[Article, PineconeEntry | None]]):
         try:
             for article, pinecone_entry in batch:
                 if pinecone_entry:
