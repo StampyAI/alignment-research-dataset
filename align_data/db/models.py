@@ -214,4 +214,5 @@ class Article(Base):
 
 event.listen(Article, "before_insert", Article.before_write)
 event.listen(Article, "before_update", Article.before_write)
+event.listen(Article, "before_insert", Article.check_for_changes)
 event.listen(Article, "before_update", Article.check_for_changes)
