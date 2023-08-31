@@ -21,6 +21,8 @@ from align_data.sources.arbital.arbital import (
             "123 Some title with multiple words",
             "[Some title with multiple words](https://arbital.com/p/123)",
         ),
+        ("https://www.gwern.net/ Gwern Branwen", "[Gwern Branwen](https://www.gwern.net/)"),
+        ("toc:", "toc:"),  # `toc:` is a mysterious thing
     ),
 )
 def test_parse_arbital_link(contents, expected):

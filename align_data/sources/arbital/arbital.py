@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Page(TypedDict, total=False):
+    text: str
     likeableId: str
     likeableType: str
     title: str
@@ -35,11 +36,17 @@ def parse_arbital_link(internal_link: str) -> str:
     :rtype: str
 
     Typical format: `123 Some title` -> `[Some title](https://arbital.com/p/123)`
+    Special cases: 
+        `toc:` -> `toc:`
+        `https://www.gwern.net/ Gwern Branwen` -> `[Gwern Branwen](https://www.gwern.net/)`
     """
     page_id, *title_parts = internal_link.split(" ")
-    if not page_id:
+    if not page_id or page_id.startswith("toc:"):
         # could be a regular text bracket, ignore it
         return internal_link
+    if page_id.startswith("http"):
+        # could be a regular link, ignore it
+        return f"[{' '.join(title_parts)}]({page_id})"
     url = f"https://arbital.com/p/{page_id}"
     title = " ".join(title_parts) if title_parts else url
     return f"[{title}]({url})"
