@@ -189,7 +189,7 @@ class AlignmentDataset:
 
         return items_to_process
 
-    def fetch_entries(self):
+    def fetch_entries(self) -> Generator[Article, None, None]:
         """Get all entries to be written to the file."""
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)
