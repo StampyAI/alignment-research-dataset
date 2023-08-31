@@ -1,4 +1,4 @@
-from typing import List, Generator
+from typing import List
 import logging
 
 from contextlib import contextmanager

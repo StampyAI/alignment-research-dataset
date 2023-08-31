@@ -1,4 +1,3 @@
-import pytz
 import logging
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -6,6 +5,7 @@ from urllib.parse import urljoin
 from typing import List, Dict, Any
 import re
 
+import pytz
 import requests
 import feedparser
 from bs4 import BeautifulSoup
@@ -17,7 +17,7 @@ from align_data.common.alignment_dataset import AlignmentDataset
 logger = logging.getLogger(__name__)
 
 
-@dataclass()
+@dataclass
 class HTMLDataset(AlignmentDataset):
     """
     Fetches articles from a different blog by collecting links to articles from an index page.
@@ -34,7 +34,7 @@ class HTMLDataset(AlignmentDataset):
     source_type = "blog"
     ignored_selectors = []
 
-    def extract_authors(self, article): #TODO: make this work
+    def extract_authors(self, article):
         return self.authors
 
 

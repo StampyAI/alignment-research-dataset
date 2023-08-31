@@ -4,7 +4,7 @@ import logging
 import time
 from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Set, Iterable, Tuple, Generator
+from typing import List, Optional, Set, Iterable, Tuple, Generator
 
 import pytz
 from sqlalchemy import select, Select, JSON
@@ -189,7 +189,7 @@ class AlignmentDataset:
 
         return items_to_process
 
-    def fetch_entries(self) -> Generator[Article, None, None]:
+    def fetch_entries(self):
         """Get all entries to be written to the file."""
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)

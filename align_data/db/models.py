@@ -113,8 +113,6 @@ class Article(Base):
             if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
                 setattr(self, field, getattr(other, field))
         self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
-        # TODO: verify that this actually updates the meta column; 
-        # https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 
         if other._id:
             self._id = other._id
@@ -129,8 +127,6 @@ class Article(Base):
         if self.meta is None:
             self.meta = {}
         self.meta[key] = val
-        # TODO: verify that this actually updates the meta column; 
-        # https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 
     def append_comment(self, comment: str):
         """Appends a comment to the article.comments field. You must run session.commit() to save the comment to the database."""

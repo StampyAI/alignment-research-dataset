@@ -3,9 +3,10 @@ from collections import defaultdict, Counter
 from dataclasses import dataclass, field
 from typing import List, DefaultDict
 import logging
+from pathlib import Path
+
 import jsonlines
 from tqdm import tqdm
-from pathlib import Path
 import pylab as plt
 from nltk.tokenize import sent_tokenize, word_tokenize
 import seaborn as sns #TODO: install seaborn or fix this file
