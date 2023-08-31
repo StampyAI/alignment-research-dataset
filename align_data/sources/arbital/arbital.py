@@ -40,59 +40,77 @@ def flatten(val: Union[List[str], Tuple[str], str]) -> List[str]:
     return [val]
 
 
-def markdownify_text(current, view):
-    """Recursively parse the text parts in `view` to create a markdown AST from them.
-
-    Arbital adds some funky extra stuff to markdown. The known things are:
-    * "[summary: <contents>]" blocks to add summaries
-    * "[123 <title>]" are internal links to `<123>`
-
-    The `view` parameter should be a generator, so recursive calls can iterate over it without needing
-    to mess about with indexes etc.
-
-    :param List[str] current: the list of parsed items. Should generally be passed in as `[]`
-    :param generator(str, str) view: a generator that returns `part` and `next_part`, where `part` is the current item
-                                     and `next_part` is a lookahead
-
-    :returns: a tuple of `(<summary string>, <markdown contents>)`
+def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tuple[str, str]:
+    """
+    Recursively parse text segments from `view` to generate a markdown Abstract Syntax Tree (AST).
+    
+    This function helps in transitioning from Arbital's specific markdown extensions to standard markdown. It specifically
+    handles two main features:
+    - "[summary: <contents>]" blocks, which are used in Arbital to add summaries.
+    - "[123 <title>]" which are Arbital's internal links pointing to https://arbital.com/p/123, with link title <title>.
+    
+    Args:
+    - current (List[str]): A list of parsed items. Should generally be initialized as an empty list.
+    - view (Iterator[Tuple[str, str]]): An iterator that returns pairs of `part` and `next_part`, where `part` is the 
+        current segment and `next_part` provides a lookahead.
+    
+    Returns:
+    - Tuple[str, str]: A tuple containing:
+        1. The processed summary string.
+        2. The processed markdown content.
+    
+    Example:
+    
+    From the text: "[summary: A behaviorist [6w genie]]"
+    We get the input:
+        current = []
+        view = iter([('[', 'summary: A behaviorist '), ('summary: A behaviorist ', '['), ('[', '6w genie'), ('6w genie', ']'), (']', ']'), (']', None)])
+    The function should return:
+        ('summary: A behaviorist [genie](https://arbital.com/p/6w)', '')
+    
+    Note:
+    This function assumes that `view` provides a valid Arbital markdown sequence. Malformed sequences might lead to 
+    unexpected results.
     """
     in_link = False
+    summary = ""
 
     for part, next_part in view:
         if part == "[":
             # Recursively try to parse this new section - it's probably a link, but can be something else
-            current.append(markdownify_text([part], view))
-        elif part == "]" and next_part == "(":
-            # mark that it's now in the url part of a markdown link
-            current.append("]")
-            in_link = True
+            sum, text = markdownify_text([part], view)
+            summary += sum + "\n\n"
+            current.append(text)
+
         elif part == "]":
-            # this is the arbital summary - just join it for now, but it'll have to be handled later
-            if current[1].startswith("summary"):
-                return "".join(current[1:])
-            # if this was a TODO section, then ignore it
-            if current[1].startswith("todo"):
-                return ""
-            # Otherwise it's an arbital link
-            return parse_arbital_link(current)
+            if next_part == "(":
+                # mark that it's now in the url part of a markdown link
+                current.append(part)
+                in_link = True
+            else:
+                # this is the arbital summary - just join it for now, but it'll have to be handled later
+                if current[1].startswith("summary"):
+                    return "".join(current[1:]), ""
+                # if this was a TODO section, then ignore it
+                if current[1].startswith("todo"):
+                    return "", ""
+                # Otherwise it's an arbital link. ie.: 6w genie -> "[6w genie](https://arbital.com/p/6w)"
+                return "", parse_arbital_link(current)
+
         elif in_link and part == ")":
             # this is the end of a markdown link - just join the contents, as they're already correct
-            return "".join(current + [part])
+            return "", "".join(current + [part])
+
         elif in_link and current[-1] == "(" and next_part != ")":
             # This link is strange... looks like it could be malformed?
             # Assuming that it's malformed and missing a closing `)`
             # This will remove any additional info in the link, but that seems a reasonable price?
             words = part.split(" ")
-            return "".join(current + [words[0], ") ", " ".join(words[1:])])
+            return "", "".join(current + [words[0], ") ", " ".join(words[1:])])
+
         else:
             # Just your basic text - add it to the processed parts and go on your merry way
             current.append(part)
-
-    # Check if the first item is the summary - if so, extract it
-    summary = ""
-    if current[0].startswith("summary"):
-        _, summary = re.split(r"summary[()\w]*:", current[0], 1)
-        current = current[1:]
 
     # Otherwise just join all the parts back together
     return summary.strip(), "".join(flatten(current)).strip()
