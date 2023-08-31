@@ -66,7 +66,7 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
         current = []
         view = iter([('[', 'summary: A behaviorist '), ('summary: A behaviorist ', '['), ('[', '6w genie'), ('6w genie', ']'), (']', ']'), (']', None)])
     The function should return:
-        ('summary: A behaviorist [genie](https://arbital.com/p/6w)', '')
+        ('A behaviorist [genie](https://arbital.com/p/6w)', '')
     
     Note:
     This function assumes that `view` provides a valid Arbital markdown sequence. Malformed sequences might lead to 
@@ -78,8 +78,8 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
     for part, next_part in view:
         if part == "[":
             # Recursively try to parse this new section - it's probably a link, but can be something else
-            sum, text = markdownify_text([part], view)
-            summary += sum + "\n\n"
+            sub_summary, text = markdownify_text([part], view)
+            summary += sub_summary + "\n\n"
             current.append(text)
 
         elif part == "]":
@@ -88,9 +88,11 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
                 current.append(part)
                 in_link = True
             else:
-                # this is the arbital summary - just join it for now, but it'll have to be handled later
+                # this is the arbital summary - we return it as a summary, 
+                # and strip characters from the summary's text
                 if current[1].startswith("summary"):
-                    return "".join(current[1:]), ""
+                    summary_tag, summary = "".join(current[1:]).split(":", 1)
+                    return summary_tag + ": " + summary.strip(), ""
                 # if this was a TODO section, then ignore it
                 if current[1].startswith("todo"):
                     return "", ""
