@@ -1,5 +1,9 @@
 import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import logging
+from typing import List, Tuple, Iterator, Dict, Union, Any, TypedDict
+
 import requests
 from datetime import datetime, timezone
 from dateutil.parser import parse
@@ -10,19 +14,29 @@ from dataclasses import dataclass
 logger = logging.getLogger(__name__)
 
 
-def parse_arbital_link(contents):
-    text = contents[1].split(" ")
-    url = f"https://arbital.com/p/{text[0]}"
-    if len(text) > 1:
-        title = " ".join(text[1:])
-    else:
-        title = url
+class Page(TypedDict, total=False):
+    likeableId: str
+    likeableType: str
+    title: str
+    editCreatedAt: str
+    pageCreatedAt: str
+    alias: str
+    userId: str
+    tagIds: str
+    changeLogs: List[Dict[str, Any]] 
+
+
+def parse_arbital_link(contents: List[str]) -> str:
+    page_id, *title_parts = contents[1].split(" ")
+    url = f"https://arbital.com/p/{page_id}"
+    title = " ".join(title_parts) if title_parts else url
     return f"[{title}]({url})"
 
 
-def flatten(val):
+def flatten(val: Union[List[str], Tuple[str], str]) -> List[str]:
+    """Flattens a nested list."""
     if isinstance(val, (list, tuple)):
-        return [item for i in val for item in flatten(i)]
+        return [item for sublist in val for item in flatten(sublist)]
     return [val]
 
 
@@ -84,7 +98,7 @@ def markdownify_text(current, view):
     return summary.strip(), "".join(flatten(current)).strip()
 
 
-def extract_text(text):
+def extract_text(text: str) -> Tuple[str, str]:
     parts = [i for i in re.split(r"([\[\]()])", text) if i]
     return markdownify_text([], zip(parts, parts[1:] + [None]))
 
@@ -106,10 +120,10 @@ class Arbital(AlignmentDataset):
         "sec-fetch-dest": "empty",
         "accept-language": "en-US,en;q=0.9",
     }
-    titles_map = {}
+    titles_map: Dict[str, str] = field(default_factory=dict)
 
     @property
-    def items_list(self):
+    def items_list(self) -> List[str]:
         logger.info("Getting page aliases")
         items = [
             alias
@@ -122,7 +136,7 @@ class Arbital(AlignmentDataset):
     def get_item_key(self, item: str) -> str:
         return item
 
-    def process_entry(self, alias):
+    def process_entry(self, alias: str):
         try:
             page = self.get_page(alias)
             summary, text = extract_text(page["text"])
@@ -144,33 +158,37 @@ class Arbital(AlignmentDataset):
         except Exception as e:
             logger.error(f"Error getting page {alias}: {e}")
         return None
-
-    def get_arbital_page_aliases(self, subspace):
+    
+    def send_post_request(self, url: str, page_alias: str, referer_base: str) -> requests.Response:
         headers = self.headers.copy()
-        headers["referer"] = f"https://arbital.com/explore/{subspace}/"
-        data = f'{{"pageAlias":"{subspace}"}}'
-        response = requests.post(
-            "https://arbital.com/json/explore/", headers=headers, data=data
-        ).json()
-        return list(response["pages"].keys())
+        headers['referer'] = f"{referer_base}{page_alias}/"
+        data = f'{{"pageAlias":"{page_alias}"}}'
+        return requests.post(url, headers=headers, data=data)
+
+    def get_arbital_page_aliases(self, subspace: str) -> List[str]:
+        response = self.send_post_request(
+            url='https://arbital.com/json/explore/',
+            page_alias=subspace,
+            referer_base='https://arbital.com/explore/'
+        )
+        return list(response.json()['pages'].keys())
+
+    def get_page(self, alias: str) -> Page:
+        response = self.send_post_request(
+            url='https://arbital.com/json/primaryPage/',
+            page_alias=alias,
+            referer_base='https://arbital.com/p/'
+        )
+        return response.json()['pages'][alias]
 
     @staticmethod
-    def _get_published_date(page):
+    def _get_published_date(page: Page) -> datetime | None:
         date_published = page.get("editCreatedAt") or page.get("pageCreatedAt")
         if date_published:
             return parse(date_published).astimezone(timezone.utc)
         return None
 
-    def get_page(self, alias):
-        headers = self.headers.copy()
-        headers["referer"] = "https://arbital.com/"
-        data = f'{{"pageAlias":"{alias}"}}'
-        response = requests.post(
-            "https://arbital.com/json/primaryPage/", headers=headers, data=data
-        )
-        return response.json()["pages"][alias]
-
-    def get_title(self, itemId):
+    def get_title(self, itemId: str) -> str | None:
         if title := self.titles_map.get(itemId):
             return title
 
@@ -186,7 +204,7 @@ class Arbital(AlignmentDataset):
             return title
         return None
 
-    def extract_authors(self, page):
+    def extract_authors(self, page: Page) -> List[str]:
         """Get all authors of this page.
 
         This will work faster the more its used, as it only fetches info for authors it hasn't yet seen.
