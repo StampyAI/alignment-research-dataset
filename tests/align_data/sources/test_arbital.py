@@ -15,10 +15,10 @@ from align_data.sources.arbital.arbital import (
 @pytest.mark.parametrize(
     "contents, expected",
     (
-        (["[", "123"], "[https://arbital.com/p/123](https://arbital.com/p/123)"),
-        (["[", "123 Some title"], "[Some title](https://arbital.com/p/123)"),
+        ("123", "[https://arbital.com/p/123](https://arbital.com/p/123)"),
+        ("123 Some title", "[Some title](https://arbital.com/p/123)"),
         (
-            ["[", "123 Some title with multiple words"],
+            "123 Some title with multiple words",
             "[Some title with multiple words](https://arbital.com/p/123)",
         ),
     ),

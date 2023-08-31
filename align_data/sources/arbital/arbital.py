@@ -26,8 +26,20 @@ class Page(TypedDict, total=False):
     changeLogs: List[Dict[str, Any]] 
 
 
-def parse_arbital_link(contents: List[str]) -> str:
-    page_id, *title_parts = contents[1].split(" ")
+def parse_arbital_link(internal_link: str) -> str:
+    """
+    Parses the Arbital internal link.
+    :param str internal_link: The internal link to parse.
+
+    :return: The parsed link.
+    :rtype: str
+
+    Typical format: `123 Some title` -> `[Some title](https://arbital.com/p/123)`
+    """
+    page_id, *title_parts = internal_link.split(" ")
+    if not page_id:
+        # could be a regular text bracket, ignore it
+        return internal_link
     url = f"https://arbital.com/p/{page_id}"
     title = " ".join(title_parts) if title_parts else url
     return f"[{title}]({url})"
@@ -50,23 +62,21 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
     - "[123 <title>]" which are Arbital's internal links pointing to https://arbital.com/p/123, with link title <title>.
     
     Args:
-    - current (List[str]): A list of parsed items. Should generally be initialized as an empty list.
-    - view (Iterator[Tuple[str, str]]): An iterator that returns pairs of `part` and `next_part`, where `part` is the 
+    :param List[str] current: A list of parsed items. Should generally be initialized as an empty list.
+    :param Iterator[Tuple[str, str]] view: An iterator that returns pairs of `part` and `next_part`, where `part` is the 
         current segment and `next_part` provides a lookahead.
     
-    Returns:
-    - Tuple[str, str]: A tuple containing:
-        1. The processed summary string.
-        2. The processed markdown content.
+    :return: <summary>, <text>, where <summary> is the summary extracted from the text, and <text> is the text with all
+        Arbital-specific markdown extensions replaced with standard markdown.
+    :rtype: Tuple[str, str]
     
     Example:
-    
     From the text: "[summary: A behaviorist [6w genie]]"
     We get the input:
         current = []
         view = iter([('[', 'summary: A behaviorist '), ('summary: A behaviorist ', '['), ('[', '6w genie'), ('6w genie', ']'), (']', ']'), (']', None)])
     The function should return:
-        ('A behaviorist [genie](https://arbital.com/p/6w)', '')
+        `('A behaviorist [genie](https://arbital.com/p/6w)', '')`
     
     Note:
     This function assumes that `view` provides a valid Arbital markdown sequence. Malformed sequences might lead to 
@@ -84,20 +94,24 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
 
         elif part == "]":
             if next_part == "(":
-                # mark that it's now in the url part of a markdown link
+                # Indicate that it's in the URL part of a markdown link.
                 current.append(part)
                 in_link = True
             else:
-                # this is the arbital summary - we return it as a summary, 
-                # and strip characters from the summary's text
-                if current[1].startswith("summary"):
-                    summary_tag, summary = "".join(current[1:]).split(":", 1)
-                    return summary_tag + ": " + summary.strip(), ""
-                # if this was a TODO section, then ignore it
-                if current[1].startswith("todo"):
+                # Extract the descriptor, which might be a summary tag, TODO tag, or an Arbital internal link's "<page_id> <title>".
+                descriptor = current[1]
+
+                # Handle Arbital summary.
+                if descriptor.startswith("summary"):
+                    summary_tag, summary_content = "".join(current[1:]).split(":", 1)
+                    return f"{summary_tag}: {summary_content.strip()}", ""
+
+                # Handle TODO section (ignore it).
+                if descriptor.startswith("todo"):
                     return "", ""
-                # Otherwise it's an arbital link. ie.: 6w genie -> "[6w genie](https://arbital.com/p/6w)"
-                return "", parse_arbital_link(current)
+
+                # Handle Arbital link (e.g., "6w genie" -> "[6w genie](https://arbital.com/p/6w)").
+                return "", parse_arbital_link(descriptor)
 
         elif in_link and part == ")":
             # this is the end of a markdown link - just join the contents, as they're already correct
