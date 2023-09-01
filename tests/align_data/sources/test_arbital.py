@@ -15,12 +15,14 @@ from align_data.sources.arbital.arbital import (
 @pytest.mark.parametrize(
     "contents, expected",
     (
-        (["[", "123"], "[https://arbital.com/p/123](https://arbital.com/p/123)"),
-        (["[", "123 Some title"], "[Some title](https://arbital.com/p/123)"),
+        ("123", "[https://arbital.com/p/123](https://arbital.com/p/123)"),
+        ("123 Some title", "[Some title](https://arbital.com/p/123)"),
         (
-            ["[", "123 Some title with multiple words"],
+            "123 Some title with multiple words",
             "[Some title with multiple words](https://arbital.com/p/123)",
         ),
+        ("https://www.gwern.net/ Gwern Branwen", "[Gwern Branwen](https://www.gwern.net/)"),
+        ("toc:", "toc:"),  # `toc:` is a mysterious thing
     ),
 )
 def test_parse_arbital_link(contents, expected):
@@ -84,37 +86,38 @@ def test_markdownify_text_contents_arbital_markdown(text, expected):
     (
         (
             "[summary: summaries should be extracted] bla bla bla",
-            "summaries should be extracted",
+            ("summary: summaries should be extracted", "bla bla bla"),
         ),
         (
             "[summary: \n    whitespace should be stripped       \n] bla bla bla",
-            "whitespace should be stripped",
+            ("summary: whitespace should be stripped", "bla bla bla"),
         ),
         (
             "[summary(Bold): special summaries should be extracted] bla bla bla",
-            "special summaries should be extracted",
+            ("summary(Bold): special summaries should be extracted", "bla bla bla"),
         ),
         (
             "[summary(Markdown): special summaries should be extracted] bla bla bla",
-            "special summaries should be extracted",
+            ("summary(Markdown): special summaries should be extracted", "bla bla bla"),
         ),
         (
             "[summary(BLEEEE): special summaries should be extracted] bla bla bla",
-            "special summaries should be extracted",
+            ("summary(BLEEEE): special summaries should be extracted", "bla bla bla"),
         ),
         (
             "[summary: markdown is handled: [bla](https://bla.bla)] bla bla bla",
-            "markdown is handled: [bla](https://bla.bla)",
+            ("summary: markdown is handled: [bla](https://bla.bla)", "bla bla bla"),
         ),
         (
             "[summary: markdown is handled: [123 ble ble]] bla bla bla",
-            "markdown is handled: [ble ble](https://arbital.com/p/123)",
+            ("summary: markdown is handled: [ble ble](https://arbital.com/p/123)", "bla bla bla"),
         ),
     ),
 )
-def test_markdownify_text_summary(text, expected):
-    summary, _ = extract_text(text)
-    assert summary == expected
+def test_markdownify_text_summary_and_content(text, expected):
+    summary, text = extract_text(text)
+    assert summary == expected[0]
+    assert text == expected[1]
 
 
 @pytest.fixture
