@@ -86,37 +86,45 @@ def test_markdownify_text_contents_arbital_markdown(text, expected):
     (
         (
             "[summary: summaries should be extracted] bla bla bla",
-            ("summary: summaries should be extracted", "bla bla bla"),
+            (["summary: summaries should be extracted"], "bla bla bla"),
+        ),
+        (
+            "[summary: summaries should be extracted] [summary(Technical): technical summary should be handled separately] bla bla bla",
+            (["summary: summaries should be extracted", "summary(Technical): technical summary should be handled separately"], "bla bla bla"),
+        ),
+        (
+            "[summary: summaries should be extracted] bla bla bla [summary(Technical): summaries should work in the middle too] bla bla bla",
+            (["summary: summaries should be extracted", "summary(Technical): summaries should work in the middle too"], "bla bla bla  bla bla bla"),
         ),
         (
             "[summary: \n    whitespace should be stripped       \n] bla bla bla",
-            ("summary: whitespace should be stripped", "bla bla bla"),
+            (["summary: whitespace should be stripped"], "bla bla bla"),
         ),
         (
             "[summary(Bold): special summaries should be extracted] bla bla bla",
-            ("summary(Bold): special summaries should be extracted", "bla bla bla"),
+            (["summary(Bold): special summaries should be extracted"], "bla bla bla"),
         ),
         (
             "[summary(Markdown): special summaries should be extracted] bla bla bla",
-            ("summary(Markdown): special summaries should be extracted", "bla bla bla"),
+            (["summary(Markdown): special summaries should be extracted"], "bla bla bla"),
         ),
         (
             "[summary(BLEEEE): special summaries should be extracted] bla bla bla",
-            ("summary(BLEEEE): special summaries should be extracted", "bla bla bla"),
+            (["summary(BLEEEE): special summaries should be extracted"], "bla bla bla"),
         ),
         (
             "[summary: markdown is handled: [bla](https://bla.bla)] bla bla bla",
-            ("summary: markdown is handled: [bla](https://bla.bla)", "bla bla bla"),
+            (["summary: markdown is handled: [bla](https://bla.bla)"], "bla bla bla"),
         ),
         (
             "[summary: markdown is handled: [123 ble ble]] bla bla bla",
-            ("summary: markdown is handled: [ble ble](https://arbital.com/p/123)", "bla bla bla"),
+            (["summary: markdown is handled: [ble ble](https://arbital.com/p/123)"], "bla bla bla"),
         ),
     ),
 )
 def test_markdownify_text_summary_and_content(text, expected):
-    summary, text = extract_text(text)
-    assert summary == expected[0]
+    summaries, text = extract_text(text)
+    assert summaries == expected[0]
     assert text == expected[1]
 
 
