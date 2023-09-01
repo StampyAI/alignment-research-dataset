@@ -71,7 +71,11 @@ class AlignmentDataset:
 
     def make_data_entry(self, data, **kwargs) -> Article:
         data = merge_dicts(data, kwargs)
+
+        summaries = data.pop("summaries", [])
         summary = data.pop("summary", None)
+        summaries += [summary] if summary else []
+
         authors = data.pop("authors", [])
         data['title'] = (data.get('title') or '').replace('\n', ' ').replace('\r', '') or None
 
@@ -80,7 +84,7 @@ class AlignmentDataset:
             **{k: v for k, v in data.items() if k in ARTICLE_MAIN_KEYS},
         )
         self._add_authors(article, authors)
-        if summary:
+        for summary in summaries: # Note: This will be skipped if summaries is empty
             article.summaries.append(Summary(text=summary, source=self.name))
         return article
 
