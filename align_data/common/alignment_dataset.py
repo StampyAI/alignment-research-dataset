@@ -84,8 +84,7 @@ class AlignmentDataset:
             **{k: v for k, v in data.items() if k in ARTICLE_MAIN_KEYS},
         )
         self._add_authors(article, authors)
-        for summary in summaries: # Note: This will be skipped if summaries is empty
-            article.summaries.append(Summary(text=summary, source=self.name))
+        article.summaries += [Summary(text=summary, source=self.name) for summary in summaries]
         return article
 
     def to_jsonl(self, out_path=None, filename=None) -> Path:
