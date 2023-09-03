@@ -59,7 +59,7 @@ def flatten(val: Union[List[str], Tuple[str], str]) -> List[str]:
     return [val]
 
 
-def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tuple[str, str]:
+def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tuple[List[str], str]:
     """
     Recursively parse text segments from `view` to generate a markdown Abstract Syntax Tree (AST).
     
@@ -73,9 +73,9 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
     :param Iterator[Tuple[str, str]] view: An iterator that returns pairs of `part` and `next_part`, where `part` is the 
         current segment and `next_part` provides a lookahead.
     
-    :return: <summary>, <text>, where <summary> is the summary extracted from the text, and <text> is the text with all
+    :return: <summaries>, <text>, where <summaries> are the summaries extracted from the text, and <text> is the text with all
         Arbital-specific markdown extensions replaced with standard markdown.
-    :rtype: Tuple[str, str]
+    :rtype: Tuple[List[str], str]
     
     Example:
     From the text: "[summary: A behaviorist [6w genie]]"
@@ -83,20 +83,20 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
         current = []
         view = iter([('[', 'summary: A behaviorist '), ('summary: A behaviorist ', '['), ('[', '6w genie'), ('6w genie', ']'), (']', ']'), (']', None)])
     The function should return:
-        `('A behaviorist [genie](https://arbital.com/p/6w)', '')`
+        `(['A behaviorist [genie](https://arbital.com/p/6w)'], '')`
     
     Note:
     This function assumes that `view` provides a valid Arbital markdown sequence. Malformed sequences might lead to 
     unexpected results.
     """
     in_link = False
-    summary = ""
+    summaries = []
 
     for part, next_part in view:
         if part == "[":
             # Recursively try to parse this new section - it's probably a link, but can be something else
-            sub_summary, text = markdownify_text([part], view)
-            summary += sub_summary + "\n\n"
+            sub_summaries, text = markdownify_text([part], view)
+            summaries.extend(sub_summaries)
             current.append(text)
 
         elif part == "]":
@@ -110,33 +110,34 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
 
                 # Handle Arbital summary.
                 if descriptor.startswith("summary"):
+                    # descriptor will be something like "summary(Technical): <contents>", so we split by `:`
                     summary_tag, summary_content = "".join(current[1:]).split(":", 1)
-                    return f"{summary_tag}: {summary_content.strip()}", ""
+                    return [f"{summary_tag}: {summary_content.strip()}"], ""
 
                 # Handle TODO section (ignore it).
                 if descriptor.startswith("todo"):
-                    return "", ""
+                    return [], ""
 
                 # Handle Arbital link (e.g., "6w genie" -> "[6w genie](https://arbital.com/p/6w)").
-                return "", parse_arbital_link(descriptor)
+                return [], parse_arbital_link(descriptor)
 
         elif in_link and part == ")":
             # this is the end of a markdown link - just join the contents, as they're already correct
-            return "", "".join(current + [part])
+            return [], "".join(current + [part])
 
         elif in_link and current[-1] == "(" and next_part != ")":
             # This link is strange... looks like it could be malformed?
             # Assuming that it's malformed and missing a closing `)`
             # This will remove any additional info in the link, but that seems a reasonable price?
             words = part.split(" ")
-            return "", "".join(current + [words[0], ") ", " ".join(words[1:])])
+            return [], "".join(current + [words[0], ") ", " ".join(words[1:])])
 
         else:
             # Just your basic text - add it to the processed parts and go on your merry way
             current.append(part)
 
     # Otherwise just join all the parts back together
-    return summary.strip(), "".join(flatten(current)).strip()
+    return summaries, "".join(flatten(current)).strip()
 
 
 def extract_text(text: str) -> Tuple[str, str]:
@@ -146,7 +147,6 @@ def extract_text(text: str) -> Tuple[str, str]:
 
 @dataclass
 class Arbital(AlignmentDataset):
-    summary_key: str = "summary"
 
     ARBITAL_SUBSPACES = ["ai_alignment", "math", "rationality"]
     done_key = "alias"
@@ -180,7 +180,7 @@ class Arbital(AlignmentDataset):
     def process_entry(self, alias: str):
         try:
             page = self.get_page(alias)
-            summary, text = extract_text(page["text"])
+            summaries, text = extract_text(page["text"])
 
             return self.make_data_entry(
                 {
@@ -193,7 +193,7 @@ class Arbital(AlignmentDataset):
                     "authors": self.extract_authors(page),
                     "alias": alias,
                     "tags": list(filter(None, map(self.get_title, page["tagIds"]))),
-                    "summary": summary,
+                    "summaries": summaries,
                 }
             )
         except Exception as e:
