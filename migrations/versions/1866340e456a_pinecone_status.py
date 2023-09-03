@@ -47,14 +47,8 @@ def upgrade() -> None:
 
     op.drop_column('articles', 'pinecone_update_required')
 
-    ## At the last check column
-    op.add_column('articles', sa.Column('date_checked', sa.DateTime(), nullable=True))
-    op.execute('UPDATE articles SET date_checked = NOW()')  # Set the last check date to now - that should be fine
-    op.alter_column('articles', 'date_checked', existing_type=mysql.DATETIME(), nullable=False)
-
 
 def downgrade() -> None:
     op.add_column("articles", sa.Column("pinecone_update_required", sa.Boolean(), nullable=False))
     op.execute("UPDATE articles SET articles.pinecone_update_required = (pinecone_status = 'pending_addition')")
     op.drop_column('articles', 'pinecone_status')
-    op.drop_column('articles', 'date_checked')
