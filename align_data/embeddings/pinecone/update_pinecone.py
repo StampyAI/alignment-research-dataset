@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
 from align_data.embeddings.embedding_utils import get_embeddings
-from align_data.db.models import Article
+from align_data.db.models import Article, PineconeStatus
 from align_data.db.session import (
     make_session,
     get_pinecone_articles_by_sources,
@@ -61,7 +61,7 @@ class PineconeUpdater:
                 if pinecone_entry:
                     self.pinecone_db.upsert_entry(pinecone_entry)
 
-                article.pinecone_update_required = False
+                article.pinecone_status = PineconeStatus.added
                 session.add(article)
 
             session.commit()
