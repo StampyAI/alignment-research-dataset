@@ -43,7 +43,7 @@ class PineconeUpdater:
         """
         with make_session() as session:
             articles_to_update = get_pinecone_articles_by_sources(
-                session, custom_sources, force_update
+                session, custom_sources, force_update, [PineconeStatus.pending_addition]
             )
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
@@ -51,7 +51,9 @@ class PineconeUpdater:
     def update_articles_by_ids(self, hash_ids: List[int], force_update: bool = False):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
-            articles_to_update = get_pinecone_articles_by_ids(session, hash_ids, force_update)
+            articles_to_update = get_pinecone_articles_by_ids(
+                session, hash_ids, force_update, [PineconeStatus.pending_addition]
+            )
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
 

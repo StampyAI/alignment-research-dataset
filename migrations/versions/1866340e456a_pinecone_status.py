@@ -7,6 +7,7 @@ Create Date: 2023-09-03 15:34:02.755588
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import mysql
 
 
 # revision identifiers, used by Alembic.
@@ -17,6 +18,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    ## Set the pinecone status
     op.add_column('articles', sa.Column('pinecone_status', sa.String(length=32), nullable=False))
 
     IS_VALID = """(
@@ -45,8 +47,14 @@ def upgrade() -> None:
 
     op.drop_column('articles', 'pinecone_update_required')
 
+    ## At the last check column
+    op.add_column('articles', sa.Column('date_checked', sa.DateTime(), nullable=True))
+    op.execute('UPDATE articles SET date_checked = NOW()')  # Set the last check date to now - that should be fine
+    op.alter_column('articles', 'date_checked', existing_type=mysql.DATETIME(), nullable=False)
+
 
 def downgrade() -> None:
     op.add_column("articles", sa.Column("pinecone_update_required", sa.Boolean(), nullable=False))
     op.execute("UPDATE articles SET articles.pinecone_update_required = (pinecone_status = 'pending_addition')")
     op.drop_column('articles', 'pinecone_status')
+    op.drop_column('articles', 'date_checked')
