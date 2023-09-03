@@ -44,7 +44,7 @@ def get_pinecone_articles_by_sources(
 
 def get_pinecone_articles_by_ids(
     session: Session,
-    hash_ids: List[int],
+    hash_ids: List[str],
     force_update: bool = False,
 ):
     return get_pinecone_articles(session, force_update).filter(Article.id.in_(hash_ids))
