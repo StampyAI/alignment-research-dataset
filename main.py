@@ -14,6 +14,7 @@ from align_data.sources.articles.articles import (
 )
 from align_data.embeddings.pinecone.update_pinecone import PineconeUpdater
 from align_data.embeddings.finetuning.training import finetune_embeddings
+from align_data.sources.validate import check_articles
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,
@@ -149,6 +150,14 @@ class AlignmentDataset:
         This function trains a finetuning layer on top of the OpenAI embeddings.
         """
         finetune_embeddings()
+
+    def validate_articles(self, *names, n=100) -> None:
+        """Check n articles to see whether their data is correct and that their urls point to valid addresses."""
+        if names == ("all",):
+            names = ALL_DATASETS
+        missing = {name for name in names if name not in ALL_DATASETS}
+        assert not missing, f"{missing} are not valid dataset names"
+        check_articles(names, n)
 
 
 if __name__ == "__main__":

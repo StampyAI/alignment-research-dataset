@@ -1,0 +1,65 @@
+name: Check articles are valid
+
+on:
+  workflow_call:
+    inputs:
+      datasource:
+        type: string
+        required: true
+  workflow_dispatch: # allow manual triggering
+    inputs:
+      datasource:
+        description: 'The datasource to process'
+        type: choice
+        options:
+          - all
+          - agentmodels
+          - agisf
+          - aisafety.info
+          - alignment_newsletter
+          - alignmentforum
+          - arbital
+          - arxiv
+          - blogs
+          - distill
+          - eaforum
+          - indices
+          - lesswrong
+          - special_docs
+          - youtube
+  schedule:
+    - cron: "0 */4 * * *"  # Every 4 hours
+
+jobs:
+  build-dataset:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Python environment
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install Pandoc
+      run: |
+        if [ "${{ inputs.datasource }}" = "gdocs" ]; then
+          sudo apt-get update
+          sudo apt-get -y install pandoc
+        fi
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Process dataset
+      env:
+        CODA_TOKEN: ${{ secrets.CODA_TOKEN }}
+        AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
+        ARD_DB_NAME: alignment_research_dataset
+      run: python main.py fetch ${{ inputs.datasource }}

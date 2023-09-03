@@ -71,6 +71,7 @@ class Article(Base):
     date_updated: Mapped[Optional[datetime]] = mapped_column(
         DateTime, onupdate=func.current_timestamp()
     )
+    date_checked: Mapped[datetime] = mapped_column(DateTime, default=func.now())  # The timestamp when this article was last checked if still valid
     status: Mapped[Optional[str]] = mapped_column(String(256))
     comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
 
