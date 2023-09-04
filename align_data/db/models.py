@@ -1,3 +1,4 @@
+import enum
 import re
 import json
 import re
@@ -10,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import (
     JSON,
     DateTime,
+    Enum,
     ForeignKey,
     String,
     Boolean,
@@ -43,6 +45,13 @@ class Summary(Base):
     article: Mapped["Article"] = relationship(back_populates="summaries")
 
 
+class PineconeStatus(enum.Enum):
+    absent = 1
+    pending_removal = 2
+    pending_addition = 3
+    added = 4
+
+
 class Article(Base):
     __tablename__ = "articles"
 
@@ -66,7 +75,7 @@ class Article(Base):
     status: Mapped[Optional[str]] = mapped_column(String(256))
     comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
 
-    pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    pinecone_status: Mapped[PineconeStatus] = mapped_column(Enum(PineconeStatus), default=PineconeStatus.absent)
 
     summaries: Mapped[List["Summary"]] = relationship(
         back_populates="article", cascade="all, delete-orphan"
@@ -186,8 +195,8 @@ class Article(Base):
         monitored_attributes = list(PineconeMetadata.__annotations__.keys())
         monitored_attributes.remove("hash_id")
 
-        changed = any(get_history(target, attr).has_changes() for attr in monitored_attributes)
-        target.pinecone_update_required = changed
+        if any(get_history(target, attr).has_changes() for attr in monitored_attributes):
+            target.pinecone_status = PineconeStatus.pending_addition
 
     def to_dict(self) -> Dict[str, Any]:
         if date := self.date_published:
