@@ -4,9 +4,9 @@ from typing import Any, List
 
 from tqdm import tqdm
 from sqlalchemy.exc import IntegrityError
+from align_data.common.formatters import normalize_url, normalize_text, article_dict
 from align_data.db.session import make_session
 from align_data.db.models import Article
-from align_data.common.alignment_dataset import normalize_url, normalize_text, article_dict
 from align_data.sources.articles.parsers import item_metadata
 from align_data.sources.articles.html import fetch
 
@@ -29,8 +29,12 @@ def update_article_field(article: Article, field: str, value: Any):
         article.meta = article.meta or {}
         for k, v in value.items():
             meta_val = article.meta.get(k)
-            if not meta_val or v > meta_val:
-                article.meta[k] = v
+            try:
+                if not meta_val or v > meta_val:
+                    article.meta[k] = v
+            except Exception as e:
+                # Ignore exceptions here - the metadata isn't that important
+                logger.info('Error checking metadata value for article %s: %s', article.url, value)
         return
 
     article_val = getattr(article, field, None)
@@ -44,7 +48,8 @@ def update_article_field(article: Article, field: str, value: Any):
         setattr(article, field, normalize_text(value))
 
 
-def check_article(article: Article) -> Article:
+def update_article(article: Article) -> Article:
+    """Check whether there are better data for this article and whether its url is pointing somewhere decent."""
     source_url = article.meta.get('source_url') or article.url
     contents = {}
     if source_url:
@@ -66,6 +71,7 @@ def check_article(article: Article) -> Article:
 
 
 def check_articles(sources: List[str], batch_size=100):
+    """Check `batch_size` articles with the given `sources` to see if they have better data."""
     logger.info('Checking %s articles for %s', batch_size, ', '.join(sources))
     with make_session() as session:
         for article in tqdm(
@@ -75,7 +81,7 @@ def check_articles(sources: List[str], batch_size=100):
             .limit(batch_size)
             .all()
         ):
-            check_article(article)
+            update_article(article)
             session.add(article)
         logger.debug('commiting')
         try:

@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, Mock
 
 from align_data.db.models import Article
-from align_data.sources.validate import update_article_field, check_article, check_articles
+from align_data.sources.validate import update_article_field, update_article
 
 
 @pytest.mark.parametrize('url', (
@@ -72,7 +72,7 @@ def test_update_article_field_with_new_field_and_empty_value():
     assert hasattr(article, 'description') == False
 
 
-def test_check_article_gets_metadata():
+def test_update_article_gets_metadata():
     data = {
         'text': 'bla bla',
         'source_url': 'http://ble.com',
@@ -82,7 +82,7 @@ def test_check_article_gets_metadata():
     article = Article(url='http://this.should.change', meta={})
     with patch('align_data.sources.validate.item_metadata', return_value=data):
         with patch('align_data.sources.validate.fetch', return_value=Mock(status_code=200)):
-            check_article(article)
+            update_article(article)
             assert article.to_dict() == {
                 'authors': ['mr. blobby', 'johhny'],
                 'date_published': None,
@@ -97,7 +97,7 @@ def test_check_article_gets_metadata():
             }
 
 
-def test_check_article_no_metadata():
+def test_update_article_no_metadata():
     data = {
         'error': 'this failed!',
         'text': 'bla bla',
@@ -108,7 +108,7 @@ def test_check_article_no_metadata():
     article = Article(url='http://this.should.not.change', meta={})
     with patch('align_data.sources.validate.item_metadata', return_value=data):
         with patch('align_data.sources.validate.fetch', return_value=Mock(status_code=200)):
-            check_article(article)
+            update_article(article)
             assert article.to_dict() == {
                 'authors': [],
                 'date_published': None,
@@ -122,9 +122,9 @@ def test_check_article_no_metadata():
             }
 
 
-def test_check_article_bad_url():
+def test_update_article_bad_url():
     article = Article(url='http://this.should.not.change', meta={})
     with patch('align_data.sources.validate.item_metadata', return_value={}):
         with patch('align_data.sources.validate.fetch', return_value=Mock(status_code=400)):
-            check_article(article)
+            update_article(article)
             assert article.status == 'Unreachable url'

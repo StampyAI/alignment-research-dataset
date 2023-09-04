@@ -11,7 +11,8 @@ from markdownify import markdownify
 from pypandoc import convert_file
 from sqlalchemy import select, Select
 
-from align_data.common.alignment_dataset import AlignmentDataset, normalize_url
+from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.formatters import normalize_url
 from align_data.db.models import Article
 from align_data.sources.articles.google_cloud import fetch_file, fetch_markdown
 from align_data.sources.articles.parsers import (
