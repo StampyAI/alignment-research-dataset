@@ -89,5 +89,8 @@ OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH = os.environ.get(
 )
 
 ### MISCELLANEOUS ###
-MIN_CONFIDENCE = 50
+MIN_CONFIDENCE = float(os.environ.get('MIN_CONFIDENCE') or '0.5')
+if MIN_CONFIDENCE < 0 or MIN_CONFIDENCE > 1:
+    raise ValueError(f'MIN_CONFIDENCE must be between 0 and 1 - got {MIN_CONFIDENCE}')
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
