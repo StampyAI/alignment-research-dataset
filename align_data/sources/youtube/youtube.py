@@ -13,7 +13,6 @@ from youtube_transcript_api._errors import (
 from align_data.settings import YOUTUBE_API_KEY
 from align_data.common.alignment_dataset import AlignmentDataset
 
-
 logger = logging.getLogger(__name__)
 
 

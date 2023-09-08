@@ -20,7 +20,6 @@ from align_data.db.session import make_session
 from align_data.settings import ARTICLE_MAIN_KEYS
 from align_data.sources.utils import merge_dicts
 
-
 logger = logging.getLogger(__name__)
 
 

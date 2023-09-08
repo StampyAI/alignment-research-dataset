@@ -13,9 +13,11 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+
 class Item(NamedTuple):
     updates: NamedTuple
     article: Article
+
 
 @dataclass
 class ReplacerDataset(AlignmentDataset):

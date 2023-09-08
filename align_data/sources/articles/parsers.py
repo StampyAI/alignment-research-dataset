@@ -10,7 +10,6 @@ from align_data.sources.articles.google_cloud import google_doc, extract_gdrive_
 from align_data.sources.arxiv_papers import fetch_arxiv
 from align_data.common.html_dataset import HTMLDataset
 
-
 logger = logging.getLogger(__name__)
 
 ParserFunc = Callable[[str], Dict[str, Any]]

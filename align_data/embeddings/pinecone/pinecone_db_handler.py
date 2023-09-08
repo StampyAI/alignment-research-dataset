@@ -19,7 +19,6 @@ from align_data.settings import (
     PINECONE_NAMESPACE,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

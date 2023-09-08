@@ -22,12 +22,10 @@ from align_data.sources.articles.pdf import fetch_pdf
 
 logger = logging.getLogger(__name__)
 
-
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
-
 
 OK = "ok"
 OUTPUT_SPREADSHEET_ID = "1bg-6vL-I82CBRkxvWQs1-Ao0nTvHyfn4yns5MdlbCmY" # TODO: remove this
