@@ -64,7 +64,7 @@ def test_data_entry_id_from_urls_and_title():
     assert entry.to_dict() == dict(
         {
             "date_published": None,
-            "id": "770fe57c8c2130eda08dc392b8696f97",
+            "id": "761edb1a245f56b2ece52d652658b8eb",
             "source": None,
             "source_type": None,
             "text": None,
@@ -148,7 +148,7 @@ def test_data_entry_verify_id_passes():
             "text": "once upon a time",
             "url": "www.arbital.org",
             "title": "once upon a time",
-            "id": "770fe57c8c2130eda08dc392b8696f97",
+            "id": "761edb1a245f56b2ece52d652658b8eb",
         }
     )
     entry.verify_id()
@@ -163,30 +163,33 @@ def test_data_entry_verify_id_fails():
             "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
         }
     )
-    expected = "Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 770fe57c8c2130eda08dc392b8696f97"
+    expected = "Entry id f2b4e02fc1dd8ae43845e4f930f2d84f does not match id from id_fields: 761edb1a245f56b2ece52d652658b8eb"
     with pytest.raises(AssertionError, match=expected):
         entry.verify_id()
+
+def test_generate_id_string():
+    dataset = AlignmentDataset(name="blaa")
+    entry = dataset.make_data_entry(
+        {
+            "url": "www.arbital.org",
+            "title": "once upon a time",
+            "id": "f2b4e02fc1dd8ae43845e4f930f2d84f",
+        }
+    )
+    assert entry.generate_id_string() == b"wwwarbitalorg"
 
 
 @pytest.mark.parametrize(
     "data, error",
     (
-        ({"id": "123"}, "Entry is missing the following fields: \\['url', 'title'\\]"),
+        ({"id": "123"}, "Entry is missing the following fields: \\['url'\\]"),
         (
             {"id": "123", "url": None},
-            "Entry is missing the following fields: \\['url', 'title'\\]",
-        ),
-        (
-            {"id": "123", "url": "www.google.com/"},
-            "Entry is missing the following fields: \\['title'\\]",
-        ),
-        (
-            {"id": "123", "url": "google", "text": None},
-            "Entry is missing the following fields: \\['title'\\]",
+            "Entry is missing the following fields: \\['url'\\]",
         ),
         (
             {"id": "123", "url": "", "title": ""},
-            "Entry is missing the following fields: \\['url', 'title'\\]",
+            "Entry is missing the following fields: \\['url'\\]",
         ),
     ),
 )
@@ -233,8 +236,8 @@ def numbers_dataset():
         def items_list(self):
             return self.nums
 
-        def get_item_key(self, item):
-            return item
+        def get_item_key(self, item) -> str:
+            return str(item)
 
         def process_entry(self, item):
             return self.make_data_entry(
@@ -262,14 +265,14 @@ def test_unprocessed_items_fresh(numbers_dataset):
 
 def test_unprocessed_items_all_done(numbers_dataset):
     """Getting the unprocessed items from a dataset that has already processed everything should return an empty list."""
-    seen = set(range(0, 10))
+    seen = set(str(i) for i in range(0, 10))
     with patch.object(numbers_dataset, "_load_outputted_items", return_value=seen):
         assert list(numbers_dataset.unprocessed_items()) == []
 
 
 def test_unprocessed_items_some_done(numbers_dataset):
     """Getting the uprocessed items from a dataset that has partially completed should return the items that haven't been processed."""
-    seen = set(range(0, 10, 2))
+    seen = set(str(i) for i in range(0, 10, 2))
     with patch.object(numbers_dataset, "_load_outputted_items", return_value=seen):
         assert list(numbers_dataset.unprocessed_items()) == list(range(1, 10, 2))
 

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import Session
 from align_data.settings import DB_CONNECTION_URI, MIN_CONFIDENCE
-from align_data.db.models import Article
+from align_data.db.models import Article, PineconeStatus
 
 logger = logging.getLogger(__name__)
 
@@ -21,18 +21,46 @@ def make_session(auto_commit=False):
             session.commit()
 
 
-def stream_pinecone_updates(
-    session: Session, custom_sources: List[str], force_update: bool = False
+def get_pinecone_articles(
+    session: Session,
+    force_update: bool = False,
+    statuses: List[PineconeStatus] = [PineconeStatus.pending_addition],
 ):
-    """Yield Pinecone entries that require an update."""
-    yield from (
+    return (
         session.query(Article)
-        .filter(or_(Article.pinecone_update_required.is_(True), force_update))
+        .filter(or_(Article.pinecone_status.in_(statuses), force_update))
         .filter(Article.is_valid)
-        .filter(Article.source.in_(custom_sources))
-        .filter(or_(Article.confidence == None, Article.confidence > MIN_CONFIDENCE))
-        .yield_per(1000)
+        .filter(or_(Article.confidence == None, Article.confidence >= MIN_CONFIDENCE))
     )
+
+
+def get_pinecone_articles_to_remove(session: Session):
+    return (
+        session.query(Article)
+        .filter(or_(
+            Article.pinecone_status == PineconeStatus.pending_removal,
+            Article.is_valid == False,
+            Article.confidence < MIN_CONFIDENCE
+        ))
+    )
+
+
+def get_pinecone_articles_by_sources(
+    session: Session,
+    custom_sources: List[str],
+    force_update: bool = False,
+    statuses: List[PineconeStatus] = [PineconeStatus.pending_addition],
+):
+    return get_pinecone_articles(session, force_update, statuses).filter(Article.source.in_(custom_sources))
+
+
+def get_pinecone_articles_by_ids(
+    session: Session,
+    hash_ids: List[str],
+    force_update: bool = False,
+    statuses: List[PineconeStatus] = [PineconeStatus.pending_addition],
+):
+    return get_pinecone_articles(session, force_update, statuses).filter(Article.id.in_(hash_ids))
 
 
 def get_all_valid_article_ids(session: Session) -> List[str]:
@@ -44,3 +72,17 @@ def get_all_valid_article_ids(session: Session) -> List[str]:
         .all()
     )
     return [item[0] for item in query_result]
+
+
+def get_pinecone_to_delete_by_sources(
+    session: Session,
+    custom_sources: List[str],
+):
+    return get_pinecone_articles_to_remove(session).filter(Article.source.in_(custom_sources))
+
+
+def get_pinecone_to_delete_by_ids(
+    session: Session,
+    hash_ids: List[str],
+):
+    return get_pinecone_articles_to_remove(session).filter(Article.id.in_(hash_ids))

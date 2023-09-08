@@ -112,7 +112,7 @@ class HTMLDataset(AlignmentDataset):
 class RSSDataset(HTMLDataset):
     date_format = "%a, %d %b %Y %H:%M:%S %z"
 
-    def get_item_key(self, item):
+    def get_item_key(self, item: str) -> str:
         return item
 
     @property
@@ -150,11 +150,13 @@ class RSSDataset(HTMLDataset):
         )
 
     def _extract_item_url(self, item) -> str | None:
-        return item.get('link')
+        return item.get("link")
 
     @property
     def items_list(self):
         logger.info(f"Fetching entries from {self.feed_url}")
         feed = feedparser.parse(self.feed_url)
-        self.items = {url: item for item in feed["entries"] if (url := self._extract_item_url(item))}
+        self.items = {
+            url: item for item in feed["entries"] if (url := self._extract_item_url(item))
+        }
         return list(self.items.keys())

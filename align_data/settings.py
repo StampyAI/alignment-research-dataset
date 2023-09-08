@@ -39,8 +39,19 @@ password = os.environ.get("ARD_DB_PASSWORD", "we all live in a yellow submarine"
 host = os.environ.get("ARD_DB_HOST", "127.0.0.1")
 port = os.environ.get("ARD_DB_PORT", "3306")
 db_name = os.environ.get("ARD_DB_NAME", "alignment_research_dataset")
-DB_CONNECTION_URI = f"mysql+mysqldb://{user}:{password}@{host}:{port}/{db_name}"
-ARTICLE_MAIN_KEYS = ["id", "source", 'source_type', "title", "authors", "text", "url", "date_published", "status", "comments"]
+DB_CONNECTION_URI = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"
+ARTICLE_MAIN_KEYS = [
+    "id",
+    "source",
+    "source_type",
+    "title",
+    "authors",
+    "text",
+    "url",
+    "date_published",
+    "status",
+    "comments",
+]
 
 ### EMBEDDINGS ###
 USE_OPENAI_EMBEDDINGS = True  # If false, SentenceTransformer embeddings will be used.
@@ -78,5 +89,8 @@ OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH = os.environ.get(
 )
 
 ### MISCELLANEOUS ###
-MIN_CONFIDENCE = 50
+MIN_CONFIDENCE = float(os.environ.get('MIN_CONFIDENCE') or '0.5')
+if MIN_CONFIDENCE < 0 or MIN_CONFIDENCE > 1:
+    raise ValueError(f'MIN_CONFIDENCE must be between 0 and 1 - got {MIN_CONFIDENCE}')
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

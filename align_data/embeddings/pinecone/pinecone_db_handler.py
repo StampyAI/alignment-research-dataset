@@ -50,9 +50,16 @@ class PineconeDB:
             index_stats_response = self.index.describe_index_stats()
             logger.info(f"{self.index_name}:\n{index_stats_response}")
 
-    def upsert_entry(self, pinecone_entry: PineconeEntry, upsert_size: int = 100):
+    def upsert_entry(
+        self, pinecone_entry: PineconeEntry, upsert_size: int = 100, show_progress: bool = True
+    ):
         vectors = pinecone_entry.create_pinecone_vectors()
-        self.index.upsert(vectors=vectors, batch_size=upsert_size, namespace=PINECONE_NAMESPACE)
+        self.index.upsert(
+            vectors=vectors,
+            batch_size=upsert_size,
+            namespace=PINECONE_NAMESPACE,
+            show_progress=show_progress,
+        )
 
     def query_vector(
         self,
@@ -93,6 +100,10 @@ class PineconeDB:
         **kwargs,
     ) -> List[ScoredVector]:
         query_vector = get_embedding(query)[0]
+        if query_vector is None:
+            print("The query is invalid.")
+            return []
+
         return self.query_vector(
             query=query_vector,
             top_k=top_k,

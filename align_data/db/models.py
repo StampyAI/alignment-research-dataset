@@ -1,12 +1,17 @@
+import enum
+import re
 import json
+import re
 import logging
 import pytz
 import hashlib
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import (
     JSON,
     DateTime,
+    Enum,
     ForeignKey,
     String,
     Boolean,
@@ -15,9 +20,11 @@ from sqlalchemy import (
     event,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm.attributes import get_history
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.ext.hybrid import hybrid_property
 
+from align_data.embeddings.pinecone.pinecone_models import PineconeMetadata
 
 logger = logging.getLogger(__name__)
 OK_STATUS = None
@@ -36,6 +43,13 @@ class Summary(Base):
     article_id: Mapped[str] = mapped_column(ForeignKey("articles.id"))
 
     article: Mapped["Article"] = relationship(back_populates="summaries")
+
+
+class PineconeStatus(enum.Enum):
+    absent = 1
+    pending_removal = 2
+    pending_addition = 3
+    added = 4
 
 
 class Article(Base):
@@ -61,7 +75,7 @@ class Article(Base):
     status: Mapped[Optional[str]] = mapped_column(String(256))
     comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
 
-    pinecone_update_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    pinecone_status: Mapped[PineconeStatus] = mapped_column(Enum(PineconeStatus), default=PineconeStatus.absent)
 
     summaries: Mapped[List["Summary"]] = relationship(
         back_populates="article", cascade="all, delete-orphan"
@@ -71,18 +85,19 @@ class Article(Base):
         return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
 
     def generate_id_string(self) -> bytes:
-        return "".join(str(getattr(self, field)) for field in self.__id_fields).encode("utf-8")
+        return "".join(
+            re.sub(r"[^a-zA-Z0-9\s]", "", str(getattr(self, field))).strip().lower()
+            for field in self.__id_fields
+        ).encode("utf-8")
 
     @property
-    def __id_fields(self):
-        if self.source == "aisafety.info":
-            return ["url"]
+    def __id_fields(self) -> List[str]:
         if self.source in ["importai", "ml_safety_newsletter", "alignment_newsletter"]:
-            return ["url", "title", "source"]
-        return ["url", "title"]
+            return ["url", "source"]
+        return ["url"]
 
     @property
-    def missing_fields(self):
+    def missing_fields(self) -> List[str]:
         fields = set(self.__id_fields) | {
             "text",
             "title",
@@ -105,14 +120,16 @@ class Article(Base):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
         assert not missing, f"Entry is missing the following fields: {missing}"
 
-    def update(self, other: "Article"):
-        """
-        Update this article with the values from another article.
-        """
+    def update(self, other: "Article") -> "Article":
         for field in self.__table__.columns.keys():
-            if field not in ["id", "hash_id", "metadata"] and getattr(other, field):
-                setattr(self, field, getattr(other, field))
-        self.meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
+            if field not in ["id", "hash_id", "metadata"]:
+                new_value = getattr(other, field)
+                if new_value and getattr(self, field) != new_value:
+                    setattr(self, field, new_value)
+
+        updated_meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
+        if self.meta != updated_meta:
+            self.meta = updated_meta
 
         if other._id:
             self._id = other._id
@@ -129,24 +146,27 @@ class Article(Base):
         self.meta[key] = val
 
     def append_comment(self, comment: str):
-        """Appends a comment to the article.comments field. You must run session.commit() to save the comment to the database."""
         if self.comments is None:
             self.comments = ""
         self.comments = f"{self.comments}\n\n{comment}".strip()
 
     @hybrid_property
-    def is_valid(self):
-        return bool(
-            self.text
-            and self.text.strip()
-            and self.url
-            and self.title
-            and self.authors is not None
-            and self.status == OK_STATUS
+    def is_valid(self) -> bool:
+        # Check if the basic attributes are present and non-empty
+        basic_check = all(
+            [
+                self.text and self.text.strip(),
+                self.url and self.url.strip(),
+                self.title and self.title.strip(),
+                self.authors,
+                self.status == OK_STATUS,
+            ]
         )
 
+        return basic_check
+
     @is_valid.expression
-    def is_valid(cls):
+    def is_valid(cls) -> bool:
         return (
             (cls.status == OK_STATUS)
             & (cls.text != None)
@@ -163,14 +183,22 @@ class Article(Base):
             target.status = "Missing fields"
             target.comments = f'missing fields: {", ".join(target.missing_fields)}'
 
-        target.pinecone_update_required = target.is_valid
-
         if target.id:
             target.verify_id()
         else:
             target._set_id()
 
-    def to_dict(self):
+    @classmethod
+    def check_for_changes(cls, mapper, connection, target):
+        if not target.is_valid:
+            return
+        monitored_attributes = list(PineconeMetadata.__annotations__.keys())
+        monitored_attributes.remove("hash_id")
+
+        if any(get_history(target, attr).has_changes() for attr in monitored_attributes):
+            target.pinecone_status = PineconeStatus.pending_addition
+
+    def to_dict(self) -> Dict[str, Any]:
         if date := self.date_published:
             date = date.replace(tzinfo=pytz.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         meta = json.loads(self.meta) if isinstance(self.meta, str) else self.meta
@@ -196,3 +224,5 @@ class Article(Base):
 
 event.listen(Article, "before_insert", Article.before_write)
 event.listen(Article, "before_update", Article.before_write)
+event.listen(Article, "before_insert", Article.check_for_changes)
+event.listen(Article, "before_update", Article.check_for_changes)

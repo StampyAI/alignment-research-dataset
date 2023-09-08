@@ -20,6 +20,7 @@ class PineconeMetadata(TypedDict):
     date_published: float
     authors: List[str]
     text: str
+    confidence: float | None
 
 
 class PineconeEntry(BaseModel):
@@ -30,7 +31,8 @@ class PineconeEntry(BaseModel):
     date_published: float
     authors: List[str]
     text_chunks: List[str]
-    embeddings: List[List[float]]
+    confidence: float | None
+    embeddings: List[List[float] | None]
 
     def __init__(self, **data):
         """Check for missing (falsy) fields before initializing."""
@@ -62,15 +64,20 @@ class PineconeEntry(BaseModel):
             Vector(
                 id=f"{self.hash_id}_{str(i).zfill(6)}",
                 values=self.embeddings[i],
-                metadata=PineconeMetadata(
-                    hash_id=self.hash_id,
-                    source=self.source,
-                    title=self.title,
-                    authors=self.authors,
-                    url=self.url,
-                    date_published=self.date_published,
-                    text=self.text_chunks[i],
-                ),
+                metadata={
+                    key: value
+                    for key, value in PineconeMetadata(
+                        hash_id=self.hash_id,
+                        source=self.source,
+                        title=self.title,
+                        authors=self.authors,
+                        url=self.url,
+                        date_published=self.date_published,
+                        text=self.text_chunks[i],
+                        confidence=self.confidence,
+                    ).items()
+                    if value is not None  # Filter out keys with None values
+                },
             )
             for i in range(self.chunk_num)
             if self.embeddings[i]  # Skips flagged chunks

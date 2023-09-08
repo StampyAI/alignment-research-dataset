@@ -52,7 +52,7 @@ ARTICLES_DATASETS = [
 
 
 ARTICLES_REGISTRY = [
-    MultiDataset(name='special_docs', datasets=ARTICLES_DATASETS),
+    MultiDataset(name="special_docs", datasets=ARTICLES_DATASETS),
     ArxivPapers(
         name="arxiv",
         spreadsheet_id="1pgG3HzercOhf4gniaqp3tBc3uvZnHpPhXErwHcthmbI",

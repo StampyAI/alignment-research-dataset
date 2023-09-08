@@ -33,7 +33,7 @@ class Stampy(AlignmentDataset):
         table = doc.get_table(ON_SITE_TABLE)
         return table.to_dict()  # a list of dicts
 
-    def get_item_key(self, entry):
+    def get_item_key(self, entry) -> str:
         return html.unescape(entry["Question"])
 
     def _get_published_date(self, entry):

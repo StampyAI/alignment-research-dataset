@@ -471,7 +471,7 @@ def test_special_docs_process_entry_arxiv(_, mock_arxiv):
 )
 def test_special_docs_not_processed_true(url, expected):
     dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
-    dataset._outputted_items = [url, expected]
+    dataset._outputted_items = dataset._normalize_urls({url, expected})
     assert not dataset.not_processed(Mock(url=url, source_url=None))
     assert not dataset.not_processed(Mock(url=None, source_url=url))
 
@@ -490,3 +490,33 @@ def test_special_docs_not_processed_false(url):
     dataset._outputted_items = []
     assert dataset.not_processed(Mock(url=url, source_url=None))
     assert dataset.not_processed(Mock(url=None, source_url=url))
+
+
+@pytest.fixture
+def _outputted_items():
+    return [
+        "http://bla.bla",
+        "http://ble.ble",
+        "https://arxiv.org/abs/2001.11038/",
+        "https://arxiv.org/pdf/2001.00038",
+        "https://www.arxiv.org/pdf/2001.11038.pdf",
+        "https://arxiv.org/pdf/2002.11038v3.pdf",
+    ]
+
+def test_special_docs_check_not_processed(_outputted_items):
+    dataset = SpecialDocs(name="asd", spreadsheet_id="ad", sheet_id="da")
+    dataset._outputted_items = dataset._normalize_urls(_outputted_items)
+    
+    # existing tests
+    assert dataset.not_processed(Mock(url="http://google.com", source_url=None))
+    assert dataset.not_processed(Mock(url=None, source_url="http://google.com"))
+    assert dataset.not_processed(Mock(url=None, source_url=None))
+    assert dataset.not_processed(Mock(url="http://ble.ble.com", source_url=None))
+
+    assert not dataset.not_processed(Mock(url="http://bla.bla", source_url=None))
+    assert not dataset.not_processed(Mock(url="https://ble.ble/index.htm", source_url=None))
+    assert not dataset.not_processed(Mock(url="https://arxiv.org/abs/2001.11038", source_url=None))
+    assert not dataset.not_processed(Mock(url="https://www.arxiv.org/abs/2001.11038", source_url=None))
+    
+    assert not dataset.not_processed(Mock(url=None, source_url="https://arxiv.org/pdf/2001.11038v3.pdf"))
+    assert not dataset.not_processed(Mock(url="dummy_url", source_url="https://arxiv.org/pdf/2001.11038v3.pdf"))

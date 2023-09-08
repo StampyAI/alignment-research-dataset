@@ -20,7 +20,7 @@ from align_data.db.models import Article
 class FinetuningDataset(IterableDataset):
     def __init__(self, num_batches_per_epoch: int, cache_size: int = 1280):
         self.num_batches_per_epoch = num_batches_per_epoch
-        self.article_cache = deque(maxlen=cache_size)
+        self.article_cache: deque = deque(maxlen=cache_size)
 
         self.text_splitter = ParagraphSentenceUnitTextSplitter()
         self.pinecone_db = PineconeDB()

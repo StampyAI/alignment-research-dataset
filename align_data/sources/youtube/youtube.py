@@ -35,7 +35,7 @@ class YouTubeDataset(AlignmentDataset):
         return {"items": []}
 
     @staticmethod
-    def _get_id(item):
+    def _get_id(item) -> str | None:
         if item.get("kind") == "youtube#searchResult":
             resource = item["id"]
         elif item.get("kind") == "youtube#playlistItem":
@@ -67,9 +67,9 @@ class YouTubeDataset(AlignmentDataset):
             for video in self.fetch_videos(collection_id)
         )
 
-    def get_item_key(self, item):
+    def get_item_key(self, item) -> str | None:
         video_id = self._get_id(item)
-        return f"https://www.youtube.com/watch?v={video_id}"
+        return video_id and f"https://www.youtube.com/watch?v={video_id}"
 
     def _get_contents(self, video):
         video_id = self._get_id(video)

@@ -45,6 +45,6 @@ def test_process_entry():
         "source_type": "markdown",
         "summaries": [],
         "text": "bla bla bla",
-        "title": "Why\nnot just?",
+        "title": "Why not just?",
         "url": "https://aisafety.info?state=1234",
     }

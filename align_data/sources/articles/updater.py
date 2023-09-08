@@ -23,8 +23,8 @@ class ReplacerDataset(AlignmentDataset):
     delimiter: str
     done_key = "url"
 
-    def get_item_key(self, item):
-        raise NotImplementedError
+    def get_item_key(self, item) -> None:
+        return None
 
     @staticmethod
     def maybe(item, key):

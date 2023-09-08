@@ -26,7 +26,7 @@ class AlignmentNewsletter(SummaryDataset):
             return None
         return val
 
-    def get_item_key(self, row):
+    def get_item_key(self, row) -> str | None:
         return self.maybe(row.URL)
 
     def _get_published_date(self, year):
