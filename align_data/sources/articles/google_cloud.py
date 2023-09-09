@@ -93,8 +93,8 @@ def iterate_rows(sheet: Worksheet) -> Iterator[SheetRow]:
     SheetRow.set_sheet(sheet)
 
     # we start the enumeration at 2 to avoid the header row
-    for i, row_data in enumerate(sheet.get_all_records(), 2):
-        yield SheetRow(i, row_data)
+    for row_id, row_data in enumerate(sheet.get_all_records(), 2):
+        yield SheetRow(row_id, row_data)
 
 
 def upload_file(filename, bytes_contents, mimetype, parent_id=None):

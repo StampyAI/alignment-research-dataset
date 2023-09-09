@@ -52,12 +52,6 @@ def get_version(id: str) -> str | None:
         return res.group(1)
 
 
-def is_withdrawn(url: str):
-    if elem := fetch_element(canonical_url(url), ".extra-services .full-text ul"):
-        return elem.text.strip().lower() == "withdrawn"
-    return None
-
-
 def is_withdrawn(url: str) -> bool:
     if elem := fetch_element(canonical_url(url), '.extra-services .full-text ul'):
         return elem.text.strip().lower() == 'withdrawn'

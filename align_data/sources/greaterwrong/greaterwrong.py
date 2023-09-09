@@ -63,11 +63,11 @@ class GreaterWrong(AlignmentDataset):
     start_year: int
     min_karma: int
     """Posts must have at least this much karma to be returned."""
-    af: bool = False
+    af: bool
     """Whether alignment forum posts should be returned"""
 
     limit = 50
-    COOLDOWN_TIME : float = 0.5
+    COOLDOWN_TIME: float = 0.5
     done_key = "url"
     lazy_eval = True
     source_type = 'GreaterWrong'

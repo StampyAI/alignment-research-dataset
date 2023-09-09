@@ -25,8 +25,9 @@ def indice_fetcher(url: str, main_selector: str, item_selector: str, formatter: 
         if contents := fetch_element(url, main_selector):
             return list(filter(None, map(formatter, contents.select(item_selector))))
         return []
-    fetcher.__name__ = formatter.__name__.replace("format_", "") + '_fetcher' 
+    fetcher.__name__ = formatter.__name__.replace("format_", "") + '_fetcher'
     # formatter called "format_anthropic" -> fetcher called "anthropic_fetcher"
+    #TODO: Make this more explicit
     return fetcher
 
 
