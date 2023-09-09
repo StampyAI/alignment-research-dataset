@@ -14,6 +14,7 @@ from markdownify import markdownify
 
 from align_data.db.models import Article
 from align_data.common.alignment_dataset import AlignmentDataset
+
 logger = logging.getLogger(__name__)
 
 
