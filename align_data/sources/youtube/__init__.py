@@ -38,6 +38,7 @@ YOUTUBE_DATASETS = [
             "PLAPVC5uNprwY0q4_nyeeHqIT07wZqwjGO",
             "PLCRVRLd2RhZTpdUdEzJjo3qhmX3y3skWA",
             "PLTYHZYmxohXpn5uf8JZ2OouB1PsDJAk-x",
+            "PLWQikawCP4UEiXxzfA8CfBsgDeXzXt9s9",
         ],
     ),
 ]
