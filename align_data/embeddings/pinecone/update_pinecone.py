@@ -167,7 +167,7 @@ class PineconeDeleter(PineconeAction):
         self.pinecone_db.delete_entries([a.id for a in batch])
         logger.info('removing batch %s', len(batch))
         for article in batch:
-            article.pinecone_status = PineconeStatus.removed
+            article.pinecone_status = PineconeStatus.absent
         return batch
 
 
