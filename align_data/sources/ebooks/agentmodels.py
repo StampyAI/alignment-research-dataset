@@ -21,7 +21,7 @@ class AgentModels(AlignmentDataset):
         super().setup()
         self.base_dir = self.raw_data_path / "agentmodels.org"
         if not self.base_dir.exists() or not list(self.base_dir.glob("*")):
-            logger.info("Cloning repo")
+            logger.info(f"Cloning repo {self.repo}")
             Repo.clone_from(self.repo, self.base_dir)
         self.repository = Repo(self.base_dir)
         self.files_path = self.base_dir / "chapters"

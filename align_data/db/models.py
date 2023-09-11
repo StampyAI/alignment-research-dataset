@@ -82,7 +82,8 @@ class Article(Base):
     )
 
     def __repr__(self) -> str:
-        return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={self.date_published!r})"
+        formatted_date = self.date_published.strftime('%Y-%m-%d %H:%M:%S%z')
+        return f"Article(id={self.id!r}, title={self.title!r}, url={self.url!r}, source={self.source!r}, authors={self.authors!r}, date_published={formatted_date!r})"
 
     def generate_id_string(self) -> bytes:
         return "".join(

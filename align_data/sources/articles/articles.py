@@ -49,7 +49,7 @@ def save_pdf(filename, link):
 @with_retry(times=3, exceptions=gspread.exceptions.APIError)
 def process_row(row, sheets):
     """Check the given `row` and fetch its metadata + optional extra stuff."""
-    logger.info('Checking "%s"', row["title"])
+    logger.debug('Checking "%s"', row["title"])
 
     missing = [field for field in REQUIRED_FIELDS if not row.get(field)]
     if missing:
@@ -91,7 +91,7 @@ def process_spreadsheets(source_sheet, output_sheets):
     :param Worksheet source_sheet: the worksheet to be processed - each row should be a separate entry
     :param Dict[str, Worksheet] output_sheets: a dict of per data type worksheets to be updated
     """
-    logger.info("fetching seen urls")
+    logger.info("fetching seen urls in {output_sheets}")
     seen = {
         url
         for sheet in output_sheets.values()
@@ -120,8 +120,8 @@ def update_new_items(source_spreadsheet, source_sheet, output_spreadsheet):
     return process_spreadsheets(source_sheet, sheets)
 
 
-def check_new_articles(source_spreadsheet, source_sheet):
-    """Goes through the special indices looking for unseen articles."""
+def check_new_articles(source_spreadsheet, source_sheet) -> int:
+    """Goes through the special indices looking for unseen articles to update. Returns the number of updated rows."""
     source_sheet = get_sheet(source_spreadsheet, source_sheet)
     current = {row.get("title"): row for row in iterate_rows(source_sheet)}
     seen_urls = {

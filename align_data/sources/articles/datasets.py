@@ -245,6 +245,6 @@ class ArxivPapers(SpreadsheetDataset):
         return contents
 
     def process_entry(self, item):
-        logger.info(f"Processing {item.title}")
+        logger.debug(f"Processing {item.title}")
 
         return self.make_data_entry(self.get_contents(item), source=self.name)

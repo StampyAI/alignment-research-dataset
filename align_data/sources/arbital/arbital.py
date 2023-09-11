@@ -184,7 +184,7 @@ class Arbital(AlignmentDataset):
 
             return self.make_data_entry(
                 {
-                    "title": page.get("title") or "",
+                    "title": page.get("title") or None,
                     "text": text,
                     "date_published": self._get_published_date(page),
                     "url": f'https://arbital.com/p/{page.get("alias") or alias}',

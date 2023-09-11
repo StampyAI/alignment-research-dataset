@@ -71,7 +71,7 @@ class GwernBlog(HTMLDataset):
         return dict(filter(None, map(extract, header.splitlines())))
 
     def _get_article(self, url):
-        logger.info("Fetching {}".format(url))
+        logger.debug(f"Fetching {url}")
         return requests.get(url, allow_redirects=True)
 
     @staticmethod

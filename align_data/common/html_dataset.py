@@ -81,7 +81,7 @@ class HTMLDataset(AlignmentDataset):
         return self.make_data_entry(contents)
 
     def fetch_contents(self, url):
-        logger.info("Fetching {}".format(url))
+        logger.debug(f"Fetching {url}")
         resp = requests.get(url, allow_redirects=True)
         return BeautifulSoup(resp.content, "html.parser")
 
@@ -141,7 +141,7 @@ class RSSDataset(HTMLDataset):
         if "content" in item:
             return item
 
-        logger.info("Fetching {}".format(url))
+        logger.debug(f"Fetching {url}")
         resp = requests.get(url, allow_redirects=True)
         soup = BeautifulSoup(resp.content, "html.parser")
         return dict(

@@ -49,7 +49,7 @@ class Stampy(AlignmentDataset):
         answer = clean_text(entry["Rich Text"])
         url = "https://aisafety.info?state=" + entry["UI ID"]
 
-        logger.info(f"Processing {question}")
+        logger.debug(f"Processing {question}")
 
         return self.make_data_entry(
             {

@@ -94,7 +94,7 @@ class DeepMindTechnicalBlog(HTMLDataset):
         page = 1
         with tqdm(desc=f"Loading {self.name} pages") as pbar:
             while True:
-                logger.info(f"Fetching entries from {self.url}")
+                logger.debug(f"Fetching entries from {self.url}")
                 response = requests.get(
                     self.url, allow_redirects=True, params={"73df3071_page": page}
                 )
