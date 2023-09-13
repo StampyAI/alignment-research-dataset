@@ -360,7 +360,7 @@ def test_arxiv_process_entry_retracted(mock_arxiv):
         <ul><li>Withdrawn</li></ul>
         <div class="abs-license"><div hidden="">No license for this version due to withdrawn</div></div>
       </div>
-     </div>
+    </div>
     """
 
     with patch("requests.get", return_value=Mock(content=response)):

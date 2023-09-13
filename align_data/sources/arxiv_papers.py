@@ -3,6 +3,7 @@ import re
 from typing import Dict, Optional, Any
 
 import arxiv
+
 from align_data.sources.articles.pdf import fetch_pdf, parse_vanity
 from align_data.sources.articles.html import fetch_element
 from align_data.sources.utils import merge_dicts
@@ -10,7 +11,7 @@ from align_data.sources.utils import merge_dicts
 logger = logging.getLogger(__name__)
 
 
-def get_arxiv_metadata(paper_id) -> arxiv.Result:
+def get_arxiv_metadata(paper_id: str) -> arxiv.Result | None:
     """
     Get metadata from arxiv
     """
@@ -25,6 +26,7 @@ def get_arxiv_metadata(paper_id) -> arxiv.Result:
 def get_id(url: str) -> str | None:
     if res := re.search(r"https?://arxiv.org/(?:abs|pdf)/(.*?)(?:v\d+)?(?:/|\.pdf)?$", url):
         return res.group(1)
+    return None
 
 
 def canonical_url(url: str) -> str:
@@ -50,13 +52,13 @@ def get_version(id: str) -> str | None:
         return res.group(1)
 
 
-def is_withdrawn(url: str):
-    if elem := fetch_element(canonical_url(url), ".extra-services .full-text ul"):
-        return elem.text.strip().lower() == "withdrawn"
-    return None
+def is_withdrawn(url: str) -> bool:
+    if elem := fetch_element(canonical_url(url), '.extra-services .full-text ul'):
+        return elem.text.strip().lower() == 'withdrawn'
+    return False
 
 
-def add_metadata(data, paper_id):
+def add_metadata(data: Dict[str, Any], paper_id: str) -> Dict[str, Any]:
     metadata = get_arxiv_metadata(paper_id)
     if not metadata:
         return {}
@@ -78,7 +80,7 @@ def add_metadata(data, paper_id):
     )
 
 
-def fetch_arxiv(url) -> Dict:
+def fetch_arxiv(url: str) -> Dict[str, Any]:
     paper_id = get_id(url)
     if not paper_id:
         return {"error": "Could not extract arxiv id"}

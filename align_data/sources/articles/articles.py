@@ -1,10 +1,13 @@
 import io
 import logging
+from typing import Dict, Set
 
 from tqdm import tqdm
 import gspread
+from gspread.worksheet import Worksheet
 
 from align_data.sources.articles.google_cloud import (
+    SheetRow,
     iterate_rows,
     get_spreadsheet,
     get_sheet,
@@ -18,9 +21,7 @@ from align_data.sources.articles.html import with_retry
 from align_data.sources.articles.updater import ReplacerDataset
 from align_data.settings import PDFS_FOLDER_ID
 
-
 logger = logging.getLogger(__name__)
-
 
 # Careful changing these - the sheets assume this ordering
 REQUIRED_FIELDS = ["url", "source_url", "title", "source_type", "date_published"]
@@ -45,11 +46,10 @@ def save_pdf(filename, link):
         parent_id=PDFS_FOLDER_ID,
     )
 
-
 @with_retry(times=3, exceptions=gspread.exceptions.APIError)
-def process_row(row, sheets):
+def process_row(row: SheetRow, sheets: Dict[str, Worksheet]):
     """Check the given `row` and fetch its metadata + optional extra stuff."""
-    logger.info('Checking "%s"', row["title"])
+    logger.info('Checking "%s" at "%s', row["title"], row["url"])
 
     missing = [field for field in REQUIRED_FIELDS if not row.get(field)]
     if missing:
@@ -60,10 +60,13 @@ def process_row(row, sheets):
     source_url = row.get("source_url")
     contents = item_metadata(source_url)
 
-    if not contents or "error" in contents:
-        error = (contents and contents.get("error")) or "text could not be fetched"
-        logger.error(error)
-        row.set_status(error)
+    if not contents:
+        logger.error("text could not be fetched")
+        row.set_status("text could not be fetched")
+        return
+    elif "error" in contents:
+        logger.error(contents["error"])
+        row.set_status(contents["error"])
         return
 
     data_source = contents.get("source_type")
@@ -83,7 +86,7 @@ def process_row(row, sheets):
     row.set_status(OK)
 
 
-def process_spreadsheets(source_sheet, output_sheets):
+def process_spreadsheets(source_sheet: Worksheet, output_sheets: Dict[str, Worksheet]) -> None:
     """Go through all entries in `source_sheet` and update the appropriate metadata in `output_sheets`.
 
     `output_sheets` should be a dict with a key for each possible data type, e.g. html, pdf etc.
@@ -92,43 +95,49 @@ def process_spreadsheets(source_sheet, output_sheets):
     :param Dict[str, Worksheet] output_sheets: a dict of per data type worksheets to be updated
     """
     logger.info("fetching seen urls")
-    seen = {
+    seen: Set[str] = {
         url
-        for sheet in output_sheets.values()
-        for record in sheet.get_all_records()
+        for output_sheet in output_sheets.values()
+        for record in output_sheet.get_all_records()
         for url in [record.get("url"), record.get("source_url")]
         if url
-    }
+    } 
+    # TODO: This requires our output_sheet to already have the headers for 
+    # the different sheets. otherwise we raise an error, but we could have it be added 
+    # automatically instead
+
     for row in tqdm(iterate_rows(source_sheet)):
-        title = row.get("title")
         if not row.get("source_url"):
             row["source_url"] = row["url"]
+        
         if row.get("source_url") in seen:
-            logger.info(f'skipping "{title}", as it has already been seen')
-        elif row.get("status"):
-            logger.info(
-                f'skipping "{title}", as it has a status set - remove it for this row to be processed'
-            )
+            logger.info(f'skipping "{row.get("title")}", as it has already been seen')
+        elif row.get('status'):
+            logger.info(f'skipping "{row.get("title")}", as it has a status set - remove it for this row to be processed')
         else:
             process_row(row, output_sheets)
 
 
-def update_new_items(source_spreadsheet, source_sheet, output_spreadsheet):
+def update_new_items(source_spreadsheet_id: str, source_sheet_name: str, output_spreadsheet_id: str) -> None:
     """Go through all unprocessed items from the source worksheet, updating the appropriate metadata in the output one."""
-    source_sheet = get_sheet(source_spreadsheet, source_sheet)
-    sheets = {sheet.title: sheet for sheet in get_spreadsheet(output_spreadsheet).worksheets()}
-    return process_spreadsheets(source_sheet, sheets)
+    source_sheet = get_sheet(source_spreadsheet_id, source_sheet_name)
+    output_sheets = {
+        sheet.title: sheet for sheet in get_spreadsheet(output_spreadsheet_id).worksheets()
+    }
+    process_spreadsheets(source_sheet, output_sheets)
 
 
-def check_new_articles(source_spreadsheet, source_sheet):
+def check_new_articles(source_spreadsheet_id: str, source_sheet_name: str):
     """Goes through the special indices looking for unseen articles."""
-    source_sheet = get_sheet(source_spreadsheet, source_sheet)
-    current = {row.get("title"): row for row in iterate_rows(source_sheet)}
+    source_sheet = get_sheet(source_spreadsheet_id, source_sheet_name)
+    current: Dict[str, SheetRow] = {row.get("title"): row for row in iterate_rows(source_sheet)}
+    logger.info('Found %s articles in the sheet', len(current))
+
     seen_urls = {
         url
-        for item in current.values()
-        for key in ("url", "source_url")
-        if (url := item.get(key)) is not None
+        for row in current.values()
+        for url_key in ("url", "source_url")
+        if (url := row.get(url_key)) is not None
     }
 
     indices_items = fetch_all()

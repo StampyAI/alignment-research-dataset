@@ -1,6 +1,6 @@
 import logging
 from urllib.parse import urlparse, urljoin
-from typing import Dict
+from typing import Dict, Optional, Callable, Any
 
 from requests.exceptions import ConnectionError, InvalidSchema, MissingSchema
 
@@ -10,8 +10,9 @@ from align_data.sources.articles.google_cloud import google_doc, extract_gdrive_
 from align_data.sources.arxiv_papers import fetch_arxiv
 from align_data.common.html_dataset import HTMLDataset
 
-
 logger = logging.getLogger(__name__)
+
+ParserFunc = Callable[[str], Dict[str, Any]]
 
 
 def get_pdf_from_page(*link_selectors: str):
@@ -21,32 +22,40 @@ def get_pdf_from_page(*link_selectors: str):
      * if there are more selectors left, fetch the contents at the extracted link and continue
      * otherwise return the pdf contents at the last URL
 
-    :param List[str] link_selectors: CSS selector used to find the final download link
+    :param str *link_selectors: CSS selectors used to find the final download link
     :returns: the contents of the pdf file as a string
     """
+    def getter(url: str) -> Dict[str, Any]:
+        current_url: str = url
 
-    def getter(url: str):
-        link: str = url
         for selector in link_selectors:
-            elem = fetch_element(link, selector)
+            elem = fetch_element(current_url, selector)
             if not elem:
-                return {"error": f"Could not find pdf download link for {link} using '{selector}'"}
+                return {"error": f"Could not find pdf download link for {current_url} using '{selector}'"}
 
-            link = elem.get("href")
-            if not link.startswith("http") or not link.startswith("//"):
-                link = urljoin(url, link)
+            # Extracting href, considering it can be a string or a list of strings
+            href = elem.get("href")
+            if isinstance(href, list):
+                href = href[0] if href else None
 
+            if not href:
+                return {"error": f"Could not extract href for {current_url} using '{selector}'"}
+
+            # Making sure the link is absolute
+            if not href.startswith(("http", "//")):
+                href = urljoin(url, href)
+
+            current_url = href
         # Some pages keep link to google drive previews of pdf files, which need to be
         # mangled to get the URL of the actual pdf file
-        if "drive.google.com" in link and "/view" in link:
-            return extract_gdrive_contents(link)
+        if "drive.google.com" in current_url and "/view" in current_url:
+            return extract_gdrive_contents(current_url)
 
-        if parse_domain(link) == "arxiv.org":
-            return fetch_arxiv(link)
-        if pdf := fetch_pdf(link):
+        if parse_domain(current_url) == "arxiv.org":
+            return fetch_arxiv(current_url)
+        if pdf := fetch_pdf(current_url):
             return pdf
-        return {"error": f"Could not fetch pdf from {link}"}
-
+        return {"error": f"Could not fetch pdf from {current_url}"}
     return getter
 
 
@@ -64,6 +73,7 @@ class MediumParser(HTMLDataset):
 
     It is possible that there is additional variation in the layout that hasn't been represented
     in the blogs tested so far. In that case, additional fixes to this code may be needed.
+    #TODO: investigate this
     """
 
     source_type = "MediumParser(name='html', url='')"
@@ -73,14 +83,13 @@ class MediumParser(HTMLDataset):
         possible_date_elements = contents.select("article div:first-child span")
         return self._find_date(possible_date_elements)
 
-    def __call__(self, url):
+    def __call__(self, url: str) -> Dict[str, Any]:
         return self.get_contents(url)
 
 
-def error(error_msg):
+def error(error_msg: str):
     """Returns a url handler function that just logs the provided `error` string."""
-
-    def func(url):
+    def func(url: str) -> Dict[str, Any]:
         if error_msg:
             logger.error(error_msg)
         return {"error": error_msg, "source_url": url}
@@ -88,10 +97,13 @@ def error(error_msg):
     return func
 
 
-def multistrategy(*funcs):
-    """Merges multiple getter functions, returning the result of the first function call to succeed."""
+def multistrategy(*funcs: ParserFunc):
+    """
+    Merges multiple getter functions, returning the result 
+    of the first function call to succeed.
+    """
 
-    def getter(url):
+    def getter(url: str) -> Dict[str, Any]:
         for func in funcs:
             res = func(url)
             if res and "error" not in res:
@@ -100,7 +112,7 @@ def multistrategy(*funcs):
     return getter
 
 
-UNIMPLEMENTED_PARSERS = {
+UNIMPLEMENTED_PARSERS: Dict[str, ParserFunc] = {
     # Unhandled items that will be caught later. Though it would be good for them also to be done properly
     "oxford.universitypressscholarship.com": error(""),
     # Paywalled journal
@@ -109,6 +121,8 @@ UNIMPLEMENTED_PARSERS = {
     ),
     "link.springer.com": error("This article looks paywalled"),
     "www.dl.begellhouse.com": error("This article is paywalled"),
+    "dl.begellhouse.com": error("Begell house is not yet handled"),
+
     # To be implemented
     "goodreads.com": error("Ebooks are not yet handled"),
     "judiciary.senate.gov": error(""),
@@ -120,10 +134,23 @@ UNIMPLEMENTED_PARSERS = {
         "Researchgate makes it hard to auto download pdf - please provide a DOI or a different url to the contents"
     ),
     "repository.cam.ac.uk": error(""),
+    
+    "deliverypdf.ssrn.com": error("SSRN is not yet handled"),
+    "doi.wiley.com": error("Wiley is not yet handled"),
+    "onlinelibrary.wiley.com": error("Wiley is not yet handled"),
+    "globalprioritiesproject.org": error("Global priorities project is not yet handled"),
+    "ieeexplore.ieee.org": error("IEEE is not yet handled"),
+    "pdcnet.org": error("pdcnet.org is not yet handled"),
+    "sciencemag.org": error("sciencemag.org is not yet handled"),
+    "iopscience.iop.org": error("iopscience.iop.org is not yet handled"),
+    "journals.aom.org": error("journals.aom.org is not yet handled"),
+    "cambridge.org": error("cambridge.org is not yet handled"),
+    "transformer-circuits.pub": error("not handled yet - same codebase as distill"),
+
 }
 
 
-HTML_PARSERS = {
+HTML_PARSERS: Dict[str, ParserFunc] = {
     "academic.oup.com": element_extractor("#ContentTab"),
     "ai.googleblog.com": element_extractor("div.post-body.entry-content"),
     "arxiv-vanity.com": parse_vanity,
@@ -218,7 +245,6 @@ HTML_PARSERS = {
             ".Publication",
         ],
     ),
-    "transformer-circuits.pub": error("not handled yet - same codebase as distill"),
     "vox.com": element_extractor("did.c-entry-content", remove=["c-article-footer"]),
     "weforum.org": element_extractor("div.wef-0"),
     "www6.inrae.fr": element_extractor("div.ArticleContent"),
@@ -226,7 +252,7 @@ HTML_PARSERS = {
     "yoshuabengio.org": element_extractor("div.post-content"),
 }
 
-PDF_PARSERS = {
+PDF_PARSERS: Dict[str, ParserFunc] = {
     # Domain sepecific handlers
     "apcz.umk.pl": get_pdf_from_page(".galleys_links a.pdf", "a.download"),
     "arxiv.org": fetch_arxiv,
@@ -264,15 +290,21 @@ PDF_PARSERS = {
 
 
 def parse_domain(url: str) -> str:
-    return url and urlparse(url).netloc.lstrip("www.")
+    net_loc = urlparse(url).netloc
+    return net_loc[4:] if net_loc.startswith("www.") else net_loc
 
 
-def item_metadata(url: str) -> Dict[str, any]:
+def item_metadata(url: str) -> Dict[str, Any]: 
+    if not url:
+        return {"error": "No url was given to item_metadata"}
     domain = parse_domain(url)
     try:
         res = fetch(url, "head")
     except (MissingSchema, InvalidSchema, ConnectionError) as e:
         return {"error": str(e)}
+    
+    if not res.headers.get('Content-Type'):
+        return {'error': 'No content type found'}
 
     content_type = {item.strip() for item in res.headers.get("Content-Type", "").split(";")}
 
@@ -286,15 +318,17 @@ def item_metadata(url: str) -> Dict[str, any]:
                 return res
 
         if parser := PDF_PARSERS.get(domain):
-            if res := parser(url):
+            if content := parser(url):
                 # A pdf was found - use it, though it might not be useable
-                return res
+                return content
 
         if parser := UNIMPLEMENTED_PARSERS.get(domain):
             return parser(url)
 
-        if domain not in (HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()):
-            return {"error": "No domain handler defined"}
+        if domain not in (
+            HTML_PARSERS.keys() | PDF_PARSERS.keys() | UNIMPLEMENTED_PARSERS.keys()
+        ):
+            return {"error": f"No domain handler defined for {domain}"}
         return {"error": "could not parse url"}
     elif content_type & {"application/octet-stream", "application/pdf"}:
         if domain == "arxiv.org":

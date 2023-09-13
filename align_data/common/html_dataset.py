@@ -1,16 +1,18 @@
-import pytz
-import regex as re
 import logging
 from datetime import datetime
-from dataclasses import dataclass, field, KW_ONLY
+from dataclasses import dataclass, field
 from urllib.parse import urljoin
-from typing import List
+from typing import List, Dict, Any
+import re
 
+import pytz
 import requests
 import feedparser
 from bs4 import BeautifulSoup
+from bs4.element import ResultSet, Tag
 from markdownify import markdownify
 
+from align_data.db.models import Article
 from align_data.common.alignment_dataset import AlignmentDataset
 
 logger = logging.getLogger(__name__)
@@ -26,9 +28,6 @@ class HTMLDataset(AlignmentDataset):
     done_key = "url"
 
     authors: List[str] = field(default_factory=list)
-    _: KW_ONLY
-    source_key: str = None
-    summary_key: str = None
 
     item_selector = "article"
     title_selector = "article h1"
@@ -39,12 +38,14 @@ class HTMLDataset(AlignmentDataset):
     def extract_authors(self, article):
         return self.authors
 
-    def get_item_key(self, item) -> str:
-        article_url = item.find_all("a")[0]["href"].split("?")[0]
-        return urljoin(self.url, article_url)
+
+    def get_item_key(self, item: Tag) -> str:
+        first_href = item.find("a")["href"]
+        href_base, *_ = first_href.split("?")
+        return urljoin(self.url, href_base)
 
     @property
-    def items_list(self):
+    def items_list(self) -> ResultSet[Tag]:
         logger.info(f"Fetching entries from {self.url}")
         response = requests.get(self.url, allow_redirects=True)
         soup = BeautifulSoup(response.content, "html.parser")
@@ -52,10 +53,10 @@ class HTMLDataset(AlignmentDataset):
         logger.info(f"Found {len(articles)} articles")
         return articles
 
-    def _extra_values(self, contents):
+    def _extra_values(self, contents: BeautifulSoup):
         return {}
 
-    def get_contents(self, article_url: str):
+    def get_contents(self, article_url: str) -> Dict[str, Any]:
         contents = self.fetch_contents(article_url)
 
         title = self._get_title(contents)
@@ -72,7 +73,7 @@ class HTMLDataset(AlignmentDataset):
             **self._extra_values(contents),
         }
 
-    def process_entry(self, article):
+    def process_entry(self, article: Tag) -> Article:
         article_url = self.get_item_key(article)
         contents = self.get_contents(article_url)
         if not contents.get("text"):
@@ -80,8 +81,8 @@ class HTMLDataset(AlignmentDataset):
 
         return self.make_data_entry(contents)
 
-    def fetch_contents(self, url):
-        logger.info("Fetching {}".format(url))
+    def fetch_contents(self, url: str):
+        logger.info(f"Fetching {url}")
         resp = requests.get(url, allow_redirects=True)
         return BeautifulSoup(resp.content, "html.parser")
 
@@ -136,7 +137,7 @@ class RSSDataset(HTMLDataset):
         text = item.get("content") and item["content"][0].get("value")
         return self._extract_markdown(text)
 
-    def fetch_contents(self, url):
+    def fetch_contents(self, url: str):
         item = self.items[url]
         if "content" in item:
             return item

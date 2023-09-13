@@ -1,8 +1,9 @@
 from datetime import datetime
 from pathlib import Path
+from collections import defaultdict
+
 import jsonlines
 
-from collections import defaultdict
 
 
 def is_valid_date_format(data_dict, format="%Y-%m-%dT%H:%M:%SZ"):

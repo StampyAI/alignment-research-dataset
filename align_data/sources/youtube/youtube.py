@@ -1,8 +1,8 @@
 import logging
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Optional, Iterable
 
-from googleapiclient.discovery import build
+from googleapiclient.discovery import build, Resource
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
     NoTranscriptFound,
@@ -13,7 +13,6 @@ from youtube_transcript_api._errors import (
 from align_data.settings import YOUTUBE_API_KEY
 from align_data.common.alignment_dataset import AlignmentDataset
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -21,16 +20,17 @@ class YouTubeDataset(AlignmentDataset):
     done_key = "url"
     batch_size = 1
     # COOLDOWN = 2
-    authors = None
-    collection_ids = []
+    authors: Optional[List[str]] = None
+    collection_ids: List[str] = field(default_factory=list)
+
 
     def setup(self):
         super().setup()
         if not YOUTUBE_API_KEY:
             raise ValueError("No YOUTUBE_API_KEY provided!")
-        self.youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
+        self.youtube: Resource = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
-    def next_page(self, collection_id, next_page_token):
+    def next_page(self, collection_id: str, next_page_token: list) -> dict:
         return {"items": []}
 
     @staticmethod
@@ -45,7 +45,7 @@ class YouTubeDataset(AlignmentDataset):
         if resource["kind"] == "youtube#video":
             return resource["videoId"]
 
-    def fetch_videos(self, collection_id):
+    def fetch_videos(self, collection_id: str) -> Iterable[dict]:
         next_page_token = None
         while True:
             videos_response = self.next_page(collection_id, next_page_token)
@@ -74,7 +74,8 @@ class YouTubeDataset(AlignmentDataset):
         video_id = self._get_id(video)
         try:
             transcript = (
-                YouTubeTranscriptApi.list_transcripts(video_id)
+                YouTubeTranscriptApi
+                .list_transcripts(video_id)
                 .find_transcript(["en", "en-GB"])
                 .fetch()
             )
@@ -139,13 +140,14 @@ class YouTubeChannelDataset(YouTubeDataset):
 
 @dataclass
 class YouTubePlaylistDataset(YouTubeDataset):
-    playlist_ids: str
+
+    playlist_ids: List[str]
 
     @property
     def collection_ids(self):
         return self.playlist_ids
 
-    def next_page(self, collection_id, next_page_token):
+    def next_page(self, collection_id: str, next_page_token: list):
         return (
             self.youtube.playlistItems()
             .list(

@@ -22,9 +22,7 @@ from align_data.embeddings.pinecone.pinecone_models import (
 )
 from align_data.embeddings.text_splitter import ParagraphSentenceUnitTextSplitter
 
-
 logger = logging.getLogger(__name__)
-
 
 # Define type aliases for the Callables
 LengthFunctionType = Callable[[str], int]

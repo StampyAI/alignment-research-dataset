@@ -2,11 +2,12 @@ import logging
 from urllib.parse import urljoin
 
 import requests
-from align_data.sources.articles.parsers import item_metadata
-from align_data.common.html_dataset import HTMLDataset, RSSDataset
 from bs4 import BeautifulSoup
 from dateutil.parser import ParserError
 from tqdm import tqdm
+
+from align_data.sources.articles.parsers import item_metadata
+from align_data.common.html_dataset import HTMLDataset, RSSDataset
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,11 @@ class OpenAIResearch(HTMLDataset):
         authors = []
         if authors_div:
             authors = [
-                i.split("(")[0].strip() for i in authors_div.select_one("p").children if not i.name
+                i.split("(")[0].strip()
+                for i in authors_div.select_one("p").children
+                if not i.name and i.strip() 
+                # i.name is non-empty if it's a tag, ie <br/> has name br 
+                # but "OpenAI Research" has no name
             ]
         return authors or ["OpenAI Research"]
 

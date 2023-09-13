@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Set, Tuple
 
 import requests
-import jsonlines
 from bs4 import BeautifulSoup
 from markdownify import markdownify
 from sqlalchemy import select
@@ -69,7 +68,6 @@ class GreaterWrong(AlignmentDataset):
 
     limit = 50
     COOLDOWN_TIME: float = 0.5
-    summary_key: str = "summary"
     done_key = "url"
     lazy_eval = True
     source_type = 'GreaterWrong'
@@ -112,49 +110,48 @@ class GreaterWrong(AlignmentDataset):
         return super()._get_published_date(item.get("postedAt"))
 
     def make_query(self, after: str):
-        return (
-            """{
-            posts(input: {
-            terms: {
-                excludeEvents: true
-                view: "old"
-        """
-            f"      af: {self.af}\n"
-            f"      limit: {self.limit}\n"
-            f"      karmaThreshold: {self.min_karma}\n"
-            f'        after: "{after}"\n'
-            """        filter: "tagged"
-            }
-            }) {
-            totalCount
-            results {
-                _id
-                title
-                slug
-                pageUrl
-                postedAt
-                modifiedAt
-                score
-                extendedScore
-                baseScore
-                voteCount
-                commentCount
-                wordCount
-                  tags {
-                  name
-                }
-                user {
-                  displayName
-                }
-                coauthors {
-                  displayName
-                }
-                af
-                htmlBody
-            }
-            }
-        }"""
-        )
+        return f'''
+        {{
+            posts(input: {{
+                terms: {{
+                    excludeEvents: true
+                    view: "old"
+                    af: {self.af}
+                    limit: {self.limit}
+                    karmaThreshold: {self.min_karma}
+                    after: "{after}"
+                    filter: "tagged"
+                }}
+            }}) {{
+                totalCount
+                results {{
+                    _id
+                    title
+                    slug
+                    pageUrl
+                    postedAt
+                    modifiedAt
+                    score
+                    extendedScore
+                    baseScore
+                    voteCount
+                    commentCount
+                    wordCount
+                    tags {{
+                        name
+                    }}
+                    user {{
+                        displayName
+                    }}
+                    coauthors {{
+                        displayName
+                    }}
+                    af
+                    htmlBody
+                }}
+            }}
+        }}
+        '''
 
     def fetch_posts(self, query: str):
         res = requests.post(
@@ -168,14 +165,18 @@ class GreaterWrong(AlignmentDataset):
         return res.json()["data"]["posts"]
 
     @property
-    def last_date_published(self):
-        try:
-            prev_item = next(self.read_entries(sort_by=Article.date_published.desc()))
-            if prev_item and prev_item.date_published:
-                return prev_item.date_published.isoformat() + "Z"
-        except StopIteration:
-            pass
-        return datetime(self.start_year, 1, 1).isoformat() + "Z"
+    def last_date_published(self) -> str:
+        entries = self.read_entries(sort_by=Article.date_published.desc())
+        
+        # Get the first entry if exists, else return a default datetime
+        prev_item = next(entries, None)
+        
+        # If there is no previous item or it doesn't have a published date, return default datetime
+        if not prev_item or not prev_item.date_published:
+            return datetime(self.start_year, 1, 1).isoformat() + 'Z'
+
+        # If the previous item has a published date, return it in isoformat
+        return prev_item.date_published.isoformat() + 'Z'
 
     @property
     def items_list(self):

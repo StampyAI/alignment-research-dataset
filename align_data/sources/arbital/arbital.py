@@ -5,11 +5,9 @@ import logging
 from typing import List, Tuple, Iterator, Dict, Union, Any, TypedDict
 
 import requests
-from datetime import datetime, timezone
 from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset
-from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,7 @@
-import requests
-import logging
 from dataclasses import dataclass
+import logging
+
+import requests
 
 from align_data.common.html_dataset import HTMLDataset
 
@@ -14,7 +15,6 @@ class GwernBlog(HTMLDataset):
     """
 
     COOLDOWN: int = 1
-    done_key = "url"
 
     def get_item_key(self, item: str) -> str:
         return item

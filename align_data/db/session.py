@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from align_data.settings import DB_CONNECTION_URI, MIN_CONFIDENCE
 from align_data.db.models import Article, PineconeStatus
 
-
 logger = logging.getLogger(__name__)
 
 # We create a single engine for the entire application

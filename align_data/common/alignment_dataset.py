@@ -3,22 +3,22 @@ from datetime import datetime
 from itertools import islice
 import logging
 import time
-from dataclasses import dataclass, KW_ONLY
+from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
-from typing import Iterable, List, Optional, Set
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload
+from typing import List, Optional, Set, Iterable, Tuple, Generator
 
-import jsonlines
 import pytz
+from sqlalchemy import select, Select, JSON
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, Session
+import jsonlines
 from dateutil.parser import parse, ParserError
 from tqdm import tqdm
+
 from align_data.db.models import Article, Summary
 from align_data.db.session import make_session
 from align_data.settings import ARTICLE_MAIN_KEYS
 from align_data.sources.utils import merge_dicts
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,39 +28,41 @@ class AlignmentDataset:
     """The base dataset class."""
 
     name: str
-    """The name of the dataset"""
+    """The name of the dataset."""
 
     _: KW_ONLY
 
-    files_path = Path("")
-    """The path where data can be found. Usually a folder"""
+    data_path: Path = Path(__file__).parent / "../../data/"
+    """The path where data can be found. Usually a folder."""
+
+    # Derived paths
+    raw_data_path: Path = field(init=False)
+    files_path: Path = field(init=False)
+
+    # Internal housekeeping variables
+    _outputted_items: Set[str] = field(default_factory=set, init=False)
+    """A set of the ids of all previously processed items."""
 
     done_key = "id"
     """The key of the entry to use as the id when checking if already processed."""
 
     COOLDOWN = 0
-    """An optional cool down between processing entries"""
+    """An optional cool down between processing entries."""
 
     lazy_eval = False
     """Whether to lazy fetch items. This is nice in that it will start processing, but messes up the progress bar."""
+
     batch_size = 20
     """The number of items to collect before flushing to the database."""
 
-    # Internal housekeeping variables
-    _entry_idx = 0
-    """Used internally for writing debugging info - each file write will increment it"""
-    _outputted_items = set()
-    """A set of the ids of all previously processed items"""
+    def __post_init__(self):
+        self.data_path = self.data_path.resolve()
+
+        self.raw_data_path = self.data_path / "raw"
+        self.files_path = self.raw_data_path / self.name
 
     def __str__(self) -> str:
         return self.name
-
-    def __post_init__(self, data_path=Path(__file__).parent / "../../data/"):
-        self.data_path = data_path
-        self.raw_data_path = self.data_path / "raw"
-
-        # set the default place to look for data
-        self.files_path = self.raw_data_path / self.name
 
     def _add_authors(self, article: Article, authors: List[str]) -> Article:
         # TODO: Don't keep adding the same authors - come up with some way to reuse them
@@ -87,42 +89,42 @@ class AlignmentDataset:
         article.summaries += [Summary(text=summary, source=self.name) for summary in summaries]
         return article
 
-    def to_jsonl(self, out_path=None, filename=None) -> Path:
-        if not out_path:
-            out_path = Path(__file__).parent / "../../data/"
+    def to_jsonl(self, out_path: Path | None = None, filename: str | None = None) -> Path:
+        out_path = out_path or self.data_path
+        filename = filename or f"{self.name}.jsonl"
+        filepath = out_path / filename
 
-        if not filename:
-            filename = f"{self.name}.jsonl"
-        filename = Path(out_path) / filename
-
-        with jsonlines.open(filename, "w") as jsonl_writer:
+        with jsonlines.open(filepath, "w") as jsonl_writer:
             for article in self.read_entries():
                 jsonl_writer.write(article.to_dict())
-        return filename.resolve()
+        return filepath.resolve()
 
     @property
-    def _query_items(self):
+    def _query_items(self) -> Select[Tuple[Article]]:
         return select(Article).where(Article.source == self.name)
 
-    def read_entries(self, sort_by=None):
+    def read_entries(self, sort_by=None) -> Iterable[Article]:
         """Iterate through all the saved entries."""
         with make_session() as session:
             query = self._query_items.options(joinedload(Article.summaries))
             if sort_by is not None:
                 query = query.order_by(sort_by)
-            for item in session.scalars(query).unique():
-                yield item
+            
+            result = session.scalars(query)
+            for article in result.unique(): # removes duplicates
+                yield article
 
-    def _add_batch(self, session, batch):
+    def _add_batch(self, session: Session, batch: tuple):
         session.add_all(batch)
 
     def add_entries(self, entries):
-        def commit():
+        def commit() -> bool:
             try:
                 session.commit()
                 return True
             except IntegrityError:
                 session.rollback()
+                return False
 
         with make_session() as session:
             items = iter(entries)
@@ -183,7 +185,11 @@ class AlignmentDataset:
 
 
     def _load_outputted_items(self) -> Set[str]:
-        """Load the output file (if it exists) in order to know which items have already been output."""
+        """
+        Loads the outputted items from the database and returns them as a set.
+        
+        if the done_key is not an attribute of Article, it will try to load it from the meta field.
+        """
         with make_session() as session:
             items = set()
             if hasattr(Article, self.done_key):
@@ -203,23 +209,24 @@ class AlignmentDataset:
         # If it get's to that level, consider batching it somehow
         return self._normalize_url(self.get_item_key(item)) not in self._outputted_items
 
-    def unprocessed_items(self, items=None) -> Iterable:
+    def unprocessed_items(self, items=None) -> list | filter:
         """Return a list of all items to be processed.
 
         This will automatically remove any items that have already been processed,
         based on the contents of the output file.
         """
         self.setup()
+        items = items or self.items_list
 
-        filtered = filter(self.not_processed, items or self.items_list)
+        items_to_process = filter(self.not_processed, items)
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice
         if not self.lazy_eval:
-            filtered = list(filtered)
+            return list(items_to_process)
 
-        return filtered
+        return items_to_process
 
-    def fetch_entries(self):
+    def fetch_entries(self) -> Generator[Article, None, None]:
         """Get all entries to be written to the file."""
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)
@@ -242,7 +249,7 @@ class AlignmentDataset:
         raise NotImplementedError
 
     @staticmethod
-    def _format_datetime(date) -> str:
+    def _format_datetime(date: datetime) -> str:
         return date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     @staticmethod
@@ -280,7 +287,7 @@ class SummaryDataset(AlignmentDataset):
                 )
             )
 
-    def _add_batch(self, session, batch):
+    def _add_batch(self, session: Session, batch: tuple):
         def merge(item):
             if prev := self.articles.get(item.url):
                 return session.merge(item.update(prev))

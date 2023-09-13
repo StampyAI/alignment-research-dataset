@@ -2,89 +2,99 @@ import logging
 import time
 from collections import UserDict
 from pathlib import Path
-from typing import Dict, Optional
-import regex as re
+from typing import Dict, Any, Iterator, Union, List, Set
+import re
 
+import requests
 import gdown
 import grobid_tei_xml
 import gspread
+from gspread.worksheet import Worksheet
+from gspread.spreadsheet import Spreadsheet
 from bs4 import BeautifulSoup
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from markdownify import MarkdownConverter
+
 from align_data.sources.articles.html import fetch, fetch_element
 from align_data.sources.articles.pdf import fetch_pdf
 
 logger = logging.getLogger(__name__)
-
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
 
-
 OK = "ok"
-OUTPUT_SPREADSHEET_ID = "1bg-6vL-I82CBRkxvWQs1-Ao0nTvHyfn4yns5MdlbCmY"
-sheet_name = "Sheet1"
+OUTPUT_SPREADSHEET_ID = "1bg-6vL-I82CBRkxvWQs1-Ao0nTvHyfn4yns5MdlbCmY" # TODO: remove this
+sheet_name = "Sheet1" # TODO: remove this
 
 
-def get_credentials(credentials_file="credentials.json"):
+def get_credentials(credentials_file: Union[Path, str] = "credentials.json") -> Credentials:
     return Credentials.from_service_account_file(credentials_file, scopes=SCOPES)
 
 
-def get_spreadsheet(spreadsheet_id, credentials=None):
+def get_spreadsheet(spreadsheet_id: str, credentials: Credentials = None) -> Spreadsheet:
     client = gspread.authorize(credentials or get_credentials())
     return client.open_by_key(spreadsheet_id)
 
 
-def get_sheet(spreadsheet_id, sheet_name, credentials=None):
+def get_sheet(spreadsheet_id: str, sheet_name: str, credentials: Credentials = None) -> Worksheet:
     spreadsheet = get_spreadsheet(spreadsheet_id, credentials)
     return spreadsheet.worksheet(title=sheet_name)
 
 
-class Row(UserDict):
-    sheet = None
+class SheetRow(UserDict):
+    """A row in a Google Sheet."""
+    sheet = None # type: Worksheet
+    columns = None # type: List[str | None]
 
     @classmethod
-    def set_sheet(cls, sheet):
+    def set_sheet(cls, sheet: Worksheet):
         cls.sheet = sheet
-        cls.columns = sheet.row_values(1)
+        cols = sheet.row_values(1)
+        # if there is no first column, we raise an error
+        if not isinstance(cols, list) or not cols:
+            raise ValueError(f"Sheet {sheet.title} has no header row")
 
-    def __init__(self, row_id, data):
+        cls.columns = cols
+
+    def __init__(self, row_id: int, data: Dict[str, Any]):
         self.row_id = row_id
         super().__init__(data)
 
-    def update_value(self, col, value):
+    def update_value(self, col: str, value: str):
         self.sheet.update_cell(self.row_id, self.columns.index(col) + 1, value)
 
-    def update_colour(self, col, colour):
+    def update_colour(self, col: str, colour: Dict[str, float]):
         col_letter = chr(ord("A") + self.columns.index(col))
         self.sheet.format(f"{col_letter}{self.row_id}", {"backgroundColor": colour})
 
-    def set_status(self, status, status_col="status"):
+    def set_status(self, status: str, status_col: str = "status"):
         if self.get(status_col) == status:
             # Don't update anything if the status is the same - this saves on gdocs calls
             return
 
         if status == OK:
-            colour = {"red": 0, "green": 1, "blue": 0}
-        elif status == "":
-            colour = {"red": 1, "green": 1, "blue": 1}
+            colour = {"red": 0.0, "green": 1.0, "blue": 0.0}
+        elif status == "": # TODO: this should never be reached
+            colour = {"red": 1.0, "green": 1.0, "blue": 1.0}
         else:
-            colour = {"red": 1, "green": 0, "blue": 0}
+            colour = {"red": 1.0, "green": 0.0, "blue": 0.0}
 
         self.update_value(status_col, status)
         self.update_colour(status_col, colour)
 
 
-def iterate_rows(sheet):
+def iterate_rows(sheet: Worksheet) -> Iterator[SheetRow]:
     """Iterate over all the rows of the given `sheet`."""
-    Row.set_sheet(sheet)
+    SheetRow.set_sheet(sheet)
 
-    for i, row in enumerate(sheet.get_all_records(), 2):
-        yield Row(i, row)
+    # we start the enumeration at 2 to avoid the header row
+    for row_id, row_data in enumerate(sheet.get_all_records(), 2):
+        yield SheetRow(row_id, row_data)
 
 
 def upload_file(filename, bytes_contents, mimetype, parent_id=None):
@@ -131,14 +141,14 @@ def with_retry(times=3):
     return wrapper
 
 
-def fetch_file(file_id):
+def fetch_file(file_id: str):
     data_path = Path("data/raw/")
     data_path.mkdir(parents=True, exist_ok=True)
     file_name = data_path / file_id
     return gdown.download(id=file_id, output=str(file_name), quiet=False)
 
 
-def fetch_markdown(file_id):
+def fetch_markdown(file_id: str) -> Dict[str, str]:
     try:
         file_name = fetch_file(file_id)
         return {
@@ -149,9 +159,11 @@ def fetch_markdown(file_id):
         return {"error": str(e)}
 
 
-def parse_grobid(contents):
+def parse_grobid(contents: str | bytes) -> Dict[str, Any]:
+    if isinstance(contents, bytes):
+        contents = contents.decode('utf-8')
     doc_dict = grobid_tei_xml.parse_document_xml(contents).to_dict()
-    authors = [xx["full_name"].strip(" !") for xx in doc_dict.get("header", {}).get("authors", [])]
+    authors: List[str] = [author["full_name"].strip(" !") for author in doc_dict.get("header", {}).get("authors", [])]
 
     if not doc_dict.get("body"):
         return {
@@ -168,13 +180,13 @@ def parse_grobid(contents):
     }
 
 
-def get_content_type(res):
+def get_content_type(res: requests.Response) -> Set[str]:
     header = res.headers.get("Content-Type") or ""
     parts = [c_type.strip().lower() for c_type in header.split(";")]
     return set(filter(None, parts))
 
 
-def extract_gdrive_contents(link):
+def extract_gdrive_contents(link: str) -> Dict[str, Any]:
     file_id = link.split("/")[-2]
     url = f"https://drive.google.com/uc?id={file_id}"
     res = fetch(url, "head")
@@ -185,9 +197,9 @@ def extract_gdrive_contents(link):
         logger.error("Could not fetch the file at %s - are you sure that link is correct?", link)
         return {"error": "Could not read file from google drive"}
 
-    result = {
-        "source_url": link,
-        "downloaded_from": "google drive",
+    result: Dict[str, Any] = {
+        'source_url': link,
+        'downloaded_from': 'google drive',
     }
 
     content_type = get_content_type(res)
@@ -203,7 +215,16 @@ def extract_gdrive_contents(link):
         res = fetch(url)
         if "Google Drive - Virus scan warning" in res.text:
             soup = BeautifulSoup(res.content, "html.parser")
-            res = fetch(soup.select_one("form").get("action"))
+            
+            form_tag = soup.select_one('form')
+            if form_tag is None:
+                return {**result, 'error': 'Virus scan warning - no form tag'}
+            
+            form_action_url = form_tag.get('action')
+            if not isinstance(form_action_url, str):
+                return {**result, 'error': 'Virus scan warning - no form action url'}
+            
+            res = fetch(form_action_url)
 
         content_type = get_content_type(res)
         if content_type & {"text/xml"}:
@@ -224,7 +245,7 @@ def extract_gdrive_contents(link):
     return result
 
 
-def google_doc(url: str) -> Dict:
+def google_doc(url: str) -> Dict[str, Any]:
     """Fetch the contents of the given gdoc url as markdown."""
     res = re.search(r"https://docs.google.com/document/(?:u/)?(?:0/)?d/(.*?)/", url)
     if not res:

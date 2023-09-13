@@ -1,7 +1,7 @@
-import logging
 import os
 from dataclasses import dataclass
 from typing import List
+import logging
 
 import fire
 
@@ -19,7 +19,6 @@ from align_data.settings import (
     METADATA_SOURCE_SHEET,
     METADATA_SOURCE_SPREADSHEET,
 )
-
 
 logger = logging.getLogger(__name__)
 

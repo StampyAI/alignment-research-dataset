@@ -1,10 +1,10 @@
 # %%
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
+from dataclasses import dataclass
+
 import pandas as pd
 
-from dataclasses import dataclass
 from align_data.common.alignment_dataset import SummaryDataset
 
 logger = logging.getLogger(__name__)
@@ -13,10 +13,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AlignmentNewsletter(SummaryDataset):
     done_key = "url"
-
-    def __post_init__(self, data_path=Path(__file__).parent / "../../../data/"):
-        self.data_path = data_path
-        self.raw_data_path = self.data_path / "raw"
 
     def setup(self) -> None:
         super().setup()
@@ -42,7 +38,7 @@ class AlignmentNewsletter(SummaryDataset):
     def items_list(self):
         return self.df.itertuples()
 
-    def process_entry(self, row):
+    def process_entry(self, row: pd.Series):
         """
         For each row in the dataframe, create a new entry with the following fields: url, source,
         converted_with, source_type, venue, newsletter_category, highlight, newsletter_number,
