@@ -74,7 +74,8 @@ class PineconeAction:
             session.rollback()
 
     def batch_entries(self, article_stream: Generator[Article, None, None]) -> Iterator[List[Article]]:
-        while batch := tuple(islice(article_stream, self.batch_size)):
+        items = iter(article_stream)
+        while batch := tuple(islice(items, self.batch_size)):
             yield list(batch)
 
 
@@ -102,7 +103,8 @@ class PineconeAdder(PineconeAction):
     def batch_entries(
         self, article_stream: Generator[Article, None, None]
     ) -> Iterator[List[Tuple[Article, PineconeEntry | None]]]:
-        while batch := tuple(islice(article_stream, self.batch_size)):
+        items = iter(article_stream)
+        while batch := tuple(islice(items, self.batch_size)):
             yield [(article, self._make_pinecone_entry(article)) for article in batch]
 
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
@@ -163,7 +165,7 @@ class PineconeDeleter(PineconeAction):
 
     def process_batch(self, batch: List[Article]):
         self.pinecone_db.delete_entries([a.id for a in batch])
-        logger.info('removing batch %s', len(batch))
+        logger.info('removing batch of %s items', len(batch))
         for article in batch:
             article.pinecone_status = PineconeStatus.absent
         return batch
