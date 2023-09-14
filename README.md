@@ -237,7 +237,7 @@ Adding a new dataset consists of:
 
 ### AlignmentDataset class
 
-This is the main workhorse for processing datasets. The basic idea is that it provided a list of items to be processed, and after processing a given item, appends it to the appropriate jsonl file, where each line of the file is a JSON object with all the data. The `AlignmentDataset` class has various methods that can be implemented to handle various cases. A few assumptions are made as to the data it will use, i.e.:
+This is the main workhorse for processing datasets. The basic idea is that it provides a list of items to be processed, and after processing a given item, creates an article object, which is added to the MySQL database. The `AlignmentDataset` class has various methods that can be implemented to handle various cases. A few assumptions are made as to the data it will use, i.e.:
 
 * `self.data_path` is where data will be written to and read from - by default it's the `data/` directory
 * `self.raw_data_path` is where downloaded files etc. should go - by default it's the `data/raw` directory
@@ -246,19 +246,19 @@ This is the main workhorse for processing datasets. The basic idea is that it pr
 The `AlignmentDataset` is a dataclass, so it has a couple of settings that control it:
 
 * `name` - this is a string that identifies the dataset, i.e. 'lesswrong'
-* `done_key` - used to check if a given item has already been processed. This is a key in the JSON object that gets written to the output file - any subsequent entries with the same value for that key will be skipped
+* `done_key` - used to check if a given item has already been processed.
 * `COOLDOWN` - an optional value of the amount of seconds to wait between processing items - this is useful e.g. when fetching items from an API in order to avoid triggering rate limits
 
 The basic processing flow is:
 
 1. `self.setup()` - any instance level initialization stuff should go here, e.g. fetching zip files with data
-2. `self._load_outputted_items()` - go through `self.jsonl_path` and construct a set of the `self.done_key` values of each item - this is used to skip items that have already been processed
-3. `self.items_list` - returns a list of items to be processed - the default is to use `self.glob` on `self.files_path`
+2. `self._load_outputted_items()` - goes through articles in the database, loads the value of their `self.done_key`, and outputs a simplified version of these strings using `normalize_url`
+3. `self.items_list` - returns a list of items to be processed.
 4. `self.fetch_entries()` - for each of the resulting items:
 
 * extract its key, using `self.get_item_key(item)`
 * check if its key has already been processed - if so, skip it
-* run `self.process_entry(item)` to get a article, which is then yielded
+* run `self.process_entry(item)` to get an article, which is then yielded
 * the article is added to the database if it satisfies some conditions, like being a modification of the previous instance of that article, having the minimal required keys, etc.
 
 ### Adding a new instance
