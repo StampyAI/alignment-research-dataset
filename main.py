@@ -74,7 +74,7 @@ class AlignmentDataset:
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
             dataset = get_dataset(name)
-            logger.info(dataset.to_jsonl())
+            logger.info("%s", dataset.to_jsonl())
 
     def count_tokens(self, merged_dataset_path: str) -> None:
         """
