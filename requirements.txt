@@ -39,3 +39,7 @@ nltk
 pinecone-client
 
 torch
+
+python-dateutil
+bs4
+pytz
