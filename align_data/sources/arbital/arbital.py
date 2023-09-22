@@ -139,7 +139,7 @@ def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tup
 
 
 def extract_text(text: str) -> Tuple[str, str]:
-    parts = [i for i in re.split(r"([\[\]()])", text) if i]
+    parts = [part for part in re.split(r"([\[\]()])", text) if part]
     return markdownify_text([], zip(parts, parts[1:] + [None]))
 
 
