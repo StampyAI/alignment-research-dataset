@@ -12,6 +12,7 @@ from pypandoc import convert_file
 from sqlalchemy import select, Select
 
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.formatters import normalize_url
 from align_data.db.models import Article
 from align_data.sources.articles.google_cloud import fetch_file, fetch_markdown
 from align_data.sources.articles.parsers import (
@@ -127,16 +128,16 @@ class SpecialDocs(SpreadsheetDataset):
         url = self.maybe(item, "url")
         source_url = self.maybe(item, "source_url")
 
-        if item_key and self._normalize_url(item_key) in self._outputted_items:
+        if item_key and normalize_url(item_key) in self._outputted_items:
             return False
-        
+
         for given_url in [url, source_url]:
             if given_url:
-                norm_url = self._normalize_url(given_url)
+                norm_url = normalize_url(given_url)
                 if norm_url in self._outputted_items:
                     return False
 
-                norm_canonical_url = self._normalize_url(arxiv_canonical_url(given_url))
+                norm_canonical_url = normalize_url(arxiv_canonical_url(given_url))
                 if norm_canonical_url in self._outputted_items:
                     return False
 

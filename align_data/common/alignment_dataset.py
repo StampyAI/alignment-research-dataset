@@ -1,14 +1,16 @@
-import re
 from datetime import datetime
 from itertools import islice
 import logging
 import time
 from dataclasses import dataclass, field, KW_ONLY
 from pathlib import Path
-from typing import List, Optional, Set, Iterable, Tuple, Generator
+from typing import Iterable, List, Optional, Set, Tuple, Generator
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
 import pytz
-from sqlalchemy import select, Select, JSON
+from sqlalchemy import select, Select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, Session
 import jsonlines
@@ -17,8 +19,7 @@ from tqdm import tqdm
 
 from align_data.db.models import Article, Summary
 from align_data.db.session import make_session
-from align_data.settings import ARTICLE_MAIN_KEYS
-from align_data.sources.utils import merge_dicts
+from align_data.common.formatters import normalize_url, article_dict
 
 logger = logging.getLogger(__name__)
 
@@ -64,28 +65,10 @@ class AlignmentDataset:
     def __str__(self) -> str:
         return self.name
 
-    def _add_authors(self, article: Article, authors: List[str]) -> Article:
-        # TODO: Don't keep adding the same authors - come up with some way to reuse them
-        article.authors = ",".join(authors)
-        if len(article.authors) > 1024:
-            article.authors = ",".join(article.authors[:1024].split(",")[:-1])
-        return article
-
     def make_data_entry(self, data, **kwargs) -> Article:
-        data = merge_dicts(data, kwargs)
-
-        summaries = data.pop("summaries", [])
-        summary = data.pop("summary", None)
-        summaries += [summary] if summary else []
-
-        authors = data.pop("authors", [])
-        data['title'] = (data.get('title') or '').replace('\n', ' ').replace('\r', '') or None
-
-        article = Article(
-            meta={k: v for k, v in data.items() if k not in ARTICLE_MAIN_KEYS and v is not None},
-            **{k: v for k, v in data.items() if k in ARTICLE_MAIN_KEYS},
-        )
-        self._add_authors(article, authors)
+        data = article_dict(data, **kwargs)
+        summaries = data.pop('summaries', [])
+        article = Article(**data)
         article.summaries += [Summary(text=summary, source=self.name) for summary in summaries]
         return article
 
@@ -109,7 +92,7 @@ class AlignmentDataset:
             query = self._query_items.options(joinedload(Article.summaries))
             if sort_by is not None:
                 query = query.order_by(sort_by)
-            
+
             result = session.scalars(query)
             for article in result.unique(): # removes duplicates
                 yield article
@@ -153,41 +136,14 @@ class AlignmentDataset:
         """
         return item.name
 
-    @staticmethod
-    def _normalize_url(url: str | None) -> str | None:
-        if not url:
-            return url
-
-        # ending '/'
-        url = url.rstrip("/")
-
-        # Remove http and use https consistently
-        url = url.replace("http://", "https://")
-
-        # Remove www
-        url = url.replace("https://www.", "https://")
-
-        # Remove index.html or index.htm
-        url = re.sub(r'/index\.html?$', '', url)
-
-        # Convert youtu.be links to youtube.com
-        url = url.replace("https://youtu.be/", "https://youtube.com/watch?v=")
-
-        # Additional rules for mirror domains can be added here
-
-        # agisafetyfundamentals.com -> aisafetyfundamentals.com
-        url = url.replace("https://agisafetyfundamentals.com", "https://aisafetyfundamentals.com")
-
-        return url
-    
     def _normalize_urls(self, urls: Iterable[str]) -> Set[str]:
-        return {self._normalize_url(url) for url in urls}
+        return {normalize_url(url) for url in urls}
 
 
     def _load_outputted_items(self) -> Set[str]:
         """
         Loads the outputted items from the database and returns them as a set.
-        
+
         if the done_key is not an attribute of Article, it will try to load it from the meta field.
         """
         with make_session() as session:
@@ -207,7 +163,7 @@ class AlignmentDataset:
         # cause problems (e.g. massive RAM usage, big slow downs) then it will have to be switched around, so that
         # this function runs a query to check if the item is in the database rather than first getting all done_keys.
         # If it get's to that level, consider batching it somehow
-        return self._normalize_url(self.get_item_key(item)) not in self._outputted_items
+        return normalize_url(self.get_item_key(item)) not in self._outputted_items
 
     def unprocessed_items(self, items=None) -> list | filter:
         """Return a list of all items to be processed.
