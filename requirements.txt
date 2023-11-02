@@ -33,9 +33,8 @@ airtable
 alembic
 mysql-connector-python
 
+torch
 openai
 langchain
 nltk
 pinecone-client
-
-torch
