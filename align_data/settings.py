@@ -63,8 +63,8 @@ EMBEDDING_LENGTH_BIAS: Dict[str, float] = {
 OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
 OPENAI_EMBEDDINGS_DIMS = 1536
 OPENAI_EMBEDDINGS_RATE_LIMIT = 3500
-openai.api_key = os.environ.get("OPENAI_API_KEY", None)
-openai.organization = os.environ.get("OPENAI_ORGANIZATION", None)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", None)
+OPENAI_ORGANIZATION = os.environ.get("OPENAI_ORGANIZATION", None)
 
 SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL = "sentence-transformers/multi-qa-mpnet-base-cos-v1"
 SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS = 768
