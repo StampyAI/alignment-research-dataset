@@ -2,7 +2,8 @@ import logging
 from typing import List, Tuple, Dict, Any, Optional, Callable
 from functools import wraps
 
-import openai
+from openai import OpenAI
+
 from langchain.embeddings import HuggingFaceEmbeddings
 from openai import (
     OpenAIError,
@@ -21,11 +22,14 @@ from align_data.embeddings.pinecone.pinecone_models import MissingEmbeddingModel
 from align_data.settings import (
     USE_OPENAI_EMBEDDINGS,
     OPENAI_EMBEDDINGS_MODEL,
+    OPENAI_API_KEY,
+    OPENAI_ORGANIZATION,
     EMBEDDING_LENGTH_BIAS,
     SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
     DEVICE,
 )
 
+client = OpenAI(api_key=OPENAI_API_KEY, organization=OPENAI_ORGANIZATION)
 
 # --------------------
 # CONSTANTS & CONFIGURATION
@@ -90,7 +94,7 @@ def handle_openai_errors(func):
 @handle_openai_errors
 def _single_batch_moderation_check(batch: List[str]) -> List[ModerationInfoType]:
     """Process a batch for moderation checks."""
-    return openai.Moderation.create(input=batch)["results"]
+    return client.moderations.create(input=batch)["results"]
 
 
 def moderation_check(texts: List[str], max_batch_size: int = 4096, tokens_counter: Callable[[str], int] = len) -> List[ModerationInfoType]:
@@ -125,7 +129,7 @@ def moderation_check(texts: List[str], max_batch_size: int = 4096, tokens_counte
 @handle_openai_errors
 def _single_batch_compute_openai_embeddings(batch: List[str], **kwargs) -> List[List[float]]:
     """Compute embeddings for a batch."""
-    batch_data = openai.Embedding.create(input=batch, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs).data
+    batch_data = client.embeddings.create(input=batch, engine=OPENAI_EMBEDDINGS_MODEL, **kwargs).data
     return [d["embedding"] for d in batch_data]
 
 
