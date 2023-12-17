@@ -10,7 +10,7 @@ from align_data.db.models import Article, PineconeStatus
 logger = logging.getLogger(__name__)
 
 # We create a single engine for the entire application
-engine = create_engine(DB_CONNECTION_URI, echo=False)
+engine = create_engine(DB_CONNECTION_URI, echo=False, pool_pre_ping=True)
 
 
 @contextmanager
@@ -35,13 +35,12 @@ def get_pinecone_articles(
 
 
 def get_pinecone_articles_to_remove(session: Session):
-    return (
-        session.query(Article)
-        .filter(or_(
+    return session.query(Article).filter(
+        or_(
             Article.pinecone_status == PineconeStatus.pending_removal,
             Article.is_valid == False,
-            Article.confidence < MIN_CONFIDENCE
-        ))
+            Article.confidence < MIN_CONFIDENCE,
+        )
     )
 
 
@@ -51,7 +50,9 @@ def get_pinecone_articles_by_sources(
     force_update: bool = False,
     statuses: List[PineconeStatus] = [PineconeStatus.pending_addition],
 ):
-    return get_pinecone_articles(session, force_update, statuses).filter(Article.source.in_(custom_sources))
+    return get_pinecone_articles(session, force_update, statuses).filter(
+        Article.source.in_(custom_sources)
+    )
 
 
 def get_pinecone_articles_by_ids(
