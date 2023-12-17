@@ -109,9 +109,9 @@ class AlignmentDataset:
                 session.rollback()
                 return False
 
-        with make_session() as session:
-            items = iter(entries)
-            while batch := tuple(islice(items, self.batch_size)):
+        items = iter(entries)
+        while batch := tuple(islice(items, self.batch_size)):
+            with make_session() as session:
                 self._add_batch(session, batch)
                 # there might be duplicates in the batch, so if they cause
                 # an exception, try to commit them one by one
