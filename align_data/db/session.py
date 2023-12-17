@@ -10,7 +10,7 @@ from align_data.db.models import Article, PineconeStatus
 logger = logging.getLogger(__name__)
 
 # We create a single engine for the entire application
-engine = create_engine(DB_CONNECTION_URI, echo=False)
+engine = create_engine(DB_CONNECTION_URI, echo=False, pool_pre_ping=True)
 
 
 @contextmanager
