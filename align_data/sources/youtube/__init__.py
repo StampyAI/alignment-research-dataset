@@ -60,6 +60,16 @@ YOUTUBE_DATASETS = [
         channel_id="UCY_K5gXsXHtuiP8mj3BiWxA",
         authors=["Dan Hendrycks"],
     ),
+    YouTubeChannelDataset(
+        name="alignment_workshop",
+        channel_id="UCCV6kbjBZje3LPxRp0NHfxg",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="rational_animations",
+        channel_id="UCgqt1RE0k0MIr0LoyJRy2lg",
+        authors=[],
+    ),
     YouTubePlaylistDataset(
         name="ai_alignment_playlist",
         playlist_ids=[
