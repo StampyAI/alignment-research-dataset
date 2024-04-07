@@ -34,12 +34,7 @@ YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 AIRTABLE_API_KEY = os.environ.get("AIRTABLE_API_KEY")
 
 ### MYSQL ###
-user = os.environ.get("ARD_DB_USER", "user")
-password = os.environ.get("ARD_DB_PASSWORD", "we all live in a yellow submarine")
-host = os.environ.get("ARD_DB_HOST", "127.0.0.1")
-port = os.environ.get("ARD_DB_PORT", "3306")
-db_name = os.environ.get("ARD_DB_NAME", "alignment_research_dataset")
-DB_CONNECTION_URI = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"
+DB_CONNECTION_URI = os.environ.get("ARD_DB_CONNECTION_URI", "mysql+mysqlconnector://user:we all live in a yellow submarine@127.0.0.1:3306/alignment_research_dataset")
 ARTICLE_MAIN_KEYS = [
     "id",
     "source",
