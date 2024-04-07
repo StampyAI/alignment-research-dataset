@@ -32,7 +32,7 @@ OUTPUT_SPREADSHEET_ID = "1bg-6vL-I82CBRkxvWQs1-Ao0nTvHyfn4yns5MdlbCmY" # TODO: r
 sheet_name = "Sheet1" # TODO: remove this
 
 
-def get_credentials(credentials_file: Union[Path, str] = "credentials.json") -> Credentials:
+def get_credentials(credentials_file: Union[Path, str] = "secrets/gcp_credentials/credentials.json") -> Credentials:
     return Credentials.from_service_account_file(credentials_file, scopes=SCOPES)
 
 
