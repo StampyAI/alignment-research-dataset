@@ -54,10 +54,7 @@ jobs:
 
     - name: Generate dataset file
       env:
-        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
-        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
-        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
-        ARD_DB_NAME: alignment_research_dataset
+        ARD_DB_CONNECTION_URI: ${{ secrets.ARD_DB_CONNECTION_URI }}
       run: python main.py generate_jsonl_files ${{ inputs.datasource }}
 
     - name: Setup Huggingface client

@@ -74,8 +74,5 @@ jobs:
         AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY || inputs.airtable_api_key }}
         YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
-        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
-        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
-        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
-        ARD_DB_NAME: alignment_research_dataset
+        ARD_DB_CONNECTION_URI: ${{ secrets.ARD_DB_CONNECTION_URI }}
       run: python main.py fetch ${{ inputs.datasource }}
