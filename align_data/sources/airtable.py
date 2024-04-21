@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Union
 from airtable import airtable
 from align_data.db.models import Article
 
-from align_data.settings import AIRTABLE_API_KEY, ARTICLE_MAIN_KEYS
+from align_data.settings import AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_ID, ARTICLE_MAIN_KEYS
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.sources.articles.parsers import item_metadata
 from align_data.sources.utils import merge_dicts
@@ -12,8 +12,6 @@ from align_data.sources.utils import merge_dicts
 
 @dataclass
 class AirtableDataset(AlignmentDataset):
-    base_id: str
-    table_id: str
     mappings: Dict[str, str]
     processors: Dict[str, Callable[[Any], str]]
     done_key = "url"
@@ -21,8 +19,12 @@ class AirtableDataset(AlignmentDataset):
     def setup(self):
         if not AIRTABLE_API_KEY:
             raise ValueError("No AIRTABLE_API_KEY provided!")
+        if not AIRTABLE_BASE_ID:
+            raise ValueError("No AIRTABLE_BASE_ID provided!")
+        if not AIRTABLE_TABLE_ID:
+            raise ValueError("No AIRTABLE_TABLE_ID provided!")
         super().setup()
-        self.at = airtable.Airtable(self.base_id, AIRTABLE_API_KEY)
+        self.at = airtable.Airtable(AIRTABLE_BASE_ID, AIRTABLE_API_KEY)
 
     def map_cols(self, item: Dict[str, Dict[str, str]]) -> Optional[Dict[str, Optional[str]]]:
         fields = item.get("fields", {})
@@ -42,7 +44,7 @@ class AirtableDataset(AlignmentDataset):
 
     @property
     def items_list(self) -> Iterable[Dict[str, Union[str, None]]]:
-        return filter(None, map(self.map_cols, self.at.iterate(self.table_id)))
+        return filter(None, map(self.map_cols, self.at.iterate(AIRTABLE_TABLE_ID)))
 
     def process_entry(self, entry) -> Optional[Article]:
         contents = item_metadata(self.get_item_key(entry))

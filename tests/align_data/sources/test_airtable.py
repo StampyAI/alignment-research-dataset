@@ -22,7 +22,7 @@ from align_data.sources.airtable import AirtableDataset
 )
 def test_map_cols_no_mapping(item, overwrites):
     dataset = AirtableDataset(
-        name="asd", base_id="ddwe", table_id="csdcsc", mappings={}, processors={}
+        name="asd", mappings={}, processors={}
     )
     assert dataset.map_cols({"id": "123", "fields": item}) == dict(
         {
@@ -68,8 +68,6 @@ def test_map_cols_no_mapping(item, overwrites):
 def test_map_cols_with_mapping(item, overwrites):
     dataset = AirtableDataset(
         name="asd",
-        base_id="ddwe",
-        table_id="csdcsc",
         mappings={
             "url": "an url!",
             "authors": "whodunnit",
@@ -120,8 +118,6 @@ def test_map_cols_with_mapping(item, overwrites):
 def test_map_cols_with_processing(item, overwrites):
     dataset = AirtableDataset(
         name="asd",
-        base_id="ddwe",
-        table_id="csdcsc",
         mappings={
             "url": "an url!",
             "authors": "whodunnit",
@@ -152,14 +148,14 @@ def test_map_cols_with_processing(item, overwrites):
 @pytest.mark.parametrize("url", (None, "", "asdasdsad"))
 def test_map_cols_no_url(url):
     dataset = AirtableDataset(
-        name="asd", base_id="ddwe", table_id="csdcsc", mappings={}, processors={}
+        name="asd", mappings={}, processors={}
     )
     assert dataset.map_cols({"id": "123", "fields": {"url": url}}) is None
 
 
 def test_process_entry():
     dataset = AirtableDataset(
-        name="asd", base_id="ddwe", table_id="csdcsc", mappings={}, processors={}
+        name="asd", mappings={}, processors={}
     )
     entry = {
         "url": "http://bla.cle",

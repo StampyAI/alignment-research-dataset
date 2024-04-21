@@ -6,8 +6,6 @@ from align_data.sources.agisf.agisf import AGISFPodcastDataset
 datasets = [
     AirtableDataset(
         name="agisf_governance",
-        base_id="appaD3z5jSZ1NlfAY",
-        table_id="tblfwT5injh4IyGYo",
         mappings={
             "title": "[>] Resource",
             "url": "[h] [>] Link",
