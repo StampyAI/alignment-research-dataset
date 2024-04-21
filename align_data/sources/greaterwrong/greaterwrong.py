@@ -67,7 +67,7 @@ class GreaterWrong(AlignmentDataset):
     """Whether alignment forum posts should be returned"""
 
     limit = 50
-    COOLDOWN_TIME: float = 0.5
+    COOLDOWN = 0.5
     done_key = "url"
     lazy_eval = True
     source_type = 'GreaterWrong'
