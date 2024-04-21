@@ -263,11 +263,11 @@ def test_extract_gdrive_contents_xml_with_confirm():
 
     def fetcher(link, *args, **kwargs):
         # The first request should get the google drive warning page
-        if link != "fetch/xml/contents":
+        if link != "fetch/xml/contents?id=foo":
             html = """
                    <body>
                       <title>Google Drive - Virus scan warning</title>
-                      <form action="fetch/xml/contents"></form>
+                      <form action="fetch/xml/contents"><input type="hidden" name="id" value="foo" /></form>
                    </body>
                 """
             return Mock(
@@ -302,11 +302,11 @@ def test_extract_gdrive_contents_warning_with_unknown():
 
     def fetcher(link, *args, **kwargs):
         # The first request should get the google drive warning page
-        if link != "fetch/xml/contents":
+        if link != "fetch/xml/contents?id=foo":
             html = """
                    <body>
                       <title>Google Drive - Virus scan warning</title>
-                      <form action="fetch/xml/contents"></form>
+                      <form action="fetch/xml/contents"><input type="hidden" name="id" value="foo" /></form>
                    </body>
                 """
             return Mock(
