@@ -67,7 +67,7 @@ class GreaterWrong(AlignmentDataset):
     """Whether alignment forum posts should be returned"""
 
     limit = 50
-    COOLDOWN_TIME: float = 0.5
+    COOLDOWN = 0.5
     done_key = "url"
     lazy_eval = True
     source_type = 'GreaterWrong'
@@ -182,16 +182,26 @@ class GreaterWrong(AlignmentDataset):
     def items_list(self):
         next_date = self.last_date_published
         logger.info("Starting from %s", next_date)
+        last_item = None
         while next_date:
             posts = self.fetch_posts(self.make_query(next_date))
             if not posts["results"]:
+                return
+
+            # If the only item we find was the one we advanced our iterator to, we're done
+            if len(posts["results"]) == 1 and last_item and posts["results"][0]["pageUrl"] == last_item["pageUrl"]:
                 return
 
             for post in posts["results"]:
                 if post["htmlBody"] and self.tags_ok(post):
                     yield post
 
-            next_date = posts["results"][-1]["postedAt"]
+            last_item = posts["results"][-1]
+            new_next_date = posts["results"][-1]["postedAt"]
+            if next_date == new_next_date:
+                raise ValueError(f'could not advance through dataset, next date did not advance after {next_date}')
+
+            next_date = new_next_date
             time.sleep(self.COOLDOWN)
 
     def extract_authors(self, item):
