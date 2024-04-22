@@ -1,5 +1,6 @@
 import logging
 import time
+import urllib
 from collections import UserDict
 from pathlib import Path
 from typing import Dict, Any, Iterator, Union, List, Set
@@ -223,8 +224,14 @@ def extract_gdrive_contents(link: str) -> Dict[str, Any]:
             form_action_url = form_tag.get('action')
             if not isinstance(form_action_url, str):
                 return {**result, 'error': 'Virus scan warning - no form action url'}
-            
-            res = fetch(form_action_url)
+
+            query_components = {}
+            for tag in form_tag.find_all("input", type="hidden"):
+                query_components[tag['name']] = tag['value']
+
+            form_full_url = form_action_url + "?" + urllib.parse.urlencode(query_components)
+
+            res = fetch(form_full_url)
 
         content_type = get_content_type(res)
         if content_type & {"text/xml"}:
