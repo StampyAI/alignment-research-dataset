@@ -32,5 +32,8 @@ jobs:
 
       - name: Run Script
         env:
-          ARD_DB_CONNECTION_URI: ${{ secrets.ARD_DB_CONNECTION_URI }}
+          ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
+          ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
+          ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
+          ARD_DB_NAME: alignment_research_dataset
         run: python main.py update data.csv ${{ inputs.delimiter }}

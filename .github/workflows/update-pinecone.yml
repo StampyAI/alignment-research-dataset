@@ -65,7 +65,10 @@ jobs:
 
     - name: Process dataset
       env:
-        ARD_DB_CONNECTION_URI: ${{ secrets.ARD_DB_CONNECTION_URI }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
+        ARD_DB_NAME: alignment_research_dataset
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
         PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY || inputs.pinecone_api_key }}
         PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT || inputs.pinecone_environment }}

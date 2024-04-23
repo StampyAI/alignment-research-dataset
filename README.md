@@ -123,8 +123,9 @@ It will be then accessible in `align_data/stampy/stampy.py`.
 
 ### MySQL
 
-The datasets are stored in MySQL. The connection string can be configured via the `ARD_DB_CONNECTION_URI`
-environment variable in `.env`. A local database can be started in Docker by running
+The datasets are stored in MySQL. The connection string can be configured via the `ARD_DB_USER`,
+`ARD_DB_PASSWORD`, `ARD_DB_HOST`, `ARD_DB_PORT` and `ARD_DB_NAME` environment variables in `.env`. A local
+database can be started in Docker by running
 ```sh
 ./local_db.sh
 ```
