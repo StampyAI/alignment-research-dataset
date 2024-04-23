@@ -123,4 +123,6 @@ carado.moe/
 *.epub
 
 secrets/
+credentials.json
+
 data/raw/
