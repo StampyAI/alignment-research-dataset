@@ -32,8 +32,8 @@ YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 
 ### Airtable ###
 AIRTABLE_API_KEY = os.environ.get("AIRTABLE_API_KEY")
-AIRTABLE_BASE_ID = os.environ.get("AIRTABLE_BASE_ID")
-AIRTABLE_TABLE_ID = os.environ.get("AIRTABLE_TABLE_ID")
+AGISF_AIRTABLE_BASE_ID = os.environ.get("AGISF_AIRTABLE_BASE_ID")
+AGISF_AIRTABLE_TABLE_ID = os.environ.get("AGISF_AIRTABLE_TABLE_ID")
 
 ### MYSQL ###
 user = os.environ.get("ARD_DB_USER", "user")

@@ -15,8 +15,8 @@ jobs:
       datasource: ${{ matrix.datasource }}
       coda_token: ${{ inputs.coda_token }}
       airtable_api_key: ${{ inputs.airtable_api_key }}
-      airtable_base_id: ${{ inputs.airtable_base_id }}
-      airtable_table_id: ${{ inputs.airtable_table_id }}
+      agisf_airtable_base_id: ${{ inputs.agisf_airtable_base_id }}
+      agisf_airtable_table_id: ${{ inputs.agisf_airtable_table_id }}
       youtube_api_key: ${{ inputs.youtube_api_key }}
       db_user: ${{ inputs.db_user }}
       db_password: ${{ inputs.db_password }}

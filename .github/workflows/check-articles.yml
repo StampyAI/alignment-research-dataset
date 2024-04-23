@@ -57,8 +57,8 @@ jobs:
       env:
         CODA_TOKEN: ${{ secrets.CODA_TOKEN }}
         AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
-        AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
-        AIRTABLE_TABLE_ID: ${{ secrets.AIRTABLE_TABLE_ID }}
+        AGISF_AIRTABLE_BASE_ID: ${{ secrets.AGISF_AIRTABLE_BASE_ID }}
+        AGISF_AIRTABLE_TABLE_ID: ${{ secrets.AGISF_AIRTABLE_TABLE_ID }}
         YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
