@@ -122,5 +122,7 @@ carado.moe/
 !requirements.txt
 *.epub
 
+secrets/
 credentials.json
+
 data/raw/
