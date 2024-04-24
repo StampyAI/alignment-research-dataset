@@ -12,6 +12,12 @@ on:
       airtable_api_key:
         type: string
         required: true
+      agisf_airtable_base_id:
+        type: string
+        required: true
+      agisf_airtable_table_id:
+        type: string
+        required: true
       youtube_api_key:
         type: string
         required: true
@@ -72,6 +78,8 @@ jobs:
       env:
         CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
         AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY || inputs.airtable_api_key }}
+        AGISF_AIRTABLE_BASE_ID: ${{ secrets.AGISF_AIRTABLE_BASE_ID || inputs.agisf_airtable_base_id }}
+        AGISF_AIRTABLE_TABLE_ID: ${{ secrets.AGISF_AIRTABLE_TABLE_ID || inputs.agisf_airtable_table_id }}
         YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
         ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}

@@ -2,12 +2,14 @@ from align_data.common.alignment_dataset import MultiDataset
 from align_data.sources.airtable import AirtableDataset
 from align_data.sources.agisf.agisf import AGISFPodcastDataset
 
+from align_data.settings import AGISF_AIRTABLE_BASE_ID, AGISF_AIRTABLE_TABLE_ID
+
 
 datasets = [
     AirtableDataset(
         name="agisf_governance",
-        base_id="app9q0E0jlDWlsR0z",
-        table_id="tblgTb3kszvSbo2Mb",
+        base_id=AGISF_AIRTABLE_BASE_ID,
+        table_id=AGISF_AIRTABLE_TABLE_ID,
         mappings={
             "title": "[>] Resource",
             "url": "[h] [>] Link",

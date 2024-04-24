@@ -21,6 +21,10 @@ class AirtableDataset(AlignmentDataset):
     def setup(self):
         if not AIRTABLE_API_KEY:
             raise ValueError("No AIRTABLE_API_KEY provided!")
+        if not self.base_id:
+            raise ValueError("No airtable base ID provided!")
+        if not self.table_id:
+            raise ValueError("No airtable table ID provided!")
         super().setup()
         self.at = airtable.Airtable(self.base_id, AIRTABLE_API_KEY)
 
