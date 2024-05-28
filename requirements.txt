@@ -36,5 +36,6 @@ mysql-connector-python
 torch
 openai
 langchain
+langchain-community
 nltk
 pinecone-client
