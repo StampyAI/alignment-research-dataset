@@ -32,8 +32,6 @@ def with_retry(n=3, exceptions=(Exception,)):
                     return f(*args, **kwargs)
                 except exceptions as e:
                     logger.error(f'Got exception while retrying: {e}')
-                except Exception as e:
-                    breakpoint()
                 time.sleep(2 ** i)
             raise TimeoutError(f'Gave up after {n} tries')
         return wrapper

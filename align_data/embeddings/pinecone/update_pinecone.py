@@ -107,6 +107,7 @@ class PineconeAdder(PineconeAction):
             yield [(article, self._make_pinecone_entry(article)) for article in batch]
 
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
+        logger.info(f'Getting embeddings for {article.title}')
         try:
             text_chunks = get_text_chunks(article, self.text_splitter)
             embeddings, moderation_results = get_embeddings(text_chunks, article.source)
@@ -148,7 +149,6 @@ class PineconeAdder(PineconeAction):
             return None
 
         except Exception as e:
-            breakpoint()
             logger.error(e)
             raise
 
