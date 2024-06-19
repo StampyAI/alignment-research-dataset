@@ -17,8 +17,6 @@ from align_data.db.session import (
 from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
 from align_data.embeddings.pinecone.pinecone_models import (
     PineconeEntry,
-    MissingFieldsError,
-    MissingEmbeddingModelError,
 )
 from align_data.embeddings.text_splitter import ParagraphSentenceUnitTextSplitter
 
@@ -93,12 +91,13 @@ class PineconeAdder(PineconeAction):
         return get_pinecone_articles_by_ids(session, ids, force_update)
 
     def process_batch(self, batch: List[Tuple[Article, PineconeEntry | None]]):
+        logger.info(f'Processing batch of {len(batch)} items')
         for article, pinecone_entry in batch:
             if pinecone_entry:
                 self.pinecone_db.upsert_entry(pinecone_entry)
 
             article.pinecone_status = PineconeStatus.added
-            return [a for a, _ in batch]
+        return [a for a, _ in batch]
 
     def batch_entries(
         self, article_stream: Generator[Article, None, None]
@@ -149,6 +148,7 @@ class PineconeAdder(PineconeAction):
             return None
 
         except Exception as e:
+            breakpoint()
             logger.error(e)
             raise
 
