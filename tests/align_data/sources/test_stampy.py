@@ -9,7 +9,7 @@ def test_validate_coda_token():
     with patch("align_data.stampy.stampy.CODA_TOKEN", None):
         with patch("sys.exit") as mock:
             dataset.setup()
-            assert mock.called_once_with(1)
+            mock.assert_called_once_with(1)
 
 
 def test_get_item_key():
