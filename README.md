@@ -15,6 +15,7 @@ Here are the list of sources along with sample contents:
 - [arxiv](https://arxiv.org/) - relevant research papers
 
 - blogs - entire websites automatically scraped
+
   - [AI Impacts](https://aiimpacts.org/)
   - [AI Safety Camp](https://aisafety.camp/)
   - [carado.moe](https://carado.moe/)
@@ -38,6 +39,7 @@ Here are the list of sources along with sample contents:
 - [lesswrong](https://www.lesswrong.com/) - selected posts
 
 - special_docs - individual documents curated from various resources
+
   - [Make a suggestion](https://bit.ly/ard-suggestion) for sources not already in the dataset
 
 - youtube - playlists & channels
@@ -111,14 +113,7 @@ The log level can be configured with the `LOG_LEVEL` environment variable. The d
 
 ### Coda
 
-To update the stampy portion of the dataset, you will need a Coda token. Follow these instructions:
-    1. Go to [coda.io](https://coda.io/)
-    2. Create an account and log in
-    3. Go to the API SETTINGS section of your [account settings](https://coda.io/account), and select `Generate API token`. Give your API token a name, and add the following restrictions:
-       1. Type of restriction: Doc or table
-       2. Type of access: Read only
-       3. Doc or table to grant access to: https://coda.io/d/_dfau7sl2hmG
-    4. Copy this token to your `.env` file: `CODA_TOKEN="<coda_token>"`
+To update the stampy portion of the dataset, you will need a Coda token. Follow these instructions: 1. Go to [coda.io](https://coda.io/) 2. Create an account and log in 3. Go to the API SETTINGS section of your [account settings](https://coda.io/account), and select `Generate API token`. Give your API token a name, and add the following restrictions: 1. Type of restriction: Doc or table 2. Type of access: Read only 3. Doc or table to grant access to: https://coda.io/d/_dfau7sl2hmG 4. Copy this token to your `.env` file: `CODA_TOKEN="<coda_token>"`
 It will be then accessible in `align_data/stampy/stampy.py`.
 
 ### MySQL
@@ -126,6 +121,7 @@ It will be then accessible in `align_data/stampy/stampy.py`.
 The datasets are stored in MySQL. The connection string can be configured via the `ARD_DB_USER`,
 `ARD_DB_PASSWORD`, `ARD_DB_HOST`, `ARD_DB_PORT` and `ARD_DB_NAME` environment variables in `.env`. A local
 database can be started in Docker by running
+
 ```sh
 ./local_db.sh
 ```
@@ -139,7 +135,6 @@ For Pinecone updates to work, you'll need to configure the API key:
 3. Set the `PINECONE_API_KEY` to the key from step 1
 4. Set the `PINECONE_ENVIRONMENT` to whatever is the environment of your index
 
-
 ### Google API
 
 To autopopulate the metadata files, you'll need Google Cloud credentials. This is a google system, so of course is complicated and prone to arbitrary changes, but as of writing this the process is:
@@ -147,20 +142,20 @@ To autopopulate the metadata files, you'll need Google Cloud credentials. This i
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing project.
 3. Google sheets etc will have to be enabled
-    * Enable the Google Sheets API for your project at https://console.cloud.google.com/apis/api/sheets.googleapis.com/metrics?project=<your project id>
-    * Enable the Google Drive API for your project at https://console.cloud.google.com/apis/api/drive.googleapis.com/metrics?project=<your project id>
-    * Enable the Youtube API for your project at https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=<your project id>. Note that the youtube API is quite limited in the number of requests it can perform.
-      An alternative to this step is that when running the program without these enabled, an exception will be raised telling you how to enable it - you can then just open the link in the exception message
+   - Enable the Google Sheets API for your project at https://console.cloud.google.com/apis/api/sheets.googleapis.com/metrics?project=<your project id>
+   - Enable the Google Drive API for your project at https://console.cloud.google.com/apis/api/drive.googleapis.com/metrics?project=<your project id>
+   - Enable the Youtube API for your project at https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=<your project id>. Note that the youtube API is quite limited in the number of requests it can perform.
+     An alternative to this step is that when running the program without these enabled, an exception will be raised telling you how to enable it - you can then just open the link in the exception message
 4. Navigate to the "Credentials" section, and to `+ Create Credentials`.
 5. Select "Service Account"
 6. Fill in the required information for the service account:
    1. A descriptive name, a short service account ID, and description. Press `Create and Continue`
    2. Leave the optional sections empty
-7. At https://console.cloud.google.com/apis/credentials?project=<your project id>, select your new Service Account, and go to the KEYS section. Select ADD KEY, "Create New Key", the JSON key type and click "Create". 
+7. At https://console.cloud.google.com/apis/credentials?project=<your project id>, select your new Service Account, and go to the KEYS section. Select ADD KEY, "Create New Key", the JSON key type and click "Create".
 8. The JSON file containing your credentials will be downloaded. Save it as credentials.json in the top-level directory of the project.
 9. Again in the "Credentials" section, `+ Create Credentials`, select API key, and add the created API key as your `YOUTUBE_API_KEY`.
 
-Once you have working credentials, you will be able to fetch data from public sheets and gdrive. For writing to sheets and drives, or accessing private ones within the code, you will need to request permissions to the owner of the particular sheet/gdrive. 
+Once you have working credentials, you will be able to fetch data from public sheets and gdrive. For writing to sheets and drives, or accessing private ones within the code, you will need to request permissions to the owner of the particular sheet/gdrive.
 
 #### Metadata updates
 
@@ -176,78 +171,89 @@ There are a couple of datasources that consist of singular articles (html, pdfs,
 
 The airtable we currently scrape is https://airtable.com/appbiNKDcn1sGPGOG/shro9Bx4f2i6QgtTM/tblSicSC1u6Ifddrq. #TODO: document how this is done / reproduceable
 
+## Testing
+
+To run tests, from root directory run:
+
+```sh
+pytest .
+```
+
 ## CLI Usage
 
 There are various commands available to interact with the datasets:
 
 - **Access the MySQL database in a separate terminal before running most commands:**
-    ```sh
-    ./local_db.sh
-    ```
+
+  ```sh
+  ./local_db.sh
+  ```
 
 - **Listing all datasets:**
-    ```sh
-    python main.py list
-    ```
+
+  ```sh
+  python main.py list
+  ```
 
 - **Fetching a specific dataset:**
-    Replace `[DATASET_NAME]` with the desired dataset. The optional `--rebuild` parameter allows you to remove the previous build before running, scraping everything from scratch. Otherwise, only the new files will be scraped.
+  Replace `[DATASET_NAME]` with the desired dataset. The optional `--rebuild` parameter allows you to remove the previous build before running, scraping everything from scratch. Otherwise, only the new files will be scraped.
 
-    ```sh
-    python main.py fetch [DATASET_NAME] --rebuild
-    ```
+  ```sh
+  python main.py fetch [DATASET_NAME] --rebuild
+  ```
 
 - **Fetching all datasets:**
-    Again, the optional `--rebuild` parameter allows you to scrape everything from scratch.
-    ```sh
-    python main.py fetch-all --rebuild
-    ```
+  Again, the optional `--rebuild` parameter allows you to scrape everything from scratch.
+
+  ```sh
+  python main.py fetch-all --rebuild
+  ```
 
 - **Getting a summary of a merged dataset:**
-    Replace `[MERGED_DATASET_PATH]` with your dataset's path. You'll get access to the dataset's total token count, word count and character count.
-    ```sh
-    python main.py count-tokens [MERGED_DATASET_PATH]
-    ```
-  
+  Replace `[MERGED_DATASET_PATH]` with your dataset's path. You'll get access to the dataset's total token count, word count and character count.
+  ```sh
+  python main.py count-tokens [MERGED_DATASET_PATH]
+  ```
 - **Updating the metadata in the metadata spreadsheet:**
-    You can give the command optional information about the names and ids of the sheets, and the default will be using values defined in align_data/settings.py
-    ```sh
-    python main.py update_metadata
-    python main.py update_metadata <input spreadsheet id> <input sheet name> <output spreadsheet id>
-    ```
+  You can give the command optional information about the names and ids of the sheets, and the default will be using values defined in align_data/settings.py
+
+  ```sh
+  python main.py update_metadata
+  python main.py update_metadata <input spreadsheet id> <input sheet name> <output spreadsheet id>
+  ```
 
 - **Updating the pinecone index with newly modified entries:**
-    Replace `[DATASET_NAME]` with one or many dataset names whose entries you want to embed and add to the pinecone index.
-    `--force_update` is an optional parameter for updating all the dataset's articles, rather than newly fetched ones.
-    ```sh
-    python main.py pinecone_update [DATASET_NAME] --force_update
-    ```
-    Or run it on all articles as seen below. It is not recommended to `--force_update` in this case.
-    ```sh
-    python main.py pinecone_update_all
-    ```
+  Replace `[DATASET_NAME]` with one or many dataset names whose entries you want to embed and add to the pinecone index.
+  `--force_update` is an optional parameter for updating all the dataset's articles, rather than newly fetched ones.
+  ```sh
+  python main.py pinecone_update [DATASET_NAME] --force_update
+  ```
+  Or run it on all articles as seen below. It is not recommended to `--force_update` in this case.
+  ```sh
+  python main.py pinecone_update_all
+  ```
 
 ## Adding New Datasets
 
 Adding a new dataset consists of:
 
 1. Subclassing `AlignmentDataset` to implement any additional functionality needed, within align_data/sources/
-2. Creating an instance of your class somewhere, such as an __init__.py file (you can take inspiration on other such files)
+2. Creating an instance of your class somewhere, such as an **init**.py file (you can take inspiration on other such files)
 3. Adding the instance to `DATASET_REGISTRY` so it can be found
 
 ### AlignmentDataset class
 
 This is the main workhorse for processing datasets. The basic idea is that it provides a list of items to be processed, and after processing a given item, creates an article object, which is added to the MySQL database. The `AlignmentDataset` class has various methods that can be implemented to handle various cases. A few assumptions are made as to the data it will use, i.e.:
 
-* `self.data_path` is where data will be written to and read from - by default it's the `data/` directory
-* `self.raw_data_path` is where downloaded files etc. should go - by default it's the `data/raw` directory
-* `self.files_path` is where data to be processed is expected to be. This is used e.g. when a collection of html files are to be processed
+- `self.data_path` is where data will be written to and read from - by default it's the `data/` directory
+- `self.raw_data_path` is where downloaded files etc. should go - by default it's the `data/raw` directory
+- `self.files_path` is where data to be processed is expected to be. This is used e.g. when a collection of html files are to be processed
 
 The `AlignmentDataset` is a dataclass, so it has a couple of settings that control it:
 
-* `name` - this is a string that identifies the dataset, i.e. 'lesswrong'
-* `done_key` - used to check if a given item has already been processed.
-* `COOLDOWN` - an optional value of the amount of seconds to wait between processing items - this is useful e.g. when fetching items from an API in order to avoid triggering rate limits
+- `name` - this is a string that identifies the dataset, i.e. 'lesswrong'
+- `done_key` - used to check if a given item has already been processed.
+- `COOLDOWN` - an optional value of the amount of seconds to wait between processing items - this is useful e.g. when fetching items from an API in order to avoid triggering rate limits
 
 The basic processing flow is:
 
@@ -256,10 +262,10 @@ The basic processing flow is:
 3. `self.items_list` - returns a list of items to be processed.
 4. `self.fetch_entries()` - for each of the resulting items:
 
-* extract its key, using `self.get_item_key(item)`
-* check if its key has already been processed - if so, skip it
-* run `self.process_entry(item)` to get an article, which is then yielded
-* the article is added to the database if it satisfies some conditions, like being a modification of the previous instance of that article, having the minimal required keys, etc.
+- extract its key, using `self.get_item_key(item)`
+- check if its key has already been processed - if so, skip it
+- run `self.process_entry(item)` to get an article, which is then yielded
+- the article is added to the database if it satisfies some conditions, like being a modification of the previous instance of that article, having the minimal required keys, etc.
 
 ### Adding a new instance
 
