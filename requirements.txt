@@ -20,7 +20,7 @@ seaborn
 matplotlib
 codaio
 python-dotenv
-PyPDF2
+pypdf
 PyCryptodome
 google-auth
 google-auth-oauthlib
