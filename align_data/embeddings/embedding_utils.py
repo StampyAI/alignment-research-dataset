@@ -4,7 +4,7 @@ from functools import wraps
 
 from openai import OpenAI
 
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from openai import (
     OpenAIError,
     RateLimitError,
