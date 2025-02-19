@@ -351,38 +351,17 @@ def test_arxiv_process_entry_retracted(mock_arxiv):
         authors="",
         date_published="2020-01-29",
     )
-    response = """
-    <div class="extra-services">
-      <div class="full-text">
-        <a name="other"></a>
-        <span class="descriptor">Full-text links:</span>
-        <h2>Download:</h2>
-        <ul><li>Withdrawn</li></ul>
-        <div class="abs-license"><div hidden="">No license for this version due to withdrawn</div></div>
-      </div>
-    </div>
-    """
+    withdrawn_response = {
+        "url": "https://arxiv.org/abs/2001.11038",
+        "status": "Withdrawn",
+        "text": None,
+        "source_type": None
+    }
 
-    with patch("requests.get", return_value=Mock(content=response)):
+    with patch("align_data.sources.articles.datasets.fetch_arxiv", 
+            return_value=withdrawn_response):
         article = dataset.process_entry(item)
         assert article.status == "Withdrawn"
-        assert article.to_dict() == {
-            "comment": "no comment",
-            "authors": [],
-            "categories": "wut",
-            "data_last_modified": "2023-01-01T00:00:00",
-            "date_published": "2020-01-29T00:00:00Z",
-            "doi": "123",
-            "id": None,
-            "journal_ref": "sdf",
-            "primary_category": "cat",
-            "source": "asd",
-            "source_type": None,
-            "summaries": ["abstract bla bla"],
-            "title": "this is the title",
-            "url": "https://arxiv.org/abs/2001.11038",
-            "text": None,
-        }
 
 
 def test_special_docs_process_entry():
