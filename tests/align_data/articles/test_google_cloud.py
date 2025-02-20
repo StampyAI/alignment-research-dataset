@@ -1,4 +1,5 @@
 from unittest.mock import Mock, patch
+from bs4 import BeautifulSoup
 
 import pytest
 from align_data.sources.articles.google_cloud import (
@@ -49,13 +50,8 @@ xsi:schemaLocation="http://www.tei-c.org/ns/1.0 https://raw.githubusercontent.co
 
 
 def test_google_doc():
-    def fetcher(url, *args, **kwargs):
-        assert (
-            url
-            == "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html"
-        )
-        return Mock(
-            content="""
+    mock_response = Mock(
+        content="""
         <html>
           <header>bla bla bla</header>
           <body>
@@ -64,30 +60,36 @@ def test_google_doc():
           </body>
         </html>
         """
-        )
-
-    with patch("requests.get", fetcher):
-        url = "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
+    )
+    
+    url = "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
+    
+    with patch("align_data.sources.articles.google_cloud.fetch_element") as mock_fetch:
+        mock_fetch.return_value = BeautifulSoup(mock_response.content, "html.parser").find("body")
+        
         assert google_doc(url) == {
             "text": "ble ble [a link](bla.com)",
             "source_url": url,
         }
+        
+        # Verify the correct URL was called
+        mock_fetch.assert_called_once_with(
+            "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html",
+            "body"
+        )
 
 
 def test_google_doc_no_body():
-    def fetcher(url, *args, **kwargs):
-        assert (
-            url
-            == "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html"
-        )
-        return Mock(content="<html> <header>bla bla bla</header> </html>")
-
-    with patch("requests.get", fetcher):
-        assert (
-            google_doc(
-                "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
-            )
-            == {}
+    url = "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
+    
+    with patch("align_data.sources.articles.google_cloud.fetch_element") as mock_fetch:
+        mock_fetch.return_value = None
+        
+        assert google_doc(url) == {}
+        
+        mock_fetch.assert_called_once_with(
+            "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html",
+            "body"
         )
 
 
@@ -154,10 +156,13 @@ def test_get_content_type(header, expected):
 )
 def test_extract_gdrive_contents_no_contents(headers):
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch("requests.head", return_value=Mock(headers=headers, status_code=200)):
-        assert extract_gdrive_contents(url) == {
+    with patch("align_data.sources.articles.google_cloud.fetch", return_value=Mock(headers=headers, status_code=200)) as mock_fetch:
+        result = extract_gdrive_contents(url)
+        print(f"Mock headers: {headers}")
+        print(f"Result: {result}")
+        assert result == {
             "downloaded_from": "google drive",
-            "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
+            "source_url": url,
             "error": "no content type",
         }
 
