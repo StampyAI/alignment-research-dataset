@@ -178,14 +178,14 @@ def test_extract_gdrive_contents_no_contents(headers):
 def test_extract_gdrive_contents_pdf(header):
     res = Mock(headers={"Content-Type": header}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch("requests.head", return_value=res):
+    with patch("align_data.sources.articles.google_cloud.fetch", return_value=res):
         with patch(
             "align_data.sources.articles.google_cloud.fetch_pdf",
             return_value={"text": "bla"},
         ):
             assert extract_gdrive_contents(url) == {
                 "downloaded_from": "google drive",
-                "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
+                "source_url": url,
                 "text": "bla",
             }
 
