@@ -7,8 +7,8 @@ from typing import Dict, Any
 from dateutil.parser import ParserError, parse
 
 import requests
-from PyPDF2 import PdfReader
-from PyPDF2.errors import PdfReadError
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 from markdownify import MarkdownConverter
 from bs4.element import Tag
 

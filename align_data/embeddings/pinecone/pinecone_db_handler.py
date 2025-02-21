@@ -4,7 +4,6 @@ import logging
 from typing import List, Tuple
 
 from pinecone import Pinecone
-from pinecone.core.client.models import ScoredVector
 from urllib3.exceptions import ProtocolError
 
 from align_data.embeddings.embedding_utils import get_embedding
@@ -59,7 +58,7 @@ class PineconeDB:
         if create_index:
             self.create_index()
 
-        self.index = self.pinecone.Index(self.index_name)
+        self.index = self.pc.Index(self.index_name)
 
         if log_index_stats:
             index_stats_response = self.index.describe_index_stats()
@@ -91,7 +90,7 @@ class PineconeDB:
         include_values: bool = False,
         include_metadata: bool = True,
         **kwargs,
-    ) -> List[ScoredVector]:
+    ) -> List[dict]:
         assert not isinstance(
             query, str
         ), "query must be a list of floats. Use query_PineconeDB_text for text queries"
@@ -106,11 +105,11 @@ class PineconeDB:
         )
 
         return [
-            ScoredVector(
-                id=match["id"],
-                score=match["score"],
-                metadata=PineconeMetadata(**match["metadata"]),
-            )
+            {
+                'id': match["id"],
+                'score': match["score"],
+                'metadata': PineconeMetadata(**match["metadata"]),
+            }
             for match in query_response["matches"]
         ]
 
@@ -121,7 +120,7 @@ class PineconeDB:
         include_values: bool = False,
         include_metadata: bool = True,
         **kwargs,
-    ) -> List[ScoredVector]:
+    ) -> List[dict]:
         query_vector = get_embedding(query)[0]
         if query_vector is None:
             print("The query is invalid.")

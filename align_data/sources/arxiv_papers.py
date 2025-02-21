@@ -86,10 +86,14 @@ def fetch_arxiv(url: str) -> Dict[str, Any]:
         return {"error": "Could not extract arxiv id"}
 
     if is_withdrawn(url):
-        paper = {"status": "Withdrawn"}
-    else:
-        paper = get_contents(paper_id)
+        return {
+            "url": canonical_url(url),
+            "status": "Withdrawn",
+            "text": None,
+            "source_type": None
+        }
 
+    paper = get_contents(paper_id)
     data = add_metadata(
         {
             "url": canonical_url(url),

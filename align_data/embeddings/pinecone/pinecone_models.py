@@ -1,7 +1,6 @@
 from typing import List, TypedDict
 
 from pydantic import BaseModel, validator
-from pinecone.core.client.models import Vector
 
 
 class MissingFieldsError(Exception):
@@ -59,12 +58,12 @@ class PineconeEntry(BaseModel):
     def chunk_num(self) -> int:
         return len(self.text_chunks)
 
-    def create_pinecone_vectors(self) -> List[Vector]:
+    def create_pinecone_vectors(self) -> List[dict]:
         return [
-            Vector(
-                id=f"{self.hash_id}_{str(i).zfill(6)}",
-                values=self.embeddings[i],
-                metadata={
+            {
+                'id': f"{self.hash_id}_{str(i).zfill(6)}",
+                'values': self.embeddings[i],
+                'metadata': {
                     key: value
                     for key, value in PineconeMetadata(
                         hash_id=self.hash_id,
@@ -78,7 +77,7 @@ class PineconeEntry(BaseModel):
                     ).items()
                     if value is not None  # Filter out keys with None values
                 },
-            )
+            }
             for i in range(self.chunk_num)
             if self.embeddings[i]  # Skips flagged chunks
         ]

@@ -182,12 +182,19 @@ def parse_grobid(contents: str | bytes) -> Dict[str, Any]:
 
 
 def get_content_type(res: requests.Response) -> Set[str]:
-    header = res.headers.get("Content-Type") or ""
-    parts = [c_type.strip().lower() for c_type in header.split(";")]
-    return set(filter(None, parts))
+    """Get the content type(s) from the response headers. Returns an empty set if none found."""
+    header = res.headers.get("Content-Type")
+    if header is None or not header.strip():
+        return set()
+    return {c_type.strip().lower() for c_type in header.split(";") if c_type.strip()}
 
 
 def extract_gdrive_contents(link: str) -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        'source_url': link,
+        'downloaded_from': 'google drive',
+    }
+
     file_id = link.split("/")[-2]
     url = f"https://drive.google.com/uc?id={file_id}"
     res = fetch(url, "head")
@@ -198,10 +205,11 @@ def extract_gdrive_contents(link: str) -> Dict[str, Any]:
         logger.error("Could not fetch the file at %s - are you sure that link is correct?", link)
         return {"error": "Could not read file from google drive"}
 
-    result: Dict[str, Any] = {
-        'source_url': link,
-        'downloaded_from': 'google drive',
-    }
+    # Check for missing or empty content type header
+    content_type = res.headers.get("Content-Type")
+    if content_type is None or not content_type.strip():
+        result["error"] = "no content type"
+        return result
 
     content_type = get_content_type(res)
     if not content_type:

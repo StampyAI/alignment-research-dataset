@@ -1,4 +1,5 @@
 from unittest.mock import Mock, patch
+from bs4 import BeautifulSoup
 
 import pytest
 from align_data.sources.articles.google_cloud import (
@@ -49,13 +50,8 @@ xsi:schemaLocation="http://www.tei-c.org/ns/1.0 https://raw.githubusercontent.co
 
 
 def test_google_doc():
-    def fetcher(url, *args, **kwargs):
-        assert (
-            url
-            == "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html"
-        )
-        return Mock(
-            content="""
+    mock_response = Mock(
+        content="""
         <html>
           <header>bla bla bla</header>
           <body>
@@ -64,30 +60,36 @@ def test_google_doc():
           </body>
         </html>
         """
-        )
-
-    with patch("requests.get", fetcher):
-        url = "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
+    )
+    
+    url = "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
+    
+    with patch("align_data.sources.articles.google_cloud.fetch_element") as mock_fetch:
+        mock_fetch.return_value = BeautifulSoup(mock_response.content, "html.parser").find("body")
+        
         assert google_doc(url) == {
             "text": "ble ble [a link](bla.com)",
             "source_url": url,
         }
+        
+        # Verify the correct URL was called
+        mock_fetch.assert_called_once_with(
+            "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html",
+            "body"
+        )
 
 
 def test_google_doc_no_body():
-    def fetcher(url, *args, **kwargs):
-        assert (
-            url
-            == "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html"
-        )
-        return Mock(content="<html> <header>bla bla bla</header> </html>")
-
-    with patch("requests.get", fetcher):
-        assert (
-            google_doc(
-                "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
-            )
-            == {}
+    url = "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/edit"
+    
+    with patch("align_data.sources.articles.google_cloud.fetch_element") as mock_fetch:
+        mock_fetch.return_value = None
+        
+        assert google_doc(url) == {}
+        
+        mock_fetch.assert_called_once_with(
+            "https://docs.google.com/document/d/1fenKXrbvGeZ83hxYf_6mghsZMChxWXjGsZSqY3LZzms/export?format=html",
+            "body"
         )
 
 
@@ -154,10 +156,13 @@ def test_get_content_type(header, expected):
 )
 def test_extract_gdrive_contents_no_contents(headers):
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch("requests.head", return_value=Mock(headers=headers, status_code=200)):
-        assert extract_gdrive_contents(url) == {
+    with patch("align_data.sources.articles.google_cloud.fetch", return_value=Mock(headers=headers, status_code=200)) as mock_fetch:
+        result = extract_gdrive_contents(url)
+        print(f"Mock headers: {headers}")
+        print(f"Result: {result}")
+        assert result == {
             "downloaded_from": "google drive",
-            "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
+            "source_url": url,
             "error": "no content type",
         }
 
@@ -173,14 +178,14 @@ def test_extract_gdrive_contents_no_contents(headers):
 def test_extract_gdrive_contents_pdf(header):
     res = Mock(headers={"Content-Type": header}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch("requests.head", return_value=res):
+    with patch("align_data.sources.articles.google_cloud.fetch", return_value=res):
         with patch(
             "align_data.sources.articles.google_cloud.fetch_pdf",
             return_value={"text": "bla"},
         ):
             assert extract_gdrive_contents(url) == {
                 "downloaded_from": "google drive",
-                "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
+                "source_url": url,
                 "text": "bla",
             }
 
@@ -196,7 +201,7 @@ def test_extract_gdrive_contents_pdf(header):
 def test_extract_gdrive_contents_ebook(header):
     res = Mock(headers={"Content-Type": header}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch("requests.head", return_value=res):
+    with patch("align_data.sources.articles.google_cloud.fetch", return_value=res):
         assert extract_gdrive_contents(url) == {
             "downloaded_from": "google drive",
             "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
@@ -205,138 +210,136 @@ def test_extract_gdrive_contents_ebook(header):
 
 
 def test_extract_gdrive_contents_html():
-    res = Mock(headers={"Content-Type": "text/html"}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch(
-        "requests.head",
-        return_value=Mock(headers={"Content-Type": "text/html"}, status_code=200),
-    ):
-        html = """
-            <html>
-               <header>bleee</header>
-               <body>bla bla</body>
-            </html>
-        """
-        res = Mock(
+    html = """
+        <html>
+           <header>bleee</header>
+           <body>bla bla</body>
+        </html>
+    """
+    
+    mock_responses = [
+        Mock(headers={"Content-Type": "text/html"}, status_code=200),  # First call response
+        Mock(                                                          # Second call response
             headers={"Content-Type": "text/html"},
             status_code=200,
             content=html,
             text=html,
         )
-        with patch("requests.get", return_value=res):
-            assert extract_gdrive_contents(url) == {
-                "downloaded_from": "google drive",
-                "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
-                "text": "bla bla",
-                "source_type": "html",
-            }
+    ]
+    
+    with patch("align_data.sources.articles.google_cloud.fetch", side_effect=mock_responses):
+        assert extract_gdrive_contents(url) == {
+            "downloaded_from": "google drive",
+            "source_url": url,
+            "text": "bla bla",
+            "source_type": "html",
+        }
 
 
 def test_extract_gdrive_contents_xml():
-    res = Mock(headers={"Content-Type": "text/html"}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch(
-        "requests.head",
-        return_value=Mock(headers={"Content-Type": "text/html"}, status_code=200),
-    ):
-        res = Mock(
+    
+    mock_responses = [
+        Mock(headers={"Content-Type": "text/html"}, status_code=200),  # First call response
+        Mock(                                                          # Second call response
             headers={"Content-Type": "text/xml"},
             status_code=200,
             content=SAMPLE_XML,
             text=SAMPLE_XML,
         )
-        with patch("requests.get", return_value=res):
-            assert extract_gdrive_contents(url) == {
-                "abstract": "this is the abstract",
-                "authors": ["Cullen Oâ\x80\x99Keefe"],
-                "downloaded_from": "google drive",
-                "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
-                "text": "This is the contents",
-                "title": "The title!!",
-                "source_type": "xml",
-            }
+    ]
+
+    with patch("align_data.sources.articles.google_cloud.fetch", side_effect=mock_responses):
+        assert extract_gdrive_contents(url) == {
+            "abstract": "this is the abstract",
+            "authors": ["Cullen Oâ\x80\x99Keefe"],
+            "downloaded_from": "google drive",
+            "source_url": url,
+            "text": "This is the contents",
+            "title": "The title!!",
+            "source_type": "xml",
+        }
 
 
 def test_extract_gdrive_contents_xml_with_confirm():
-    res = Mock(headers={"Content-Type": "text/html"}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
 
-    def fetcher(link, *args, **kwargs):
-        # The first request should get the google drive warning page
-        if link != "fetch/xml/contents?id=foo":
-            html = """
-                   <body>
-                      <title>Google Drive - Virus scan warning</title>
-                      <form action="fetch/xml/contents"><input type="hidden" name="id" value="foo" /></form>
-                   </body>
-                """
-            return Mock(
-                headers={"Content-Type": "text/html"},
-                status_code=200,
-                text=html,
-                content=html,
-            )
+    # Create the warning HTML page with a form that leads to the XML content
+    warning_html = """
+        <body>
+            <title>Google Drive - Virus scan warning</title>
+            <form action="fetch/xml/contents"><input type="hidden" name="id" value="foo" /></form>
+        </body>
+    """
 
-        # The second one returns the actual contents
-        return Mock(headers={"Content-Type": "text/xml"}, status_code=200, content=SAMPLE_XML)
+    mock_responses = [
+        Mock(headers={"Content-Type": "text/html"}, status_code=200),  # Initial check
+        Mock(                                                          # Warning page
+            headers={"Content-Type": "text/html"},
+            status_code=200,
+            content=warning_html,
+            text=warning_html,
+        ),
+        Mock(                                                          # Final XML content
+            headers={"Content-Type": "text/xml"},
+            status_code=200,
+            content=SAMPLE_XML,
+        )
+    ]
 
-    with patch(
-        "requests.head",
-        return_value=Mock(headers={"Content-Type": "text/html"}, status_code=200),
-    ):
-        with patch("requests.get", fetcher):
-            assert extract_gdrive_contents(url) == {
-                "abstract": "this is the abstract",
-                "authors": ["Cullen Oâ\x80\x99Keefe"],
-                "downloaded_from": "google drive",
-                "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
-                "text": "This is the contents",
-                "title": "The title!!",
-                "source_type": "xml",
-            }
+    with patch("align_data.sources.articles.google_cloud.fetch", side_effect=mock_responses):
+        assert extract_gdrive_contents(url) == {
+            "abstract": "this is the abstract",
+            "authors": ["Cullen Oâ\x80\x99Keefe"],
+            "downloaded_from": "google drive",
+            "source_url": url,
+            "text": "This is the contents",
+            "title": "The title!!",
+            "source_type": "xml",
+        }
 
 
 def test_extract_gdrive_contents_warning_with_unknown():
-    res = Mock(headers={"Content-Type": "text/html"}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
 
-    def fetcher(link, *args, **kwargs):
-        # The first request should get the google drive warning page
-        if link != "fetch/xml/contents?id=foo":
-            html = """
-                   <body>
-                      <title>Google Drive - Virus scan warning</title>
-                      <form action="fetch/xml/contents"><input type="hidden" name="id" value="foo" /></form>
-                   </body>
-                """
-            return Mock(
-                headers={"Content-Type": "text/html"},
-                status_code=200,
-                text=html,
-                content=html,
-            )
+    warning_html = """
+        <body>
+            <title>Google Drive - Virus scan warning</title>
+            <form action="fetch/xml/contents"><input type="hidden" name="id" value="foo" /></form>
+        </body>
+    """
 
-        # The second one returns the actual contents, with an unhandled content type
-        return Mock(headers={"Content-Type": "text/bla bla"}, status_code=200)
+    # Set up three sequential responses:
+    # 1. Initial content type check
+    # 2. Warning page
+    # 3. Unknown content type
+    mock_responses = [
+        Mock(headers={"Content-Type": "text/html"}, status_code=200),
+        Mock(
+            headers={"Content-Type": "text/html"},
+            status_code=200,
+            content=warning_html,
+            text=warning_html,
+        ),
+        Mock(headers={"Content-Type": "text/bla bla"}, status_code=200)
+    ]
 
-    with patch(
-        "requests.head",
-        return_value=Mock(headers={"Content-Type": "text/html"}, status_code=200),
-    ):
-        with patch("requests.get", fetcher):
-            assert extract_gdrive_contents(url) == {
-                "downloaded_from": "google drive",
-                "error": "unknown content type: {'text/bla bla'}",
-                "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
-            }
+    with patch("align_data.sources.articles.google_cloud.fetch", side_effect=mock_responses):
+        assert extract_gdrive_contents(url) == {
+            "downloaded_from": "google drive",
+            "error": "unknown content type: {'text/bla bla'}",
+            "source_url": url,
+        }
 
 
 def test_extract_gdrive_contents_unknown_content_type():
     res = Mock(headers={"Content-Type": "bla bla"}, status_code=200)
     url = "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing"
-    with patch("requests.head", return_value=res):
+    
+    with patch("align_data.sources.articles.google_cloud.fetch", return_value=res):
         assert extract_gdrive_contents(url) == {
             "downloaded_from": "google drive",
-            "source_url": "https://drive.google.com/file/d/1OrKZlksba2a8gKa5bAQfP2qF717O_57I/view?usp=sharing",
+            "source_url": url,
             "error": "unknown content type: {'bla bla'}",
         }

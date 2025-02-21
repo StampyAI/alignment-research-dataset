@@ -20,7 +20,7 @@ seaborn
 matplotlib
 codaio
 python-dotenv
-PyPDF2
+pypdf
 PyCryptodome
 google-auth
 google-auth-oauthlib
@@ -38,4 +38,4 @@ openai
 langchain
 langchain-community
 nltk
-pinecone-client
+pinecone-client[grpc]>=3.0.0

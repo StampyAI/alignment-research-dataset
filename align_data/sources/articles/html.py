@@ -41,7 +41,10 @@ def fetch(
 
     This function is to have a single place to manage headers etc.
     """
-    return getattr(requests, method)(url, allow_redirects=True, headers=headers)
+    try:
+        return getattr(requests, method)(url, allow_redirects=True, headers=headers)
+    except requests.exceptions.TooManyRedirects as e:
+        return e.response
 
 
 def fetch_element(url: str, selector: str, headers: Dict[str, str] = DEFAULT_HEADERS) -> Tag | None:

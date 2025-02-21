@@ -1,8 +1,6 @@
 from unittest.mock import Mock, patch
 from csv import DictWriter
-from numpy import source
 
-import pandas as pd
 import pytest
 from align_data.db.models import Article
 from align_data.sources.articles.updater import ReplacerDataset, Item
