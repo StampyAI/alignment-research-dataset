@@ -3,7 +3,7 @@ import time
 import logging
 from typing import List, Tuple
 
-from pinecone import Pinecone
+import pinecone
 from urllib3.exceptions import ProtocolError
 
 from align_data.embeddings.embedding_utils import get_embedding
@@ -50,7 +50,7 @@ class PineconeDB:
         self.values_dims = values_dims
         self.metric = metric
 
-        self.pinecone = Pinecone(
+        pinecone.init(
             api_key=PINECONE_API_KEY,
             environment=PINECONE_ENVIRONMENT,
         )
@@ -58,7 +58,7 @@ class PineconeDB:
         if create_index:
             self.create_index()
 
-        self.index = self.pc.Index(self.index_name)
+        self.index = pinecone.Index(self.index_name)
 
         if log_index_stats:
             index_stats_response = self.index.describe_index_stats()
