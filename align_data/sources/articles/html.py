@@ -42,26 +42,9 @@ def fetch(
     This function is to have a single place to manage headers etc.
     """
     try:
-        session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(max_retries=5)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        
-        return session.request(
-            method=method,
-            url=url, 
-            allow_redirects=True, 
-            headers=headers
-        )
-    except requests.exceptions.TooManyRedirects:
-        # Create a response-like object with error status
-        mock_response = requests.Response()
-        mock_response.status_code = 429
-        mock_response._content = b"Too many redirects"
-        mock_response.headers = {"Content-Type": "text/plain"}
-        return mock_response
-    finally:
-        session.close()
+        return getattr(requests, method)(url, allow_redirects=True, headers=headers)
+    except requests.exceptions.TooManyRedirects as e:
+        return e.response
 
 
 def fetch_element(url: str, selector: str, headers: Dict[str, str] = DEFAULT_HEADERS) -> Tag | None:
