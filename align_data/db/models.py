@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
     event,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
 from sqlalchemy.orm.attributes import get_history
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -135,6 +135,13 @@ class Article(Base):
             self._id = other._id
         self.id = None  # update the hash id so it calculates a new one if needed
         return self
+    
+    @validates('text')
+    def validate_text(self, key, text):
+        if text is None:
+            return None
+        # Remove or escape problematic characters
+        return text.replace("'", "''")
 
     def _set_id(self):
         id_string = self.generate_id_string()
