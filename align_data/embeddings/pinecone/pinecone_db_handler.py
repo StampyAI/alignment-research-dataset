@@ -58,7 +58,7 @@ class PineconeDB:
         if create_index:
             self.create_index()
 
-        self.index = self.pc.Index(self.index_name)
+        self.index = self.pinecone.Index(self.index_name)
 
         if log_index_stats:
             index_stats_response = self.index.describe_index_stats()
