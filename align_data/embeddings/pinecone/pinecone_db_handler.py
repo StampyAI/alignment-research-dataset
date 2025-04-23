@@ -6,11 +6,9 @@ from typing import List, Tuple
 # Try to handle both new and old Pinecone API patterns
 try:
     from pinecone import Pinecone
-
     USING_NEW_API = True
 except (ImportError, AttributeError):
     import pinecone
-
     USING_NEW_API = False
 
 from urllib3.exceptions import ProtocolError
@@ -187,18 +185,26 @@ class PineconeDB:
             if not matches and hasattr(query_response, "matches"):
                 matches = query_response.matches  # Some versions return an object
 
-            return [
-                {
-                    "id": match.get("id", match.id if hasattr(match, "id") else None),
-                    "score": match.get("score", match.score if hasattr(match, "score") else None),
-                    "metadata": PineconeMetadata(
-                        **match.get(
-                            "metadata", match.metadata if hasattr(match, "metadata") else {}
-                        )
-                    ),
-                }
-                for match in matches
-            ]
+            result = []
+            for match in matches:
+                # Handle both dictionary and object formats
+                match_id = match.get("id") if isinstance(match, dict) else getattr(match, "id", None)
+                match_score = match.get("score") if isinstance(match, dict) else getattr(match, "score", None)
+                
+                # Handle metadata in both formats
+                if isinstance(match, dict):
+                    metadata = match.get("metadata", {})
+                else:
+                    metadata = getattr(match, "metadata", {})
+                
+                # Create a dictionary representation for consistent interface
+                result.append({
+                    "id": match_id,
+                    "score": match_score,
+                    "metadata": metadata  # We'll use the metadata directly instead of wrapping in PineconeMetadata
+                })
+                
+            return result
         except Exception as e:
             logger.error(f"Failed to parse query response: {e}")
             raise
