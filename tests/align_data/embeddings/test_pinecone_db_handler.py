@@ -2,7 +2,11 @@ import unittest
 from unittest.mock import patch, MagicMock, PropertyMock
 import pytest
 import sys
+import os
 from typing import Dict, Any, List, Optional
+
+# Mock the OpenAI API key for tests
+os.environ['OPENAI_API_KEY'] = 'sk-mock-test-key'
 
 from align_data.embeddings.pinecone.pinecone_db_handler import (
     PineconeDB,
