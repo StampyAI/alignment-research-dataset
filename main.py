@@ -3,6 +3,10 @@ from dataclasses import dataclass
 from typing import List
 import logging
 
+# Configure logging to suppress excessive httpx logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+
 import fire
 
 from align_data import ALL_DATASETS, get_dataset

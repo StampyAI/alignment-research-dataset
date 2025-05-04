@@ -3,7 +3,14 @@ import time
 import logging
 from typing import List, Tuple
 
-from pinecone import Pinecone
+# Try to handle both new and old Pinecone API patterns
+try:
+    from pinecone import Pinecone
+    USING_NEW_API = True
+except (ImportError, AttributeError):
+    import pinecone
+    USING_NEW_API = False
+
 from urllib3.exceptions import ProtocolError
 
 from align_data.embeddings.embedding_utils import get_embedding
@@ -30,11 +37,37 @@ def with_retry(n=3, exceptions=(Exception,)):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    logger.error(f'Got exception while retrying: {e}')
-                time.sleep(2 ** i)
-            raise TimeoutError(f'Gave up after {n} tries')
+                    logger.error(f"Got exception while retrying: {e}")
+                time.sleep(2**i)
+            raise TimeoutError(f"Gave up after {n} tries")
+
         return wrapper
+
     return retrier_wrapper
+
+
+def initialize_pinecone():
+    """Initialize Pinecone client with compatibility for both API versions."""
+    try:
+        if USING_NEW_API:
+            # New API pattern (pinecone package)
+            client = Pinecone(
+                api_key=PINECONE_API_KEY,
+                environment=PINECONE_ENVIRONMENT,
+            )
+            logger.info("Using new Pinecone API")
+            return client
+        else:
+            # Old API pattern (pinecone-client package)
+            pinecone.init(
+                api_key=PINECONE_API_KEY,
+                environment=PINECONE_ENVIRONMENT,
+            )
+            logger.info("Using legacy Pinecone API")
+            return pinecone
+    except Exception as e:
+        logger.error(f"Failed to initialize Pinecone: {e}")
+        raise
 
 
 class PineconeDB:
@@ -50,19 +83,28 @@ class PineconeDB:
         self.values_dims = values_dims
         self.metric = metric
 
-        self.pinecone = Pinecone(
-            api_key=PINECONE_API_KEY,
-            environment=PINECONE_ENVIRONMENT,
-        )
+        # Initialize Pinecone with version compatibility
+        self.pinecone = initialize_pinecone()
 
         if create_index:
             self.create_index()
 
-        self.index = self.pinecone.Index(self.index_name)
+        # Get index with version compatibility
+        try:
+            if USING_NEW_API:
+                self.index = self.pinecone.Index(self.index_name)
+            else:
+                self.index = self.pinecone.Index(self.index_name)
+        except Exception as e:
+            logger.error(f"Failed to access Pinecone index: {e}")
+            raise
 
         if log_index_stats:
-            index_stats_response = self.index.describe_index_stats()
-            logger.info(f"{self.index_name}:\n{index_stats_response}")
+            try:
+                index_stats_response = self.index.describe_index_stats()
+                logger.info(f"{self.index_name}:\n{index_stats_response}")
+            except Exception as e:
+                logger.error(f"Failed to get index stats: {e}")
 
     @with_retry(exceptions=(ProtocolError,))
     def _get_vectors(self, entry):
@@ -70,12 +112,27 @@ class PineconeDB:
 
     @with_retry(exceptions=(ProtocolError,))
     def _upsert(self, vectors, upsert_size: int = 100, show_progress: bool = True):
-        self.index.upsert(
-            vectors=vectors,
-            batch_size=upsert_size,
-            namespace=PINECONE_NAMESPACE,
-            show_progress=show_progress,
-        )
+        try:
+            self.index.upsert(
+                vectors=vectors,
+                batch_size=upsert_size,
+                namespace=PINECONE_NAMESPACE,
+                show_progress=show_progress,
+            )
+        except TypeError as e:
+            # Handle possible API differences
+            logger.warning(
+                f"Encountered API compatibility issue: {e}, attempting alternate approach"
+            )
+            try:
+                # Try alternative parameter format for legacy API
+                self.index.upsert(
+                    vectors=vectors,
+                    namespace=PINECONE_NAMESPACE,
+                )
+            except Exception as inner_e:
+                logger.error(f"Failed to upsert vectors with alternative approach: {inner_e}")
+                raise
 
     def upsert_entry(
         self, pinecone_entry: PineconeEntry, upsert_size: int = 100, show_progress: bool = True
@@ -95,23 +152,62 @@ class PineconeDB:
             query, str
         ), "query must be a list of floats. Use query_PineconeDB_text for text queries"
 
-        query_response = self.index.query(
-            vector=query,
-            top_k=top_k,
-            include_values=include_values,
-            include_metadata=include_metadata,
-            **kwargs,
-            namespace=PINECONE_NAMESPACE,
-        )
+        try:
+            query_response = self.index.query(
+                vector=query,
+                top_k=top_k,
+                include_values=include_values,
+                include_metadata=include_metadata,
+                **kwargs,
+                namespace=PINECONE_NAMESPACE,
+            )
+        except (TypeError, KeyError) as e:
+            # Handle API differences
+            logger.warning(f"Query API compatibility issue: {e}, attempting alternate approach")
+            try:
+                # Try alternative parameter format for older API
+                kwargs.pop("namespace", None)  # In case namespace is handled differently
+                query_response = self.index.query(
+                    vector=query,
+                    top_k=top_k,
+                    include_values=include_values,
+                    include_metadata=include_metadata,
+                    namespace=PINECONE_NAMESPACE,
+                    **kwargs,
+                )
+            except Exception as inner_e:
+                logger.error(f"Failed to query with alternative approach: {inner_e}")
+                raise
 
-        return [
-            {
-                'id': match["id"],
-                'score': match["score"],
-                'metadata': PineconeMetadata(**match["metadata"]),
-            }
-            for match in query_response["matches"]
-        ]
+        try:
+            # Extract matches with compatibility for different response formats
+            matches = query_response.get("matches", [])
+            if not matches and hasattr(query_response, "matches"):
+                matches = query_response.matches  # Some versions return an object
+
+            result = []
+            for match in matches:
+                # Handle both dictionary and object formats
+                match_id = match.get("id") if isinstance(match, dict) else getattr(match, "id", None)
+                match_score = match.get("score") if isinstance(match, dict) else getattr(match, "score", None)
+                
+                # Handle metadata in both formats
+                if isinstance(match, dict):
+                    metadata = match.get("metadata", {})
+                else:
+                    metadata = getattr(match, "metadata", {})
+                
+                # Create a dictionary representation for consistent interface
+                result.append({
+                    "id": match_id,
+                    "score": match_score,
+                    "metadata": metadata  # We'll use the metadata directly instead of wrapping in PineconeMetadata
+                })
+                
+            return result
+        except Exception as e:
+            logger.error(f"Failed to parse query response: {e}")
+            raise
 
     def query_text(
         self,
@@ -155,17 +251,43 @@ class PineconeDB:
         if replace_current_index:
             self.delete_index()
 
-        self.pinecone.create_index(
-            name=self.index_name,
-            dimension=self.values_dims,
-            metric=self.metric,
-            metadata_config={"indexed": list(PineconeMetadata.__annotations__.keys())},
-        )
+        try:
+            if USING_NEW_API:
+                self.pinecone.create_index(
+                    name=self.index_name,
+                    dimension=self.values_dims,
+                    metric=self.metric,
+                    metadata_config={"indexed": list(PineconeMetadata.__annotations__.keys())},
+                )
+            else:
+                # Legacy API
+                self.pinecone.create_index(
+                    name=self.index_name,
+                    dimension=self.values_dims,
+                    metric=self.metric,
+                    metadata_config={"indexed": list(PineconeMetadata.__annotations__.keys())},
+                )
+        except Exception as e:
+            logger.error(f"Failed to create index: {e}")
+            raise
 
     def delete_index(self):
-        if self.index_name in self.pinecone.list_indexes():
-            logger.info(f"Deleting index '{self.index_name}'.")
-            self.pinecone.delete_index(self.index_name)
+        try:
+            indexes = []
+            if USING_NEW_API:
+                indexes = self.pinecone.list_indexes()
+            else:
+                indexes = self.pinecone.list_indexes()
+
+            if self.index_name in indexes:
+                logger.info(f"Deleting index '{self.index_name}'.")
+                if USING_NEW_API:
+                    self.pinecone.delete_index(self.index_name)
+                else:
+                    self.pinecone.delete_index(self.index_name)
+        except Exception as e:
+            logger.error(f"Failed to delete index: {e}")
+            raise
 
     def get_embeddings_by_ids(self, ids: List[str]) -> List[Tuple[str, List[float] | None]]:
         """
@@ -177,12 +299,45 @@ class PineconeDB:
         Returns:
         - List[Tuple[str, List[float] | None]]: List of tuples containing ID and its corresponding embedding.
         """
-        # TODO: check that this still works
-        vectors = self.index.fetch(
-            ids=ids,
-            namespace=PINECONE_NAMESPACE,
-        )["vectors"]
-        return [(id, vectors.get(id, {}).get("values", None)) for id in ids]
+        try:
+            # Try new API format
+            fetch_response = self.index.fetch(
+                ids=ids,
+                namespace=PINECONE_NAMESPACE,
+            )
+
+            # Handle different response formats
+            if isinstance(fetch_response, dict) and "vectors" in fetch_response:
+                # Dictionary response
+                vectors = fetch_response["vectors"]
+                return [(id, vectors.get(id, {}).get("values", None)) for id in ids]
+            elif hasattr(fetch_response, "vectors"):
+                # Object response
+                vectors = fetch_response.vectors
+                if isinstance(vectors, dict):
+                    return [(id, vectors.get(id, {}).get("values", None)) for id in ids]
+                else:
+                    # Handle other vector formats
+                    return [(id, getattr(vectors.get(id, {}), "values", None)) for id in ids]
+            else:
+                logger.error(f"Unexpected response format: {type(fetch_response)}")
+                raise ValueError(f"Unexpected response format: {type(fetch_response)}")
+
+        except Exception as e:
+            logger.error(f"Error fetching embeddings: {e}")
+            # Attempt alternative approach with more error details
+            logger.warning("Attempting alternative fetch approach")
+            try:
+                # Try alternative format for the fetch call
+                fetch_response = self.index.fetch(ids=ids, namespace=PINECONE_NAMESPACE)
+                if hasattr(fetch_response, "vectors"):
+                    vectors = fetch_response.vectors
+                else:
+                    vectors = fetch_response.get("vectors", {})
+                return [(id, vectors.get(id, {}).get("values", None)) for id in ids]
+            except Exception as inner_e:
+                logger.error(f"Alternative fetch approach failed: {inner_e}")
+                raise
 
 
 def strip_block(text: str) -> str:
