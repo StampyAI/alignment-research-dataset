@@ -47,16 +47,43 @@ class PineconeAction:
         """
         with make_session() as session:
             articles_to_update = self._articles_by_source(session, custom_sources, force_update)
-            logger.info('Processing %s items', articles_to_update.count())
+            total_articles = articles_to_update.count()
+            
+            logger.info('Processing %s items from %s', total_articles, custom_sources)
+            
+            total_processed = 0
+            update_interval = 10
+            
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
+                total_processed += len(batch)
+                
+                if total_processed % update_interval == 0 or total_processed == total_articles:
+                    percentage = (total_processed / total_articles) * 100 if total_articles > 0 else 0
+                    logger.info('Progress: %.1f%% (%d/%d)', percentage, total_processed, total_articles)
+            
+            logger.info('Completed processing %s items', total_processed)
 
     def update_articles_by_ids(self, hash_ids: List[int], force_update: bool = False):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
             articles_to_update = self._articles_by_id(session, hash_ids, force_update)
+            total_articles = articles_to_update.count()
+            
+            logger.info('Processing %s items by ID', total_articles)
+            
+            total_processed = 0
+            update_interval = 10 
+            
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
+                total_processed += len(batch)
+                
+                if total_processed % update_interval == 0 or total_processed == total_articles:
+                    percentage = (total_processed / total_articles) * 100 if total_articles > 0 else 0
+                    logger.info('Progress: %.1f%% (%d/%d)', percentage, total_processed, total_articles)
+            
+            logger.info('Completed processing %s items by ID', total_processed)
 
     def process_batch(self, batch: List[Tuple[Article, PineconeEntry | None]]) -> List[Article]:
         raise NotImplementedError
@@ -91,7 +118,7 @@ class PineconeAdder(PineconeAction):
         return get_pinecone_articles_by_ids(session, ids, force_update)
 
     def process_batch(self, batch: List[Tuple[Article, PineconeEntry | None]]):
-        logger.info(f'Processing batch of {len(batch)} items')
+        logger.info('Processing batch of %s items', len(batch))
         for article, pinecone_entry in batch:
             if pinecone_entry:
                 self.pinecone_db.upsert_entry(pinecone_entry)
@@ -105,7 +132,7 @@ class PineconeAdder(PineconeAction):
         items = iter(article_stream)
         while batch := tuple(islice(items, self.batch_size)):
             yield [(article, self._make_pinecone_entry(article)) for article in batch]
-
+            
     def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
         logger.info(f'Getting embeddings for {article.title}')
         try:
@@ -189,6 +216,7 @@ class PineconeUpdater(PineconeAction):
                 from align_data.sources.greaterwrong.cleanup import cleanup_lesswrong_posts
                 logger.info('Cleaning up non-AI LessWrong posts')
                 cleanup_lesswrong_posts(dry_run=False, source='lesswrong')
+                logger.info('LessWrong cleanup completed')
             except ImportError:
                 logger.warning('Could not import cleanup_lesswrong_posts - skipping cleanup')
             except Exception as e:
@@ -197,15 +225,20 @@ class PineconeUpdater(PineconeAction):
         logger.info('Adding pinecone entries for %s', custom_sources)
         self.adder.update(custom_sources, force_update)
 
-        logger.info('Removing pinecone entries for %s', custom_sources)
+        logger.info('Removing outdated pinecone entries for %s', custom_sources)
         self.remover.update(custom_sources, force_update)
+        
+        logger.info('Pinecone update completed')
 
     def update_articles_by_ids(self, hash_ids: List[int], force_update: bool = False):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         logger.info('Adding pinecone entries by hash_id')
         self.adder.update_articles_by_ids(hash_ids, force_update)
-        logger.info('Removing pinecone entries by hash_id')
+        
+        logger.info('Removing outdated pinecone entries by hash_id')
         self.remover.update_articles_by_ids(hash_ids, force_update)
+        
+        logger.info('Pinecone update by ID completed')
 
 
 def get_text_chunks(
