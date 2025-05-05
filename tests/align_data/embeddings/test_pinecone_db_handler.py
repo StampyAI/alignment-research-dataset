@@ -6,7 +6,7 @@ import os
 from typing import Dict, Any, List, Optional
 
 # Mock the OpenAI API key for tests
-os.environ['OPENAI_API_KEY'] = 'sk-mock-test-key'
+os.environ["OPENAI_API_KEY"] = "sk-mock-test-key"
 
 from align_data.embeddings.pinecone.pinecone_db_handler import (
     PineconeDB,
@@ -27,7 +27,7 @@ class TestPineconeInitialization:
         mock_pinecone.return_value = mock_client
 
         client = initialize_pinecone()
-        
+
         # Check that the new API was called correctly
         mock_pinecone.assert_called_once()
         assert client == mock_client
@@ -46,11 +46,11 @@ class TestPineconeDB:
         """Test PineconeDB initialization."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
-        
+
         # Create a test index
         mock_index = MagicMock()
         mock_client.Index.return_value = mock_index
-        
+
         # Initialize PineconeDB
         db = PineconeDB(
             index_name="test-index",
@@ -59,7 +59,7 @@ class TestPineconeDB:
             create_index=False,
             log_index_stats=False,
         )
-        
+
         # Verify client initialization
         mock_initialize.assert_called_once()
         assert db.pinecone == mock_client
@@ -72,10 +72,10 @@ class TestPineconeDB:
         """Test create_index with new API."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
-        
+
         # Mock index listing
         mock_client.list_indexes.return_value = []
-        
+
         # Initialize PineconeDB
         db = PineconeDB(
             index_name="test-index",
@@ -83,7 +83,7 @@ class TestPineconeDB:
             metric="cosine",
             create_index=True,
         )
-        
+
         # Verify create_index was called
         mock_client.create_index.assert_called_once()
         call_args = mock_client.create_index.call_args[1]
@@ -98,10 +98,10 @@ class TestPineconeDB:
         """Test create_index with old API."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
-        
+
         # Mock index listing
         mock_client.list_indexes.return_value = []
-        
+
         # Initialize PineconeDB
         db = PineconeDB(
             index_name="test-index",
@@ -109,7 +109,7 @@ class TestPineconeDB:
             metric="cosine",
             create_index=True,
         )
-        
+
         # Verify create_index was called
         mock_client.create_index.assert_called_once()
         call_args = mock_client.create_index.call_args[1]
@@ -123,11 +123,11 @@ class TestPineconeDB:
         """Test query_vector method."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
-        
+
         # Mock index
         mock_index = MagicMock()
         mock_client.Index.return_value = mock_index
-        
+
         # Mock query response
         mock_response = {
             "matches": [
@@ -143,18 +143,18 @@ class TestPineconeDB:
                         "authors": ["author1"],
                         "text": "text1",
                         "confidence": 0.8,
-                    }
+                    },
                 }
             ]
         }
         mock_index.query.return_value = mock_response
-        
+
         # Initialize PineconeDB
         db = PineconeDB(index_name="test-index")
-        
+
         # Test query_vector
         results = db.query_vector([0.1, 0.2, 0.3], top_k=5)
-        
+
         # Verify query was called
         mock_index.query.assert_called_once()
         assert len(results) == 1
@@ -170,11 +170,11 @@ class TestPineconeDB:
         """Test get_embeddings_by_ids method."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
-        
+
         # Mock index
         mock_index = MagicMock()
         mock_client.Index.return_value = mock_index
-        
+
         # Mock fetch response
         mock_response = {
             "vectors": {
@@ -183,13 +183,13 @@ class TestPineconeDB:
             }
         }
         mock_index.fetch.return_value = mock_response
-        
+
         # Initialize PineconeDB
         db = PineconeDB(index_name="test-index")
-        
+
         # Test get_embeddings_by_ids
         results = db.get_embeddings_by_ids(["id1", "id2", "id3"])
-        
+
         # Verify fetch was called
         mock_index.fetch.assert_called_once()
         assert len(results) == 3
@@ -206,31 +206,33 @@ class TestPineconeCompatibility:
         """Test upsert with error handling for API differences."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
-        
+
         # Mock index that throws TypeError on first upsert attempt
         mock_index = MagicMock()
         mock_index.upsert.side_effect = [
             TypeError("API incompatibility"),
-            None  # Second call succeeds
+            None,  # Second call succeeds
         ]
         mock_client.Index.return_value = mock_index
-        
+
         # Mock vectors
         mock_vectors = [{"id": "id1", "values": [0.1, 0.2, 0.3]}]
-        
+
         # Initialize PineconeDB
         db = PineconeDB(index_name="test-index")
-        
+
         # Test _upsert with error handling
         db._upsert(mock_vectors)
-        
+
         # Verify upsert was called twice (first fails, second succeeds)
         assert mock_index.upsert.call_count == 2
 
     def test_query_with_different_response_formats(self):
         """Test query handling different response formats."""
         # Skip this test as it requires complex mocking of different response formats
-        pytest.skip("Skipping response format test - complex mocking of different response formats required")
+        pytest.skip(
+            "Skipping response format test - complex mocking of different response formats required"
+        )
 
 
 if __name__ == "__main__":
