@@ -17,38 +17,27 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_LW_tags(url):
-    res = requests.get(
-        url + "/tag/ai",
-        headers={
-            "User-Agent": "Mozilla /5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0"
-        },
-    )
-    soup = BeautifulSoup(res.content, "html.parser")
-    tags = soup.select("div.TagPage-description .table a")
-    return {a.text.strip() for a in tags if "/tag/" in a.get("href")}
+    # All AI-related articles should have this tag
+    logger.info("Using hardcoded 'AI' tag for LessWrong")
+    return {"AI"}
 
 
-def fetch_ea_forum_topics(url):
-    res = requests.get(url + "/topics/ai-safety")
-    soup = BeautifulSoup(res.content, "html.parser")
-    links = soup.select("div.SidebarSubtagsBox-root a")
-    return {a.text.strip() for a in links if "/topics/" in a.get("href", "")}
+def fetch_ea_forum_topics(url):   # Return the main AI Safety tag
+    logger.info("Using hardcoded 'AI Safety' tag for EA Forum")
+    return {"AI Safety"}
 
 
 def get_allowed_tags(url, name):
     if name == "alignmentforum":
         return set()
-    try:
-        if name == "lesswrong":
-            return fetch_LW_tags(url)
-        if name == "eaforum":
-            return fetch_ea_forum_topics(url)
-    except Exception:
-        raise ValueError("Could not fetch tags! Please retry")
-
-    raise ValueError(
-        f'Could not fetch tags for unknown datasource: "{name}". Must be one of alignmentforum|lesswrong|eaforum'
-    )
+    elif name == "lesswrong":
+        return fetch_LW_tags(url)
+    elif name == "eaforum":
+        return fetch_ea_forum_topics(url)
+    else:
+        raise ValueError(
+            f'Unknown datasource: "{name}". Must be one of alignmentforum|lesswrong|eaforum'
+        )
 
 
 @dataclass
@@ -80,7 +69,13 @@ class GreaterWrong(AlignmentDataset):
         self.ai_tags = get_allowed_tags(self.base_url, self.name)
 
     def tags_ok(self, post):
-        return not self.ai_tags or {t["name"] for t in post["tags"] if t.get("name")} & self.ai_tags
+        # If this is the AlignmentForum source, accept all posts
+        if self.af:
+            return True
+            
+        # For LessWrong, only accept posts with the AI tag
+        post_tags = {t["name"] for t in post["tags"] if t.get("name")}
+        return bool(post_tags & self.ai_tags)
 
     def _load_outputted_items(self) -> Tuple[Set[str], Set[Tuple[str, str]]]:
         """Load the output file (if it exists) in order to know which items have already been output."""

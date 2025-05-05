@@ -8,36 +8,38 @@ import pytest
 from align_data.sources.greaterwrong.greaterwrong import (
     fetch_LW_tags,
     fetch_ea_forum_topics,
+    get_allowed_tags,
     GreaterWrong,
 )
 
 
 def test_fetch_LW_tags():
-    contents = """
-    <div class="TagPage-description">
-      <div class="table">
-        <a href="/tag/tag1">tag1</a>
-        <a href="/tag/tag2">tag2</a>
-        <a href="/tag/tag3">tag3</a>
-        <a href="/ignore/this">ignored</a>
-      </div>
-    </div>
-    """
-    with patch("requests.get", return_value=Mock(content=contents)):
-        assert fetch_LW_tags("http://url.com") == {"tag3", "tag2", "tag1"}
+    # Test the simplified function that always returns the primary 'AI' tag
+    assert fetch_LW_tags("http://url.com") == {"AI"}
 
 
 def test_fetch_ea_forum_topics():
-    contents = """
-    <div class="SidebarSubtagsBox-root">
-        <a href="/topics/tag1">tag1</a>
-        <a href="/topics/tag2">tag2</a>
-        <a href="/topics/tag3">tag3</a>
-        <a href="/ignore/this">ignored</a>
-    </div>
-    """
-    with patch("requests.get", return_value=Mock(content=contents)):
-        assert fetch_ea_forum_topics("http://url.com") == {"tag3", "tag2", "tag1"}
+    # Test the simplified function that always returns the "AI Safety" tag
+    assert fetch_ea_forum_topics("http://url.com") == {"AI Safety"}
+
+
+def test_get_allowed_tags():
+    # Test alignmentforum (should return empty set)
+    assert get_allowed_tags("http://url.com", "alignmentforum") == set()
+    
+    # Test lesswrong (should return AI tag)
+    with patch("align_data.sources.greaterwrong.greaterwrong.fetch_LW_tags", 
+               return_value={"AI"}):
+        assert get_allowed_tags("http://url.com", "lesswrong") == {"AI"}
+    
+    # Test eaforum (should return AI Safety tag)
+    with patch("align_data.sources.greaterwrong.greaterwrong.fetch_ea_forum_topics", 
+               return_value={"AI Safety"}):
+        assert get_allowed_tags("http://url.com", "eaforum") == {"AI Safety"}
+    
+    # Test unknown datasource
+    with pytest.raises(ValueError):
+        get_allowed_tags("http://url.com", "unknown")
 
 
 @pytest.fixture
@@ -61,7 +63,15 @@ def dataset(tmp_path):
     ),
 )
 def test_greaterwrong_tags_ok(dataset, tags):
+    # Set up the test with AI tags
     dataset.ai_tags = {"tag1", "tag2"}
+    
+    # LessWrong (af=False) should only accept posts with AI tags
+    dataset.af = False
+    assert dataset.tags_ok({"tags": tags})
+    
+    # AlignmentForum (af=True) should accept all posts
+    dataset.af = True
     assert dataset.tags_ok({"tags": tags})
 
 
@@ -75,8 +85,16 @@ def test_greaterwrong_tags_ok(dataset, tags):
     ),
 )
 def test_greaterwrong_tags_ok_missing(dataset, tags):
+    # Set up the test with AI tags
     dataset.ai_tags = {"tag1", "tag2"}
+    
+    # LessWrong (af=False) should reject posts without AI tags
+    dataset.af = False
     assert not dataset.tags_ok({"tags": tags})
+    
+    # AlignmentForum (af=True) should accept all posts
+    dataset.af = True
+    assert dataset.tags_ok({"tags": tags, "af": True})
 
 
 def test_greaterwrong_get_published_date(dataset):
