@@ -61,8 +61,12 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt;
-        python -c 'import nltk; nltk.download("punkt")'
+        python -c 'import nltk; nltk.download("punkt"); nltk.download("punkt_tab")'
 
+    - name: Verify NLTK punkt installation
+      run: |
+        python -c 'import nltk; import nltk.data; from nltk.tokenize import sent_tokenize; print("NLTK punkt working correctly:", sent_tokenize("Test sentence. Another test."))'
+        
     - name: Process dataset
       env:
         ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
