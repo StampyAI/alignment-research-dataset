@@ -196,17 +196,15 @@ There are various commands available to interact with the datasets:
   ```
 
 - **Fetching a specific dataset:**
-  Replace `[DATASET_NAME]` with the desired dataset. The optional `--rebuild` parameter allows you to remove the previous build before running, scraping everything from scratch. Otherwise, only the new files will be scraped.
+  Replace `[DATASET_NAME]` with the desired dataset. 
 
   ```sh
-  python main.py fetch [DATASET_NAME] --rebuild
+  python main.py fetch [DATASET_NAME] 
   ```
 
 - **Fetching all datasets:**
-  Again, the optional `--rebuild` parameter allows you to scrape everything from scratch.
-
   ```sh
-  python main.py fetch-all --rebuild
+  python main.py fetch-all 
   ```
 
 - **Getting a summary of a merged dataset:**
