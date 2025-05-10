@@ -18,5 +18,6 @@ USER ard:ard
 RUN python -m pip install --upgrade pip
 RUN pip3 install torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install -r requirements.txt
+RUN python -c 'import nltk; nltk.download("punkt"); nltk.download("punkt_tab");'
 
 CMD ["python", "main.py", "fetch-all"]
