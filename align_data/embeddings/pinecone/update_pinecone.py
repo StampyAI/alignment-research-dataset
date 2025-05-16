@@ -56,7 +56,7 @@ class PineconeAction:
             logger.info("Processing %s items from %s", total_articles, custom_sources)
 
             total_processed = 0
-            update_interval = 10
+            update_interval = self.batch_size
 
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
@@ -81,7 +81,7 @@ class PineconeAction:
             logger.info("Processing %s items by ID", total_articles)
 
             total_processed = 0
-            update_interval = 10
+            update_interval = self.batch_size
 
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
