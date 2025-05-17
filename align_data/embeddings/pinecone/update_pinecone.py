@@ -226,18 +226,6 @@ class PineconeUpdater(PineconeAction):
 
         :param custom_sources: List of sources to update.
         """
-        # Check if we need to clean up LessWrong posts
-        if "lesswrong" in custom_sources:
-            try:
-                from align_data.sources.greaterwrong.cleanup import cleanup_lesswrong_posts
-
-                logger.info("Cleaning up non-AI LessWrong posts")
-                cleanup_lesswrong_posts(dry_run=False, source="lesswrong")
-                logger.info("LessWrong cleanup completed")
-            except ImportError:
-                logger.warning("Could not import cleanup_lesswrong_posts - skipping cleanup")
-            except Exception as e:
-                logger.error(f"Error cleaning up LessWrong posts: {e}")
 
         logger.info("Adding pinecone entries for %s", custom_sources)
         self.adder.update(custom_sources, force_update)

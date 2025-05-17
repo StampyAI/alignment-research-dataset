@@ -12,32 +12,22 @@ from sqlalchemy import select
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.db.session import make_session
 from align_data.db.models import Article
+from align_data.sources.greaterwrong.config import SOURCE_CONFIG, get_source_config
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_LW_tags(url):
-    # All AI-related articles should have this tag
-    logger.info("Using hardcoded 'AI' tag for LessWrong")
-    return {"AI"}
-
-
-def fetch_ea_forum_topics(url):  # Return the main AI Safety tag
-    logger.info("Using hardcoded 'AI Safety' tag for EA Forum")
-    return {"AI Safety"}
-
-
-def get_allowed_tags(url, name):
-    if name == "alignmentforum":
-        return set()
-    elif name == "lesswrong":
-        return fetch_LW_tags(url)
-    elif name == "eaforum":
-        return fetch_ea_forum_topics(url)
-    else:
+def get_allowed_tags(name):
+    source_config = get_source_config(name)
+    
+    if not source_config:
         raise ValueError(
             f'Unknown datasource: "{name}". Must be one of alignmentforum|lesswrong|eaforum'
         )
+    
+    # Return the required tags set
+    required_tags = set(source_config.get("required_tags", []))
+    return required_tags
 
 
 @dataclass
@@ -64,17 +54,25 @@ class GreaterWrong(AlignmentDataset):
     def setup(self):
         super().setup()
 
-        logger.debug("Fetching ai tags...")
-        self.ai_tags = get_allowed_tags(self.base_url, self.name)
+        logger.debug("Fetching allowed tags...")
+        self.allowed_tags = get_allowed_tags(self.name)
 
     def tags_ok(self, post):
-        # If this is the AlignmentForum source, accept all posts
-        if self.af:
+        # Check if we should bypass tag checking based on source configuration
+        source_config = get_source_config(self.name) or {}
+        if source_config.get("bypass_tag_check", False):
             return True
 
-        # For LessWrong, only accept posts with the AI tag
+        # Get post tags
         post_tags = {t["name"] for t in post["tags"] if t.get("name")}
-        return bool(post_tags & self.ai_tags)
+        
+        # Check for excluded tags - none must be present
+        excluded_tags = set(source_config.get("excluded_tags", []))
+        if excluded_tags and excluded_tags.intersection(post_tags):
+            return False
+        
+        # Check required tags - at least one must be present
+        return bool(post_tags & self.allowed_tags)
 
     def _load_outputted_items(self) -> Tuple[Set[str], Set[Tuple[str, str]]]:
         """Load the output file (if it exists) in order to know which items have already been output."""
@@ -102,15 +100,20 @@ class GreaterWrong(AlignmentDataset):
         return super()._get_published_date(item.get("postedAt"))
 
     def make_query(self, after: str):
+        # Get GraphQL query parameters from configuration
+        source_config = get_source_config(self.name) or {}
+        exclude_events = source_config.get("exclude_events", False)
+        karma_threshold = source_config.get("karma_threshold", self.min_karma)
+        
         return f"""
         {{
             posts(input: {{
                 terms: {{
-                    excludeEvents: true
+                    excludeEvents: {str(exclude_events).lower()}
                     view: "old"
                     af: {self.af}
                     limit: {self.limit}
-                    karmaThreshold: {self.min_karma}
+                    karmaThreshold: {karma_threshold}
                     after: "{after}"
                     filter: "tagged"
                 }}
