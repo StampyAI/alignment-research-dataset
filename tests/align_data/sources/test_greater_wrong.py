@@ -6,41 +6,24 @@ from unittest.mock import patch, Mock
 import pytest
 
 from align_data.sources.greaterwrong.greaterwrong import (
-    fetch_LW_tags,
-    fetch_ea_forum_topics,
     get_allowed_tags,
     GreaterWrong,
 )
 
 
-def test_fetch_LW_tags():
-    # Test the simplified function that always returns the primary 'AI' tag
-    assert fetch_LW_tags("http://url.com") == {"AI"}
-
-
-def test_fetch_ea_forum_topics():
-    # Test the simplified function that always returns the "AI Safety" tag
-    assert fetch_ea_forum_topics("http://url.com") == {"AI Safety"}
-
-
 def test_get_allowed_tags():
     # Test alignmentforum (should return empty set)
-    assert get_allowed_tags("http://url.com", "alignmentforum") == set()
+    assert get_allowed_tags("alignmentforum") == set()
 
     # Test lesswrong (should return AI tag)
-    with patch("align_data.sources.greaterwrong.greaterwrong.fetch_LW_tags", return_value={"AI"}):
-        assert get_allowed_tags("http://url.com", "lesswrong") == {"AI"}
+    assert get_allowed_tags("lesswrong") == {"AI"}
 
     # Test eaforum (should return AI Safety tag)
-    with patch(
-        "align_data.sources.greaterwrong.greaterwrong.fetch_ea_forum_topics",
-        return_value={"AI Safety"},
-    ):
-        assert get_allowed_tags("http://url.com", "eaforum") == {"AI Safety"}
+    assert get_allowed_tags("eaforum") == {"AI Safety"}
 
     # Test unknown datasource
     with pytest.raises(ValueError):
-        get_allowed_tags("http://url.com", "unknown")
+        get_allowed_tags("unknown")
 
 
 @pytest.fixture
@@ -64,15 +47,11 @@ def dataset(tmp_path):
     ),
 )
 def test_greaterwrong_tags_ok(dataset, tags):
-    # Set up the test with AI tags
-    dataset.ai_tags = {"tag1", "tag2"}
+    # Set up the test with allowed tags
+    dataset.allowed_tags = {"tag1", "tag2"}
+    dataset.name = "lesswrong"  # for config lookup
 
-    # LessWrong (af=False) should only accept posts with AI tags
-    dataset.af = False
-    assert dataset.tags_ok({"tags": tags})
-
-    # AlignmentForum (af=True) should accept all posts
-    dataset.af = True
+    # Should accept posts with required tags
     assert dataset.tags_ok({"tags": tags})
 
 
@@ -86,16 +65,17 @@ def test_greaterwrong_tags_ok(dataset, tags):
     ),
 )
 def test_greaterwrong_tags_ok_missing(dataset, tags):
-    # Set up the test with AI tags
-    dataset.ai_tags = {"tag1", "tag2"}
+    # Set up the test with allowed tags
+    dataset.allowed_tags = {"tag1", "tag2"}
+    dataset.name = "lesswrong"  # for config lookup
 
-    # LessWrong (af=False) should reject posts without AI tags
-    dataset.af = False
+    # Should reject posts without required tags
     assert not dataset.tags_ok({"tags": tags})
-
-    # AlignmentForum (af=True) should accept all posts
-    dataset.af = True
-    assert dataset.tags_ok({"tags": tags, "af": True})
+    
+    # Test with bypass_tag_check
+    with patch("align_data.sources.greaterwrong.greaterwrong.get_source_config", 
+              return_value={"bypass_tag_check": True}):
+        assert dataset.tags_ok({"tags": tags})
 
 
 def test_greaterwrong_get_published_date(dataset):
@@ -107,7 +87,7 @@ def test_greaterwrong_get_published_date_missing(dataset):
 
 
 def test_items_list_no_previous(dataset):
-    dataset.ai_tags = {"tag1", "tag2"}
+    dataset.allowed_tags = {"tag1", "tag2"}
 
     def make_item(date):
         return {
@@ -142,7 +122,7 @@ def test_items_list_no_previous(dataset):
 
 
 def test_items_list_with_previous_items(dataset):
-    dataset.ai_tags = {"tag1", "tag2"}
+    dataset.allowed_tags = {"tag1", "tag2"}
 
     def make_item(date):
         return {
