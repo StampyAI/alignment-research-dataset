@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 
 def get_allowed_tags(name):
     source_config = get_source_config(name)
-    
+
     if not source_config:
         raise ValueError(
             f'Unknown datasource: "{name}". Must be one of alignmentforum|lesswrong|eaforum'
         )
-    
+
     # Return the required tags set
     required_tags = set(source_config.get("required_tags", []))
     return required_tags
@@ -65,12 +65,12 @@ class GreaterWrong(AlignmentDataset):
 
         # Get post tags
         post_tags = {t["name"] for t in post["tags"] if t.get("name")}
-        
+
         # Check for excluded tags - none must be present
         excluded_tags = set(source_config.get("excluded_tags", []))
         if excluded_tags and excluded_tags.intersection(post_tags):
             return False
-        
+
         # Check required tags - at least one must be present
         return bool(post_tags & self.allowed_tags)
 
@@ -104,7 +104,7 @@ class GreaterWrong(AlignmentDataset):
         source_config = get_source_config(self.name) or {}
         exclude_events = source_config.get("exclude_events", False)
         karma_threshold = source_config.get("karma_threshold", self.min_karma)
-        
+
         return f"""
         {{
             posts(input: {{
