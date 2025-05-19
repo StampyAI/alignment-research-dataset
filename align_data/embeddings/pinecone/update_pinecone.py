@@ -56,19 +56,17 @@ class PineconeAction:
             logger.info("Processing %s items from %s", total_articles, custom_sources)
 
             total_processed = 0
-            update_interval = self.batch_size
 
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
                 total_processed += len(batch)
 
-                if total_processed % update_interval == 0 or total_processed == total_articles:
-                    percentage = (
-                        (total_processed / total_articles) * 100 if total_articles > 0 else 0
-                    )
-                    logger.info(
-                        "Progress: %.1f%% (%d/%d)", percentage, total_processed, total_articles
-                    )
+                percentage = (
+                    (total_processed / total_articles) * 100 if total_articles > 0 else 0
+                )
+                logger.info(
+                    "Progress: %.1f%% (%d/%d)", percentage, total_processed, total_articles
+                )
 
             logger.info("Completed processing %s items", total_processed)
 
@@ -81,19 +79,17 @@ class PineconeAction:
             logger.info("Processing %s items by ID", total_articles)
 
             total_processed = 0
-            update_interval = self.batch_size
 
             for batch in self.batch_entries(articles_to_update):
                 self.save_batch(session, batch)
                 total_processed += len(batch)
 
-                if total_processed % update_interval == 0 or total_processed == total_articles:
-                    percentage = (
-                        (total_processed / total_articles) * 100 if total_articles > 0 else 0
-                    )
-                    logger.info(
-                        "Progress: %.1f%% (%d/%d)", percentage, total_processed, total_articles
-                    )
+                percentage = (
+                    (total_processed / total_articles) * 100 if total_articles > 0 else 0
+                )
+                logger.info(
+                    "Progress: %.1f%% (%d/%d)", percentage, total_processed, total_articles
+                )
 
             logger.info("Completed processing %s items by ID", total_processed)
 
