@@ -198,9 +198,6 @@ class PineconeAdder(PineconeAction):
 
 
 class PineconeDeleter(PineconeAction):
-    # Using a smaller batch size to avoid exceeding Pinecone's 1000 ID limit
-    # Since each article can expand to multiple vector IDs when deleted
-    batch_size = 30
     pinecone_statuses = [PineconeStatus.pending_removal]
 
     def _articles_by_source(self, session, sources: List[str], _force_update: bool):
