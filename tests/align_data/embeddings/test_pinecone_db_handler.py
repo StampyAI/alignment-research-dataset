@@ -12,6 +12,7 @@ from align_data.embeddings.pinecone.pinecone_db_handler import (
     PineconeDB,
     initialize_pinecone,
     USING_NEW_API,
+    chunk_items,
 )
 from align_data.embeddings.pinecone.pinecone_models import PineconeEntry, PineconeMetadata
 
@@ -196,6 +197,171 @@ class TestPineconeDB:
         assert results[0] == ("id1", [0.1, 0.2, 0.3])
         assert results[1] == ("id2", [0.4, 0.5, 0.6])
         assert results[2] == ("id3", None)  # Non-existent ID returns None
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_delete_entries_basic(self, mock_initialize):
+        """Test basic delete_entries functionality."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+        
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+        
+        # Mock _find_item to return vector IDs for each article
+        mock_index.list.side_effect = [
+            ["article1_chunk1", "article1_chunk2"],  # article1 has 2 vectors
+            ["article2_chunk1"],                     # article2 has 1 vector  
+            []                                       # article3 has no vectors
+        ]
+        
+        db = PineconeDB(index_name="test-index")
+        
+        # Test deletion
+        db.delete_entries(["article1", "article2", "article3"])
+        
+        # Verify _find_item was called for each article
+        assert mock_index.list.call_count == 3
+        
+        # Verify delete was called with the right vector IDs
+        mock_index.delete.assert_called_once_with(
+            ids=["article1_chunk1", "article1_chunk2", "article2_chunk1"],
+            namespace="normal"
+        )
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_delete_entries_large_article(self, mock_initialize):
+        """Test deletion of article with >1000 vector IDs."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+        
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+        
+        # Simulate one article with 1500 vector IDs
+        large_vector_list = [f"article1_chunk{i}" for i in range(1500)]
+        mock_index.list.return_value = large_vector_list
+        
+        db = PineconeDB(index_name="test-index")
+        db.delete_entries(["article1"])
+        
+        # Should make 2 delete calls: 1000 IDs + 500 IDs
+        assert mock_index.delete.call_count == 2
+        
+        # Verify first call has exactly 1000 IDs
+        first_call = mock_index.delete.call_args_list[0][1]['ids']
+        assert len(first_call) == 1000
+        
+        # Verify second call has remaining 500 IDs  
+        second_call = mock_index.delete.call_args_list[1][1]['ids']
+        assert len(second_call) == 500
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_delete_entries_exactly_1000_ids(self, mock_initialize):
+        """Test deletion of article with exactly 1000 vector IDs."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+        
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+        
+        # Simulate one article with exactly 1000 vector IDs
+        vector_list = [f"article1_chunk{i}" for i in range(1000)]
+        mock_index.list.return_value = vector_list
+        
+        db = PineconeDB(index_name="test-index")
+        db.delete_entries(["article1"])
+        
+        # Should make exactly 1 delete call with 1000 IDs
+        mock_index.delete.assert_called_once()
+        delete_call = mock_index.delete.call_args[1]['ids']
+        assert len(delete_call) == 1000
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_delete_entries_multiple_articles_exceeding_limit(self, mock_initialize):
+        """Test deletion where multiple articles together exceed 1000 IDs."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+        
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+        
+        # Mock multiple articles with many vector IDs each (processed in chunks of 10 articles)
+        # Article 1-10: 100 IDs each = 1000 total (exactly at limit)
+        # Article 11: 500 IDs (separate batch)
+        mock_index.list.side_effect = (
+            # First batch of 10 articles (100 IDs each)
+            [[f"article{i}_chunk{j}" for j in range(100)] for i in range(1, 11)] +
+            # Second batch with 1 article (500 IDs) 
+            [[f"article11_chunk{j}" for j in range(500)]]
+        )
+        
+        db = PineconeDB(index_name="test-index")
+        article_ids = [f"article{i}" for i in range(1, 12)]
+        db.delete_entries(article_ids)
+        
+        # Should make 2 delete calls due to article chunking (10 articles per batch)
+        assert mock_index.delete.call_count == 2
+        
+        # First call: 1000 IDs from articles 1-10
+        first_call_ids = mock_index.delete.call_args_list[0][1]['ids']
+        assert len(first_call_ids) == 1000
+        
+        # Second call: 500 IDs from article 11
+        second_call_ids = mock_index.delete.call_args_list[1][1]['ids']
+        assert len(second_call_ids) == 500
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_delete_entries_empty_results(self, mock_initialize):
+        """Test deletion when articles have no vector IDs."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+        
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+        
+        # Mock articles with no vector IDs
+        mock_index.list.side_effect = [[], [], []]
+        
+        db = PineconeDB(index_name="test-index")
+        db.delete_entries(["article1", "article2", "article3"])
+        
+        # Should call list for each article but no delete calls
+        assert mock_index.list.call_count == 3
+        mock_index.delete.assert_not_called()
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_delete_entries_mixed_results(self, mock_initialize):
+        """Test deletion with mix of articles having different vector counts."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+        
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+        
+        # Mix: some articles with vectors, some without
+        mock_index.list.side_effect = [
+            ["article1_chunk1"],           # 1 vector
+            [],                            # 0 vectors
+            ["article3_chunk1", "article3_chunk2", "article3_chunk3"],  # 3 vectors
+            [],                            # 0 vectors
+            ["article5_chunk1", "article5_chunk2"]  # 2 vectors
+        ]
+        
+        db = PineconeDB(index_name="test-index")
+        db.delete_entries(["article1", "article2", "article3", "article4", "article5"])
+        
+        # Should call list for each article
+        assert mock_index.list.call_count == 5
+        
+        # Should make one delete call with vectors from articles 1, 3, and 5
+        mock_index.delete.assert_called_once()
+        delete_call_ids = mock_index.delete.call_args[1]['ids']
+        expected_ids = [
+            "article1_chunk1",
+            "article3_chunk1", "article3_chunk2", "article3_chunk3",
+            "article5_chunk1", "article5_chunk2"
+        ]
+        assert delete_call_ids == expected_ids
 
 
 class TestPineconeCompatibility:

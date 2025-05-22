@@ -32,6 +32,12 @@ from align_data.settings import (
 logger = logging.getLogger(__name__)
 
 
+def chunk_items(items, chunk_size):
+    """Split items into chunks of specified size."""
+    for i in range(0, len(items), chunk_size):
+        yield items[i : i + chunk_size]
+
+
 def with_retry(n=3, exceptions=(Exception,)):
     def retrier_wrapper(f):
         def wrapper(*args, **kwargs):
@@ -249,15 +255,10 @@ class PineconeDB:
 
         Pinecone has a limit of 1000 IDs per delete request.
         """
-        max_delete_size = 900 
-
-        if len(ids) <= max_delete_size:
-            self.index.delete(ids=ids, namespace=PINECONE_NAMESPACE)
-        else:
-            # If we exceed the limit, chunk the deletion
-            for i in range(0, len(ids), max_delete_size):
-                chunk = ids[i : i + max_delete_size]
-                self.index.delete(ids=chunk, namespace=PINECONE_NAMESPACE)
+        max_delete_size = 1000
+        
+        for chunk in chunk_items(ids, max_delete_size):
+            self.index.delete(ids=chunk, namespace=PINECONE_NAMESPACE)
 
     @with_retry()
     def delete_entries(self, ids):
@@ -268,13 +269,11 @@ class PineconeDB:
         expanded vector IDs to avoid exceeding Pinecone's 1000 ID limit per request.
         """
         article_chunk_size = 10
-
-        for i in range(0, len(ids), article_chunk_size):
-            article_chunk = ids[i : i + article_chunk_size]
-
+        
+        for chunk in chunk_items(ids, article_chunk_size):
             # Find all vector IDs for these articles
             vector_ids = []
-            for article_id in article_chunk:
+            for article_id in chunk:
                 article_vectors = self._find_item(article_id)
                 if article_vectors:
                     vector_ids.extend(article_vectors)
