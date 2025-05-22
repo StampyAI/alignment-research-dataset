@@ -33,6 +33,11 @@ class AlignmentDataset:
     out_path: str = "data"
     """The path to the directory where the data will be downloaded, defaults to data"""
 
+    @property
+    def log_progress(self) -> bool:
+        """Don't log progress when running in GitHub Actions."""
+        return not os.getenv('GITHUB_ACTIONS', False)
+
     def list(self) -> List[str]:
         """Returns a list of all the datasets"""
         return sorted(ALL_DATASETS)
@@ -132,14 +137,16 @@ class AlignmentDataset:
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
-        PineconeUpdater().update(names, force_update)
+        
+        PineconeUpdater().update(names, force_update, self.log_progress)
 
     def pinecone_update_all(self, *skip, force_update=False) -> None:
         """
         This function updates the Pinecone vector DB.
         """
         names = [name for name in ALL_DATASETS if name not in skip]
-        PineconeUpdater().update(names, force_update)
+        
+        PineconeUpdater().update(names, force_update, self.log_progress)
 
     def pinecone_update_individual_articles(self, *hash_ids: str, force_update=False) -> None:
         """
@@ -147,7 +154,7 @@ class AlignmentDataset:
 
         :param str hash_ids: space-separated list of article IDs.
         """
-        PineconeUpdater().update_articles_by_ids(hash_ids, force_update)
+        PineconeUpdater().update_articles_by_ids(hash_ids, force_update, self.log_progress)
 
     def train_finetuning_layer(self) -> None:
         """
