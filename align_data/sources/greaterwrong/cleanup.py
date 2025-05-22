@@ -22,10 +22,11 @@ def check_post_meets_tag_requirements(post, tag_requirements):
         return True
 
     # Check if metadata contains tags
-    if not post.meta:
+    if not (meta := post.meta):
         return False
 
-    meta = json.loads(post.meta) if isinstance(post.meta, str) else post.meta
+    if isinstance(meta, str):
+        meta = json.loads(meta)
     post_tags = set(meta.get("tags", []))
 
     # If post has no tags and we have required tags, it fails
