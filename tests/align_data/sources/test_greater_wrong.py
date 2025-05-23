@@ -6,38 +6,24 @@ from unittest.mock import patch, Mock
 import pytest
 
 from align_data.sources.greaterwrong.greaterwrong import (
-    fetch_LW_tags,
-    fetch_ea_forum_topics,
+    get_allowed_tags,
     GreaterWrong,
 )
 
 
-def test_fetch_LW_tags():
-    contents = """
-    <div class="TagPage-description">
-      <div class="table">
-        <a href="/tag/tag1">tag1</a>
-        <a href="/tag/tag2">tag2</a>
-        <a href="/tag/tag3">tag3</a>
-        <a href="/ignore/this">ignored</a>
-      </div>
-    </div>
-    """
-    with patch("requests.get", return_value=Mock(content=contents)):
-        assert fetch_LW_tags("http://url.com") == {"tag3", "tag2", "tag1"}
+def test_get_allowed_tags():
+    # Test alignmentforum (should return empty set)
+    assert get_allowed_tags("alignmentforum") == set()
 
+    # Test lesswrong (should return AI tag)
+    assert get_allowed_tags("lesswrong") == {"AI"}
 
-def test_fetch_ea_forum_topics():
-    contents = """
-    <div class="SidebarSubtagsBox-root">
-        <a href="/topics/tag1">tag1</a>
-        <a href="/topics/tag2">tag2</a>
-        <a href="/topics/tag3">tag3</a>
-        <a href="/ignore/this">ignored</a>
-    </div>
-    """
-    with patch("requests.get", return_value=Mock(content=contents)):
-        assert fetch_ea_forum_topics("http://url.com") == {"tag3", "tag2", "tag1"}
+    # Test eaforum (should return AI Safety tag)
+    assert get_allowed_tags("eaforum") == {"AI Safety"}
+
+    # Test unknown datasource
+    with pytest.raises(ValueError):
+        get_allowed_tags("unknown")
 
 
 @pytest.fixture
@@ -61,7 +47,11 @@ def dataset(tmp_path):
     ),
 )
 def test_greaterwrong_tags_ok(dataset, tags):
-    dataset.ai_tags = {"tag1", "tag2"}
+    # Set up the test with allowed tags
+    dataset.allowed_tags = {"tag1", "tag2"}
+    dataset.name = "lesswrong"  # for config lookup
+
+    # Should accept posts with required tags
     assert dataset.tags_ok({"tags": tags})
 
 
@@ -75,8 +65,17 @@ def test_greaterwrong_tags_ok(dataset, tags):
     ),
 )
 def test_greaterwrong_tags_ok_missing(dataset, tags):
-    dataset.ai_tags = {"tag1", "tag2"}
+    # Set up the test with allowed tags
+    dataset.allowed_tags = {"tag1", "tag2"}
+    dataset.name = "lesswrong"  # for config lookup
+
+    # Should reject posts without required tags
     assert not dataset.tags_ok({"tags": tags})
+    
+    # Test with bypass_tag_check
+    with patch("align_data.sources.greaterwrong.greaterwrong.get_source_config", 
+              return_value={"bypass_tag_check": True}):
+        assert dataset.tags_ok({"tags": tags})
 
 
 def test_greaterwrong_get_published_date(dataset):
@@ -88,7 +87,7 @@ def test_greaterwrong_get_published_date_missing(dataset):
 
 
 def test_items_list_no_previous(dataset):
-    dataset.ai_tags = {"tag1", "tag2"}
+    dataset.allowed_tags = {"tag1", "tag2"}
 
     def make_item(date):
         return {
@@ -123,7 +122,7 @@ def test_items_list_no_previous(dataset):
 
 
 def test_items_list_with_previous_items(dataset):
-    dataset.ai_tags = {"tag1", "tag2"}
+    dataset.allowed_tags = {"tag1", "tag2"}
 
     def make_item(date):
         return {
@@ -228,53 +227,59 @@ def test_process_entry_no_authors(dataset):
     }
 
 
-@pytest.mark.parametrize('item', (
-    {
-        # non seen url
-        'pageUrl': 'http://bla.bla',
-        'title': 'new item', 'coauthors': [{'displayName': 'your momma'}]
-    },
-    {
-        # already seen title, but different authors
-        'title': 'this has already been seen',
-        'pageUrl': 'http://bla.bla', 'coauthors':  [{'displayName': 'your momma'}]
-    },
-    {
-        # new title, but same authors
-        'coauthors':  [{'displayName': 'johnny'}],
-        'title': 'new item', 'pageUrl': 'http://bla.bla'
-    },
-))
+@pytest.mark.parametrize(
+    "item",
+    (
+        {
+            # non seen url
+            "pageUrl": "http://bla.bla",
+            "title": "new item",
+            "coauthors": [{"displayName": "your momma"}],
+        },
+        {
+            # already seen title, but different authors
+            "title": "this has already been seen",
+            "pageUrl": "http://bla.bla",
+            "coauthors": [{"displayName": "your momma"}],
+        },
+        {
+            # new title, but same authors
+            "coauthors": [{"displayName": "johnny"}],
+            "title": "new item",
+            "pageUrl": "http://bla.bla",
+        },
+    ),
+)
 def test_not_processed_true(item, dataset):
-    dataset._outputted_items = (
-        {'http://already.seen'},
-        {('this has been seen', 'johnny')}
-    )
-    item['user'] = None
+    dataset._outputted_items = ({"http://already.seen"}, {("this has been seen", "johnny")})
+    item["user"] = None
     assert dataset.not_processed(item)
 
 
-@pytest.mark.parametrize('item', (
-    {
-        # url seen
-        'pageUrl': 'http://already.seen',
-        'title': 'new item', 'coauthors':  [{'displayName': 'your momma'}]
-    },
-    {
-        # already seen title and authors pair, but different url
-        'title': 'this has already been seen', 'coauthors':  [{'displayName': 'johnny'}],
-        'pageUrl': 'http://bla.bla',
-    },
-    {
-        # already seen everything
-        'pageUrl': 'http://already.seen',
-        'title': 'this has already been seen', 'coauthors':  [{'displayName': 'johnny'}],
-    }
-))
+@pytest.mark.parametrize(
+    "item",
+    (
+        {
+            # url seen
+            "pageUrl": "http://already.seen",
+            "title": "new item",
+            "coauthors": [{"displayName": "your momma"}],
+        },
+        {
+            # already seen title and authors pair, but different url
+            "title": "this has already been seen",
+            "coauthors": [{"displayName": "johnny"}],
+            "pageUrl": "http://bla.bla",
+        },
+        {
+            # already seen everything
+            "pageUrl": "http://already.seen",
+            "title": "this has already been seen",
+            "coauthors": [{"displayName": "johnny"}],
+        },
+    ),
+)
 def test_not_processed_false(item, dataset):
-    dataset._outputted_items = (
-        {'http://already.seen'},
-        {('this has already been seen', 'johnny')}
-    )
-    item['user'] = None
+    dataset._outputted_items = ({"http://already.seen"}, {("this has already been seen", "johnny")})
+    item["user"] = None
     assert not dataset.not_processed(item)

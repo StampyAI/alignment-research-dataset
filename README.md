@@ -196,17 +196,15 @@ There are various commands available to interact with the datasets:
   ```
 
 - **Fetching a specific dataset:**
-  Replace `[DATASET_NAME]` with the desired dataset. The optional `--rebuild` parameter allows you to remove the previous build before running, scraping everything from scratch. Otherwise, only the new files will be scraped.
+  Replace `[DATASET_NAME]` with the desired dataset. 
 
   ```sh
-  python main.py fetch [DATASET_NAME] --rebuild
+  python main.py fetch [DATASET_NAME] 
   ```
 
 - **Fetching all datasets:**
-  Again, the optional `--rebuild` parameter allows you to scrape everything from scratch.
-
   ```sh
-  python main.py fetch-all --rebuild
+  python main.py fetch-all 
   ```
 
 - **Getting a summary of a merged dataset:**
@@ -232,6 +230,25 @@ There are various commands available to interact with the datasets:
   ```sh
   python main.py pinecone_update_all
   ```
+
+  ## Cleanup Posts by Tags
+
+  The project includes a standalone script for cleaning up posts based on tag requirements:
+
+  ```bash
+  python -m align_data.sources.greaterwrong.cleanup <source_name> [--dry-run]
+
+  This script:
+  - Identifies posts that don't match configured tag requirements
+  - Marks them as invalid and sets them for removal from Pinecone
+  - Provides a dry-run option to preview changes without modifying the database
+
+  Example usage:
+  # Preview which posts would be marked invalid
+  python -m align_data.sources.greaterwrong.cleanup lesswrong --dry-run
+
+  Tag requirements are configured in align_data.sources.greaterwrong.config.py.
+
 
 ## Adding New Datasets
 
