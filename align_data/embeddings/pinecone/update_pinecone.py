@@ -43,6 +43,25 @@ class PineconeAction:
     ) -> Iterable[Article]:
         raise NotImplementedError
 
+    def _update_with_logging(self, session: Session, articles_query, log_progress: bool):
+        """Helper method to handle update logic with consistent logging."""
+        total_articles = articles_query.count()
+        
+        if log_progress:
+            logger.info("Processing %s items", total_articles)
+        
+        total_processed = 0
+        for batch in self.batch_entries(articles_query):
+            self.save_batch(session, batch)
+            total_processed += len(batch)
+            
+            if log_progress:
+                percentage = (total_processed / total_articles) * 100 if total_articles > 0 else 0
+                logger.info("Progress: %.1f%% (%d/%d)", percentage, total_processed, total_articles)
+        
+        if log_progress:
+            logger.info("Completed processing %s items", total_processed)
+
     def update(self, custom_sources: List[str], force_update: bool = False, log_progress: bool = True):
         """
         Update the given sources. If no sources are provided, updates all sources.
@@ -52,53 +71,13 @@ class PineconeAction:
         """
         with make_session() as session:
             articles_to_update = self._articles_by_source(session, custom_sources, force_update)
-            total_articles = articles_to_update.count()
-
-            if log_progress:
-                logger.info("Processing %s items from %s", total_articles, custom_sources)
-
-            total_processed = 0
-
-            for batch in self.batch_entries(articles_to_update, log_progress):
-                self.save_batch(session, batch)
-                total_processed += len(batch)
-
-                if log_progress:
-                    percentage = (
-                        (total_processed / total_articles) * 100 if total_articles > 0 else 0
-                    )
-                    logger.info(
-                        "Progress: %.1f%% (%d/%d)", percentage, total_processed, total_articles
-                    )
-
-            if log_progress:
-                logger.info("Completed processing %s items", total_processed)
+            self._update_with_logging(session, articles_to_update, log_progress)
 
     def update_articles_by_ids(self, hash_ids: List[int], force_update: bool = False, log_progress: bool = True):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
             articles_to_update = self._articles_by_id(session, hash_ids, force_update)
-            total_articles = articles_to_update.count()
-
-            if log_progress:
-                logger.info("Processing %s items by ID", total_articles)
-
-            total_processed = 0
-
-            for batch in self.batch_entries(articles_to_update, log_progress):
-                self.save_batch(session, batch)
-                total_processed += len(batch)
-
-                if log_progress:
-                    percentage = (
-                        (total_processed / total_articles) * 100 if total_articles > 0 else 0
-                    )
-                    logger.info(
-                        "Progress: %.1f%% (%d/%d)", percentage, total_processed, total_articles
-                    )
-
-            if log_progress:
-                logger.info("Completed processing %s items by ID", total_processed)
+            self._update_with_logging(session, articles_to_update, log_progress)
 
     def process_batch(self, batch: List[Tuple[Article, PineconeEntry | None]]) -> List[Article]:
         raise NotImplementedError
