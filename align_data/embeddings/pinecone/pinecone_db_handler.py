@@ -3,24 +3,14 @@ import time
 import logging
 from typing import List, Tuple
 
-# Try to handle both new and old Pinecone API patterns
-try:
-    from pinecone import Pinecone
-    USING_NEW_API = True
-except (ImportError, AttributeError):
-    import pinecone
-    USING_NEW_API = False
-
+from pinecone import Pinecone, ServerlessSpec
 from urllib3.exceptions import ProtocolError
 
 from align_data.embeddings.embedding_utils import get_embedding
-from align_data.embeddings.pinecone.pinecone_models import (
-    PineconeEntry,
-    PineconeMetadata,
-)
+from align_data.embeddings.pinecone.pinecone_models import PineconeEntry
 from align_data.settings import (
     PINECONE_INDEX_NAME,
-    PINECONE_VALUES_DIMS,
+    EMBEDDINGS_DIMS,
     PINECONE_METRIC,
     PINECONE_API_KEY,
     PINECONE_ENVIRONMENT,
@@ -49,22 +39,10 @@ def with_retry(n=3, exceptions=(Exception,)):
 def initialize_pinecone():
     """Initialize Pinecone client with compatibility for both API versions."""
     try:
-        if USING_NEW_API:
-            # New API pattern (pinecone package)
-            client = Pinecone(
-                api_key=PINECONE_API_KEY,
-                environment=PINECONE_ENVIRONMENT,
-            )
-            logger.info("Using new Pinecone API")
-            return client
-        else:
-            # Old API pattern (pinecone-client package)
-            pinecone.init(
-                api_key=PINECONE_API_KEY,
-                environment=PINECONE_ENVIRONMENT,
-            )
-            logger.info("Using legacy Pinecone API")
-            return pinecone
+        return Pinecone(
+            api_key=PINECONE_API_KEY,
+            environment=PINECONE_ENVIRONMENT,
+        )
     except Exception as e:
         logger.error(f"Failed to initialize Pinecone: {e}")
         raise
@@ -74,7 +52,7 @@ class PineconeDB:
     def __init__(
         self,
         index_name: str = PINECONE_INDEX_NAME,
-        values_dims: int = PINECONE_VALUES_DIMS,
+        values_dims: int = EMBEDDINGS_DIMS,
         metric: str = PINECONE_METRIC,
         create_index: bool = False,
         log_index_stats: bool = False,
@@ -91,10 +69,7 @@ class PineconeDB:
 
         # Get index with version compatibility
         try:
-            if USING_NEW_API:
-                self.index = self.pinecone.Index(self.index_name)
-            else:
-                self.index = self.pinecone.Index(self.index_name)
+            self.index = self.pinecone.Index(self.index_name)
         except Exception as e:
             logger.error(f"Failed to access Pinecone index: {e}")
             raise
@@ -107,7 +82,7 @@ class PineconeDB:
                 logger.error(f"Failed to get index stats: {e}")
 
     @with_retry(exceptions=(ProtocolError,))
-    def _get_vectors(self, entry):
+    def _get_vectors(self, entry: PineconeEntry):
         return entry.create_pinecone_vectors()
 
     @with_retry(exceptions=(ProtocolError,))
@@ -131,11 +106,16 @@ class PineconeDB:
                     namespace=PINECONE_NAMESPACE,
                 )
             except Exception as inner_e:
-                logger.error(f"Failed to upsert vectors with alternative approach: {inner_e}")
+                logger.error(
+                    f"Failed to upsert vectors with alternative approach: {inner_e}"
+                )
                 raise
 
     def upsert_entry(
-        self, pinecone_entry: PineconeEntry, upsert_size: int = 100, show_progress: bool = True
+        self,
+        pinecone_entry: PineconeEntry,
+        upsert_size: int = 100,
+        show_progress: bool = True,
     ):
         vectors = self._get_vectors(pinecone_entry)
         self._upsert(vectors, upsert_size, show_progress)
@@ -148,9 +128,9 @@ class PineconeDB:
         include_metadata: bool = True,
         **kwargs,
     ) -> List[dict]:
-        assert not isinstance(
-            query, str
-        ), "query must be a list of floats. Use query_PineconeDB_text for text queries"
+        assert not isinstance(query, str), (
+            "query must be a list of floats. Use query_PineconeDB_text for text queries"
+        )
 
         try:
             query_response = self.index.query(
@@ -163,10 +143,14 @@ class PineconeDB:
             )
         except (TypeError, KeyError) as e:
             # Handle API differences
-            logger.warning(f"Query API compatibility issue: {e}, attempting alternate approach")
+            logger.warning(
+                f"Query API compatibility issue: {e}, attempting alternate approach"
+            )
             try:
                 # Try alternative parameter format for older API
-                kwargs.pop("namespace", None)  # In case namespace is handled differently
+                kwargs.pop(
+                    "namespace", None
+                )  # In case namespace is handled differently
                 query_response = self.index.query(
                     vector=query,
                     top_k=top_k,
@@ -188,22 +172,32 @@ class PineconeDB:
             result = []
             for match in matches:
                 # Handle both dictionary and object formats
-                match_id = match.get("id") if isinstance(match, dict) else getattr(match, "id", None)
-                match_score = match.get("score") if isinstance(match, dict) else getattr(match, "score", None)
-                
+                match_id = (
+                    match.get("id")
+                    if isinstance(match, dict)
+                    else getattr(match, "id", None)
+                )
+                match_score = (
+                    match.get("score")
+                    if isinstance(match, dict)
+                    else getattr(match, "score", None)
+                )
+
                 # Handle metadata in both formats
                 if isinstance(match, dict):
                     metadata = match.get("metadata", {})
                 else:
                     metadata = getattr(match, "metadata", {})
-                
+
                 # Create a dictionary representation for consistent interface
-                result.append({
-                    "id": match_id,
-                    "score": match_score,
-                    "metadata": metadata  # We'll use the metadata directly instead of wrapping in PineconeMetadata
-                })
-                
+                result.append(
+                    {
+                        "id": match_id,
+                        "score": match_score,
+                        "metadata": metadata,  # We'll use the metadata directly instead of wrapping in PineconeMetadata
+                    }
+                )
+
             return result
         except Exception as e:
             logger.error(f"Failed to parse query response: {e}")
@@ -217,13 +211,13 @@ class PineconeDB:
         include_metadata: bool = True,
         **kwargs,
     ) -> List[dict]:
-        query_vector = get_embedding(query)[0]
-        if query_vector is None:
+        query_vectors, _ = get_embedding(query)
+        if not query_vectors:
             print("The query is invalid.")
             return []
 
         return self.query_vector(
-            query=query_vector,
+            query=query_vectors[0].vector,
             top_k=top_k,
             include_values=include_values,
             include_metadata=include_metadata,
@@ -252,21 +246,12 @@ class PineconeDB:
             self.delete_index()
 
         try:
-            if USING_NEW_API:
-                self.pinecone.create_index(
-                    name=self.index_name,
-                    dimension=self.values_dims,
-                    metric=self.metric,
-                    metadata_config={"indexed": list(PineconeMetadata.__annotations__.keys())},
-                )
-            else:
-                # Legacy API
-                self.pinecone.create_index(
-                    name=self.index_name,
-                    dimension=self.values_dims,
-                    metric=self.metric,
-                    metadata_config={"indexed": list(PineconeMetadata.__annotations__.keys())},
-                )
+            self.pinecone.create_index(
+                name=self.index_name,
+                dimension=self.values_dims,
+                metric=self.metric,
+                spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+            )
         except Exception as e:
             logger.error(f"Failed to create index: {e}")
             raise
@@ -274,22 +259,18 @@ class PineconeDB:
     def delete_index(self):
         try:
             indexes = []
-            if USING_NEW_API:
-                indexes = self.pinecone.list_indexes()
-            else:
-                indexes = self.pinecone.list_indexes()
+            indexes = self.pinecone.list_indexes()
 
             if self.index_name in indexes:
                 logger.info(f"Deleting index '{self.index_name}'.")
-                if USING_NEW_API:
-                    self.pinecone.delete_index(self.index_name)
-                else:
-                    self.pinecone.delete_index(self.index_name)
+                self.pinecone.delete_index(self.index_name)
         except Exception as e:
             logger.error(f"Failed to delete index: {e}")
             raise
 
-    def get_embeddings_by_ids(self, ids: List[str]) -> List[Tuple[str, List[float] | None]]:
+    def get_embeddings_by_ids(
+        self, ids: List[str]
+    ) -> List[Tuple[str, List[float] | None]]:
         """
         Fetch embeddings for given entry IDs from Pinecone.
 
@@ -318,7 +299,9 @@ class PineconeDB:
                     return [(id, vectors.get(id, {}).get("values", None)) for id in ids]
                 else:
                     # Handle other vector formats
-                    return [(id, getattr(vectors.get(id, {}), "values", None)) for id in ids]
+                    return [
+                        (id, getattr(vectors.get(id, {}), "values", None)) for id in ids
+                    ]
             else:
                 logger.error(f"Unexpected response format: {type(fetch_response)}")
                 raise ValueError(f"Unexpected response format: {type(fetch_response)}")

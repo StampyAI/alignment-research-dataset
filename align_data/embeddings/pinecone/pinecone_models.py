@@ -1,6 +1,7 @@
-from typing import List, TypedDict
+from typing import List, Literal, TypedDict
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
+from align_data.embeddings.embedding_utils import Embedding
 
 
 class MissingFieldsError(Exception):
@@ -20,6 +21,9 @@ class PineconeMetadata(TypedDict):
     authors: List[str]
     text: str
     confidence: float | None
+    miri_confidence: float | None
+    miri_distance: Literal["core", "wider", "general"]
+    needs_tech: bool | None
 
 
 class PineconeEntry(BaseModel):
@@ -29,13 +33,17 @@ class PineconeEntry(BaseModel):
     url: str
     date_published: float
     authors: List[str]
-    text_chunks: List[str]
     confidence: float | None
-    embeddings: List[List[float] | None]
+    miri_confidence: float | None
+    miri_distance: Literal["core", "wider", "general"]
+    needs_tech: bool | None
+    embeddings: List[Embedding]
 
     def __init__(self, **data):
         """Check for missing (falsy) fields before initializing."""
-        missing_fields = [field for field, value in data.items() if not str(value).strip()]
+        missing_fields = [
+            field for field, value in data.items() if not str(value).strip()
+        ]
 
         if missing_fields:
             raise MissingFieldsError(f"Missing fields: {missing_fields}")
@@ -46,24 +54,26 @@ class PineconeEntry(BaseModel):
         def make_small(chunk: str) -> str:
             return (chunk[:45] + " [...] " + chunk[-45:]) if len(chunk) > 100 else chunk
 
-        def display_chunks(chunks_lst: List[str]) -> str:
-            chunks = ", ".join(f'"{make_small(chunk)}"' for chunk in chunks_lst)
+        def display_chunks(chunks_lst: List[Embedding]) -> str:
+            chunks = ", ".join(f'"{make_small(chunk.text)}"' for chunk in chunks_lst)
             return (
-                f"[{chunks[:450]} [...] {chunks[-450:]} ]" if len(chunks) > 1000 else f"[{chunks}]"
+                f"[{chunks[:450]} [...] {chunks[-450:]} ]"
+                if len(chunks) > 1000
+                else f"[{chunks}]"
             )
 
-        return f"PineconeEntry(hash_id={self.hash_id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={display_chunks(self.text_chunks)})"
+        return f"PineconeEntry(hash_id={self.hash_id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={display_chunks(self.embeddings)})"
 
     @property
     def chunk_num(self) -> int:
-        return len(self.text_chunks)
+        return len(self.embeddings)
 
     def create_pinecone_vectors(self) -> List[dict]:
         return [
             {
-                'id': f"{self.hash_id}_{str(i).zfill(6)}",
-                'values': self.embeddings[i],
-                'metadata': {
+                "id": f"{self.hash_id}_{hash(embedding.text)}",
+                "values": embedding.vector,
+                "metadata": {
                     key: value
                     for key, value in PineconeMetadata(
                         hash_id=self.hash_id,
@@ -72,12 +82,14 @@ class PineconeEntry(BaseModel):
                         authors=self.authors,
                         url=self.url,
                         date_published=self.date_published,
-                        text=self.text_chunks[i],
+                        text=embedding.text,
                         confidence=self.confidence,
+                        miri_confidence=self.miri_confidence,
+                        miri_distance=self.miri_distance,
+                        needs_tech=self.needs_tech,
                     ).items()
                     if value is not None  # Filter out keys with None values
                 },
             }
-            for i in range(self.chunk_num)
-            if self.embeddings[i]  # Skips flagged chunks
+            for embedding in self.embeddings
         ]

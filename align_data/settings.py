@@ -1,8 +1,5 @@
 import os
 import logging
-from typing import Dict
-import openai
-import torch
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -42,7 +39,9 @@ if not (DB_CONNECTION_URI := os.environ.get("ARD_DB_CONNECTION_URI")):
     host = os.environ.get("ARD_DB_HOST", "127.0.0.1")
     port = os.environ.get("ARD_DB_PORT", "3306")
     db_name = os.environ.get("ARD_DB_NAME", "alignment_research_dataset")
-    DB_CONNECTION_URI = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"
+    DB_CONNECTION_URI = (
+        f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{db_name}"
+    )
 
 ARTICLE_MAIN_KEYS = [
     "id",
@@ -58,43 +57,29 @@ ARTICLE_MAIN_KEYS = [
 ]
 
 ### EMBEDDINGS ###
-USE_OPENAI_EMBEDDINGS = True  # If false, SentenceTransformer embeddings will be used.
-EMBEDDING_LENGTH_BIAS: Dict[str, float] = {
-    # TODO: Experiement with these values. For now, let's remove the bias.
-    # "aisafety.info": 1.05,  # In search, favor AISafety.info entries.
-}
+DEFAULT_CHUNK_TOKENS = 512
+OVERLAP_TOKENS = 50
 
-OPENAI_EMBEDDINGS_MODEL = "text-embedding-ada-002"
-OPENAI_EMBEDDINGS_DIMS = 1536
-OPENAI_EMBEDDINGS_RATE_LIMIT = 3500
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", None)
-OPENAI_ORGANIZATION = os.environ.get("OPENAI_ORGANIZATION", None)
+VOYAGEAI_API_KEY = os.environ.get("VOYAGEAI_API_KEY")
+VOYAGEAI_EMBEDDINGS_MODEL = os.environ.get(
+    "VOYAGEAI_EMBEDDINGS_MODEL", "voyage-3-large"
+)
+EMBEDDINGS_DIMS = 1024
+USE_MODERATION = os.environ.get("USE_MODERATION", "true").lower() == "true"
 
-SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL = "sentence-transformers/multi-qa-mpnet-base-cos-v1"
-SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS = 768
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_ORGANIZATION = os.environ.get("OPENAI_ORGANIZATION")
 
 ### PINECONE ###
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "stampy-chat-ard")
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", None)
 PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT", None)
-PINECONE_VALUES_DIMS = (
-    OPENAI_EMBEDDINGS_DIMS if USE_OPENAI_EMBEDDINGS else SENTENCE_TRANSFORMER_EMBEDDINGS_DIMS
-)
 PINECONE_METRIC = "dotproduct"
-PINECONE_NAMESPACE = os.environ.get("PINECONE_NAMESPACE", "normal")  # "normal" or "finetuned"
-
-### FINE-TUNING ###
-OPENAI_FINETUNED_LAYER_PATH = os.environ.get(
-    "OPENAI_FINETUNED_LAYER_PATH", "align_data/finetuning/data/finetuned_model.pth"
-)
-OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH = os.environ.get(
-    "OPENAI_CURRENT_BEST_FINETUNED_LAYER_PATH",
-    "align_data/finetuning/data/best_finetuned_model.pth",
-)
+PINECONE_NAMESPACE = os.environ.get(
+    "PINECONE_NAMESPACE", "normal"
+)  # "normal" or "finetuned"
 
 ### MISCELLANEOUS ###
-MIN_CONFIDENCE = float(os.environ.get('MIN_CONFIDENCE') or '0.5')
+MIN_CONFIDENCE = float(os.environ.get("MIN_CONFIDENCE") or "0.5")
 if MIN_CONFIDENCE < 0 or MIN_CONFIDENCE > 1:
-    raise ValueError(f'MIN_CONFIDENCE must be between 0 and 1 - got {MIN_CONFIDENCE}')
-
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    raise ValueError(f"MIN_CONFIDENCE must be between 0 and 1 - got {MIN_CONFIDENCE}")

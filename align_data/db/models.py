@@ -15,10 +15,18 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    Float,
+    Boolean,
     func,
     event,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    validates,
+)
 from sqlalchemy.orm.attributes import get_history
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -62,20 +70,37 @@ class Article(Base):
     source_type: Mapped[Optional[str]] = mapped_column(String(128))
     authors: Mapped[str] = mapped_column(String(1024))
     text: Mapped[Optional[str]] = mapped_column(LONGTEXT)
-    confidence: Mapped[
-        Optional[float]
-    ]  # Describes the confidence in how good this article is, as a value <0, 1>
+    confidence: Mapped[Optional[float]] = mapped_column(
+        Float,
+        comment="Describes the confidence in how good this article is, as a value <0, 1>",
+    )
+    miri_confidence: Mapped[Optional[float]] = mapped_column(
+        Float, comment="How much MIRI wants this in the chatbot"
+    )
+    miri_distance: Mapped[str] = mapped_column(
+        String(128), comment="Whether this is core or wider from MIRI's perspective"
+    )
+    needs_tech: Mapped[bool] = mapped_column(
+        Boolean, comment="Whether the article is about technical details"
+    )
+
     date_published: Mapped[Optional[datetime]]
     meta: Mapped[Optional[JSON]] = mapped_column(JSON, name="metadata", default="{}")
     date_created: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     date_updated: Mapped[Optional[datetime]] = mapped_column(
         DateTime, onupdate=func.current_timestamp()
     )
-    date_checked: Mapped[datetime] = mapped_column(DateTime, default=func.now())  # The timestamp when this article was last checked if still valid
+    date_checked: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now()
+    )  # The timestamp when this article was last checked if still valid
     status: Mapped[Optional[str]] = mapped_column(String(256))
-    comments: Mapped[Optional[str]] = mapped_column(LONGTEXT)  # Editor comments. Can be anything
+    comments: Mapped[Optional[str]] = mapped_column(
+        LONGTEXT
+    )  # Editor comments. Can be anything
 
-    pinecone_status: Mapped[PineconeStatus] = mapped_column(Enum(PineconeStatus), default=PineconeStatus.absent)
+    pinecone_status: Mapped[PineconeStatus] = mapped_column(
+        Enum(PineconeStatus), default=PineconeStatus.absent
+    )
 
     summaries: Mapped[List["Summary"]] = relationship(
         back_populates="article", cascade="all, delete-orphan"
@@ -112,9 +137,9 @@ class Article(Base):
 
         id_string = self.generate_id_string()
         id_from_fields = hashlib.md5(id_string).hexdigest()
-        assert (
-            self.id == id_from_fields
-        ), f"Entry id {self.id} does not match id from id_fields: {id_from_fields}"
+        assert self.id == id_from_fields, (
+            f"Entry id {self.id} does not match id from id_fields: {id_from_fields}"
+        )
 
     def verify_id_fields(self):
         missing = [field for field in self.__id_fields if not getattr(self, field)]
@@ -127,7 +152,9 @@ class Article(Base):
                 if new_value and getattr(self, field) != new_value:
                     setattr(self, field, new_value)
 
-        updated_meta = dict((self.meta or {}), **{k: v for k, v in other.meta.items() if k and v})
+        updated_meta = dict(
+            (self.meta or {}), **{k: v for k, v in other.meta.items() if k and v}
+        )
         if self.meta != updated_meta:
             self.meta = updated_meta
 
@@ -135,8 +162,8 @@ class Article(Base):
             self._id = other._id
         self.id = None  # update the hash id so it calculates a new one if needed
         return self
-    
-    @validates('text')
+
+    @validates("text")
     def validate_text(self, key, text):
         if text is None:
             return None
@@ -188,7 +215,7 @@ class Article(Base):
 
         if not target.status and target.missing_fields:
             target.status = "Missing fields"
-            target.comments = f'missing fields: {", ".join(target.missing_fields)}'
+            target.comments = f"missing fields: {', '.join(target.missing_fields)}"
 
         if target.id:
             target.verify_id()
@@ -202,7 +229,9 @@ class Article(Base):
         monitored_attributes = list(PineconeMetadata.__annotations__.keys())
         monitored_attributes.remove("hash_id")
 
-        if any(get_history(target, attr).has_changes() for attr in monitored_attributes):
+        if any(
+            get_history(target, attr).has_changes() for attr in monitored_attributes
+        ):
             target.pinecone_status = PineconeStatus.pending_addition
 
     def to_dict(self) -> Dict[str, Any]:
@@ -226,7 +255,6 @@ class Article(Base):
             "summaries": [s.text for s in (self.summaries or [])],
             **(meta or {}),
         }
-
 
 
 event.listen(Article, "before_insert", Article.before_write)
