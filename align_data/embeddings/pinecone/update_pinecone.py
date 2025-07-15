@@ -44,26 +44,61 @@ class PineconeAction:
     ) -> Iterable[Article]:
         raise NotImplementedError
 
-    def update(self, custom_sources: List[str], force_update: bool = False):
+    def _update_with_logging(
+        self, session: Session, articles_query, log_progress: bool
+    ):
+        """Helper method to handle update logic with consistent logging."""
+        total_articles = articles_query.count()
+
+        if log_progress:
+            logger.info("Processing %s items", total_articles)
+
+        total_processed = 0
+        for batch in self.batch_entries(articles_query):
+            self.save_batch(session, batch)
+            total_processed += len(batch)
+
+            if log_progress:
+                percentage = (
+                    (total_processed / total_articles) * 100
+                    if total_articles > 0
+                    else 0
+                )
+                logger.info(
+                    "Progress: %.1f%% (%d/%d)",
+                    percentage,
+                    total_processed,
+                    total_articles,
+                )
+
+        if log_progress:
+            logger.info("Completed processing %s items", total_processed)
+
+    def update(
+        self,
+        custom_sources: List[str],
+        force_update: bool = False,
+        log_progress: bool = True,
+    ):
         """
         Update the given sources. If no sources are provided, updates all sources.
 
         :param custom_sources: List of sources to update.
+        :param log_progress: Whether to log progress updates.
         """
         with make_session() as session:
             articles_to_update = self._articles_by_source(
                 session, custom_sources, force_update
             )
-            logger.info("Processing %s items", articles_to_update.count())
-            for batch in self.batch_entries(articles_to_update):
-                self.save_batch(session, batch)
+            self._update_with_logging(session, articles_to_update, log_progress)
 
-    def update_articles_by_ids(self, hash_ids: List[int], force_update: bool = False):
+    def update_articles_by_ids(
+        self, hash_ids: List[int], force_update: bool = False, log_progress: bool = True
+    ):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
         with make_session() as session:
             articles_to_update = self._articles_by_id(session, hash_ids, force_update)
-            for batch in self.batch_entries(articles_to_update):
-                self.save_batch(session, batch)
+            self._update_with_logging(session, articles_to_update, log_progress)
 
     def process_batch(
         self, batch: List[Tuple[Article, PineconeEntry | None]]
@@ -82,7 +117,7 @@ class PineconeAction:
             session.rollback()
 
     def batch_entries(
-        self, article_stream: Generator[Article, None, None]
+        self, article_stream: Generator[Article, None, None], log_progress: bool = True
     ) -> Iterator[List[Article]]:
         items = iter(article_stream)
         while batch := tuple(islice(items, self.batch_size)):
@@ -101,10 +136,8 @@ class PineconeAdder(PineconeAction):
     def _articles_by_id(self, session, ids: List[str], force_update: bool):
         return get_pinecone_articles_by_ids(session, ids, force_update)
 
-    def process_batch(
-        self, batch: List[Tuple[Article, PineconeEntry | None]]
-    ) -> List[Article]:
-        logger.info(f"Processing batch of {len(batch)} items")
+    def process_batch(self, batch: List[Tuple[Article, PineconeEntry | None]]):
+        logger.info("Processing batch of %s items", len(batch))
         for article, pinecone_entry in batch:
             if pinecone_entry:
                 self.pinecone_db.upsert_entry(pinecone_entry)
@@ -113,7 +146,7 @@ class PineconeAdder(PineconeAction):
         return [a for a, _ in batch]
 
     def batch_entries(
-        self, article_stream: Generator[Article, None, None]
+        self, article_stream: Generator[Article, None, None], log_progress: bool = True
     ) -> Iterator[List[Tuple[Article, PineconeEntry | None]]]:
         items = iter(article_stream)
         while batch := tuple(islice(items, self.batch_size)):
@@ -178,7 +211,6 @@ class PineconeAdder(PineconeAction):
 
 
 class PineconeDeleter(PineconeAction):
-    batch_size = 100
     pinecone_statuses = [PineconeStatus.pending_removal]
 
     def _articles_by_source(self, session, sources: List[str], _force_update: bool):
@@ -201,24 +233,44 @@ class PineconeUpdater(PineconeAction):
         self.adder = PineconeAdder(*args, pinecone=self.pinecone_db, **kwargs)
         self.remover = PineconeDeleter(*args, pinecone=self.pinecone_db, **kwargs)
 
-    def update(self, custom_sources: List[str], force_update: bool = False):
+    def update(
+        self,
+        custom_sources: List[str],
+        force_update: bool = False,
+        log_progress: bool = True,
+    ):
         """
         Update the given sources. If no sources are provided, updates all sources.
 
         :param custom_sources: List of sources to update.
+        :param log_progress: Whether to log progress updates.
         """
-        logger.info("Adding pinecone entries for %s", custom_sources)
-        self.adder.update(custom_sources, force_update)
 
-        logger.info("Removing pinecone entries for %s", custom_sources)
-        self.remover.update(custom_sources, force_update)
+        if log_progress:
+            logger.info("Adding pinecone entries for %s", custom_sources)
+        self.adder.update(custom_sources, force_update, log_progress)
 
-    def update_articles_by_ids(self, hash_ids: List[int], force_update: bool = False):
+        if log_progress:
+            logger.info("Removing outdated pinecone entries for %s", custom_sources)
+        self.remover.update(custom_sources, force_update, log_progress)
+
+        if log_progress:
+            logger.info("Pinecone update completed")
+
+    def update_articles_by_ids(
+        self, hash_ids: List[int], force_update: bool = False, log_progress: bool = True
+    ):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
-        logger.info("Adding pinecone entries by hash_id")
-        self.adder.update_articles_by_ids(hash_ids, force_update)
-        logger.info("Removing pinecone entries by hash_id")
-        self.remover.update_articles_by_ids(hash_ids, force_update)
+        if log_progress:
+            logger.info("Adding pinecone entries by hash_id")
+        self.adder.update_articles_by_ids(hash_ids, force_update, log_progress)
+
+        if log_progress:
+            logger.info("Removing outdated pinecone entries by hash_id")
+        self.remover.update_articles_by_ids(hash_ids, force_update, log_progress)
+
+        if log_progress:
+            logger.info("Pinecone update by ID completed")
 
 
 def get_text_chunks(article: Article) -> List[str]:

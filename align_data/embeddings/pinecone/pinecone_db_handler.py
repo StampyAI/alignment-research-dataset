@@ -20,6 +20,12 @@ from align_data.settings import (
 logger = logging.getLogger(__name__)
 
 
+def chunk_items(items, chunk_size):
+    """Split items into chunks of specified size."""
+    for i in range(0, len(items), chunk_size):
+        yield items[i : i + chunk_size]
+
+
 def with_retry(n=3, exceptions=(Exception,)):
     def retrier_wrapper(f):
         def wrapper(*args, **kwargs):
@@ -224,22 +230,42 @@ class PineconeDB:
             **kwargs,
         )
 
-    def _find_items(self, ids):
-        @with_retry()
-        def get_item(id_):
-            return list(self.index.list(prefix=id_, namespace=PINECONE_NAMESPACE))
-
-        return [i for id_ in ids for i in get_item(id_)]
+    @with_retry()
+    def _find_item(self, id_):
+        """Find all vector IDs with the given prefix."""
+        return list(self.index.list(prefix=id_, namespace=PINECONE_NAMESPACE))
 
     @with_retry()
     def _del_items(self, ids):
-        self.index.delete(ids=ids, namespace=PINECONE_NAMESPACE)
+        """Delete vector IDs from Pinecone.
+
+        Pinecone has a limit of 1000 IDs per delete request.
+        """
+        max_delete_size = 1000
+
+        for chunk in chunk_items(ids, max_delete_size):
+            self.index.delete(ids=chunk, namespace=PINECONE_NAMESPACE)
 
     @with_retry()
     def delete_entries(self, ids):
-        items = self._find_items(ids)
-        if items:
-            self._del_items(items)
+        """Delete entries from Pinecone by their hash_ids.
+
+        Each hash_id may expand to multiple vector IDs. This method processes
+        article IDs in small chunks to avoid memory issues and handles the
+        expanded vector IDs to avoid exceeding Pinecone's 1000 ID limit per request.
+        """
+        article_chunk_size = 10
+
+        for chunk in chunk_items(ids, article_chunk_size):
+            # Find all vector IDs for these articles
+            vector_ids = []
+            for article_id in chunk:
+                article_vectors = self._find_item(article_id)
+                if article_vectors:
+                    vector_ids.extend(article_vectors)
+
+            if vector_ids:
+                self._del_items(vector_ids)
 
     def create_index(self, replace_current_index: bool = True):
         if replace_current_index:

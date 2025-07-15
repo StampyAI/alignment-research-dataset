@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import os
-from typing import List, Tuple, Union
 
 # Mock the OpenAI API key for tests
 os.environ["OPENAI_API_KEY"] = "sk-mock-test-key"

@@ -1,4 +1,4 @@
-from .greaterwrong import GreaterWrong, fetch_ea_forum_topics, fetch_LW_tags
+from .greaterwrong import GreaterWrong
 
 GREATERWRONG_REGISTRY = [
     GreaterWrong(
