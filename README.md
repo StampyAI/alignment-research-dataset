@@ -66,14 +66,14 @@ Additional keys may be available depending on the source document.
 
 ## Development Environment
 
-### 1. Clone the repository:
+### 1. Clone the repository
 
 ```sh
 git clone https://github.com/StampyAI/alignment-research-dataset
 cd alignment-research-dataset
 ```
 
-### 2. Set up Environment Variables:
+### 2. Set up Environment Variables
 
 Duplicate the provided `.env.example` to create your environment configuration:
 
@@ -83,7 +83,7 @@ cp .env.example .env
 
 This `.env` file contains placeholders for several configuration options. Further details about how to configure them are in the [Configuration section](#configuration).
 
-### 3. Install Dependencies:
+### 3. Install Dependencies
 
 ```sh
 pip install -r requirements.txt
@@ -95,7 +95,7 @@ pip install -r requirements.txt
 pip install -r requirements-test.txt
 ```
 
-### 4. Database Setup:
+### 4. Database Setup
 
 Initialize a MySQL database. To do so with [Docker](https://docs.docker.com/get-docker/), and spin up a container with the database initialised, run the following:
 
@@ -113,7 +113,7 @@ The log level can be configured with the `LOG_LEVEL` environment variable. The d
 
 ### Coda
 
-To update the stampy portion of the dataset, you will need a Coda token. Follow these instructions: 1. Go to [coda.io](https://coda.io/) 2. Create an account and log in 3. Go to the API SETTINGS section of your [account settings](https://coda.io/account), and select `Generate API token`. Give your API token a name, and add the following restrictions: 1. Type of restriction: Doc or table 2. Type of access: Read only 3. Doc or table to grant access to: https://coda.io/d/_dfau7sl2hmG 4. Copy this token to your `.env` file: `CODA_TOKEN="<coda_token>"`
+To update the stampy portion of the dataset, you will need a Coda token. Follow these instructions: 1. Go to [coda.io](https://coda.io/) 2. Create an account and log in 3. Go to the API SETTINGS section of your [account settings](https://coda.io/account), and select `Generate API token`. Give your API token a name, and add the following restrictions: 1. Type of restriction: Doc or table 2. Type of access: Read only 3. Doc or table to grant access to: <https://coda.io/d/_dfau7sl2hmG> 4. Copy this token to your `.env` file: `CODA_TOKEN="<coda_token>"`
 It will be then accessible in `align_data/stampy/stampy.py`.
 
 ### MySQL
@@ -142,16 +142,16 @@ To autopopulate the metadata files, you'll need Google Cloud credentials. This i
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing project.
 3. Google sheets etc will have to be enabled
-   - Enable the Google Sheets API for your project at https://console.cloud.google.com/apis/api/sheets.googleapis.com/metrics?project=<your project id>
-   - Enable the Google Drive API for your project at https://console.cloud.google.com/apis/api/drive.googleapis.com/metrics?project=<your project id>
-   - Enable the Youtube API for your project at https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=<your project id>. Note that the youtube API is quite limited in the number of requests it can perform.
+   - Enable the Google Sheets API for your project at <https://console.cloud.google.com/apis/api/sheets.googleapis.com/metrics?project=><your project id>
+   - Enable the Google Drive API for your project at <https://console.cloud.google.com/apis/api/drive.googleapis.com/metrics?project=><your project id>
+   - Enable the Youtube API for your project at <https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=><your project id>. Note that the youtube API is quite limited in the number of requests it can perform.
      An alternative to this step is that when running the program without these enabled, an exception will be raised telling you how to enable it - you can then just open the link in the exception message
 4. Navigate to the "Credentials" section, and to `+ Create Credentials`.
 5. Select "Service Account"
 6. Fill in the required information for the service account:
    1. A descriptive name, a short service account ID, and description. Press `Create and Continue`
    2. Leave the optional sections empty
-7. At https://console.cloud.google.com/apis/credentials?project=<your project id>, select your new Service Account, and go to the KEYS section. Select ADD KEY, "Create New Key", the JSON key type and click "Create".
+7. At <https://console.cloud.google.com/apis/credentials?project=><your project id>, select your new Service Account, and go to the KEYS section. Select ADD KEY, "Create New Key", the JSON key type and click "Create".
 8. The JSON file containing your credentials will be downloaded. Save it as credentials.json in the top-level directory of the project.
 9. Again in the "Credentials" section, `+ Create Credentials`, select API key, and add the created API key as your `YOUTUBE_API_KEY`.
 
@@ -164,12 +164,16 @@ There are a couple of datasources that consist of singular articles (html, pdfs,
 ### OpenAI API
 
 1. Go to [the openai api website](https://platform.openai.com/). Create an account if needed, and add payment information if needed.
-2. In https://platform.openai.com/account/api-keys, create a new secret key or use a used one.
+2. In <https://platform.openai.com/account/api-keys>, create a new secret key or use a used one.
 3. Add this secret key to the `.env`, as `OPENAI_API_KEY`.
 
 ### Airtable API
 
-The airtable we currently scrape is https://airtable.com/appbiNKDcn1sGPGOG/shro9Bx4f2i6QgtTM/tblSicSC1u6Ifddrq. #TODO: document how this is done / reproduceable
+The airtable we currently scrape is <https://airtable.com/appbiNKDcn1sGPGOG/shro9Bx4f2i6QgtTM/tblSicSC1u6Ifddrq>. #TODO: document how this is done / reproduceable
+
+### VoyageAI
+
+Voyage AI is used for embeddings. For this to work, you'll need a voyageai [API key](https://dashboard.voyageai.com/organization/api-keys) which should added to `.env` as
 
 ## Testing
 
@@ -209,9 +213,11 @@ There are various commands available to interact with the datasets:
 
 - **Getting a summary of a merged dataset:**
   Replace `[MERGED_DATASET_PATH]` with your dataset's path. You'll get access to the dataset's total token count, word count and character count.
+
   ```sh
   python main.py count-tokens [MERGED_DATASET_PATH]
   ```
+
 - **Updating the metadata in the metadata spreadsheet:**
   You can give the command optional information about the names and ids of the sheets, and the default will be using values defined in align_data/settings.py
 
@@ -223,10 +229,13 @@ There are various commands available to interact with the datasets:
 - **Updating the pinecone index with newly modified entries:**
   Replace `[DATASET_NAME]` with one or many dataset names whose entries you want to embed and add to the pinecone index.
   `--force_update` is an optional parameter for updating all the dataset's articles, rather than newly fetched ones.
+
   ```sh
   python main.py pinecone_update [DATASET_NAME] --force_update
   ```
+
   Or run it on all articles as seen below. It is not recommended to `--force_update` in this case.
+
   ```sh
   python main.py pinecone_update_all
   ```
@@ -294,6 +303,6 @@ The scraper code and dataset are maintained by [StampyAI](http://stampy.ai) / [A
 
 ## Citing the Dataset
 
-The code is based on https://github.com/moirage/alignment-research-dataset. You can download version 1.0 of the dataset [here](https://the-eye.eu/public/AI/Alignment/moirage_alignment-research-dataset/). For more information, here is the [paper](https://arxiv.org/abs/2206.02841) and [LessWrong](https://www.lesswrong.com/posts/FgjcHiWvADgsocE34/a-descriptive-not-prescriptive-overview-of-current-ai) post. Please use the following citation when using the dataset:
+The code is based on <https://github.com/moirage/alignment-research-dataset>. You can download version 1.0 of the dataset [here](https://the-eye.eu/public/AI/Alignment/moirage_alignment-research-dataset/). For more information, here is the [paper](https://arxiv.org/abs/2206.02841) and [LessWrong](https://www.lesswrong.com/posts/FgjcHiWvADgsocE34/a-descriptive-not-prescriptive-overview-of-current-ai) post. Please use the following citation when using the dataset:
 
 Kirchner, J. H., Smith, L., Thibodeau, J., McDonnell, K., and Reynolds, L. "Understanding AI alignment research: A Systematic Analysis." arXiv preprint arXiv:2022.4338861 (2022).

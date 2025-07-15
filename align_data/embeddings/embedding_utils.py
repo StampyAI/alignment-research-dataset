@@ -1,10 +1,10 @@
 import logging
-from typing import List, Tuple, Dict, Any, Optional, Callable
+from collections import namedtuple
+from typing import Any, Generator
 from functools import wraps
 
 from openai import OpenAI
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from openai import (
     OpenAIError,
     RateLimitError,
@@ -17,19 +17,26 @@ from tenacity import (
     retry_if_exception_type,
     retry_if_exception,
 )
+import voyageai
 
-from align_data.embeddings.pinecone.pinecone_models import MissingEmbeddingModelError
 from align_data.settings import (
-    USE_OPENAI_EMBEDDINGS,
-    OPENAI_EMBEDDINGS_MODEL,
     OPENAI_API_KEY,
     OPENAI_ORGANIZATION,
-    EMBEDDING_LENGTH_BIAS,
-    SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
-    DEVICE,
+    VOYAGEAI_API_KEY,
+    VOYAGEAI_EMBEDDINGS_MODEL,
+    USE_MODERATION,
+    MAX_EMBEDDING_TOKENS,
 )
 
-client = OpenAI(api_key=OPENAI_API_KEY, organization=OPENAI_ORGANIZATION)
+if OPENAI_API_KEY:
+    openai_client = OpenAI(api_key=OPENAI_API_KEY, organization=OPENAI_ORGANIZATION)
+else:
+    openai_client = None
+
+if VOYAGEAI_API_KEY:
+    voyageai_client = voyageai.Client(api_key=VOYAGEAI_API_KEY)
+else:
+    voyageai_client = None
 
 # --------------------
 # CONSTANTS & CONFIGURATION
@@ -37,15 +44,9 @@ client = OpenAI(api_key=OPENAI_API_KEY, organization=OPENAI_ORGANIZATION)
 
 logger = logging.getLogger(__name__)
 
-hf_embedding_model = None
-if not USE_OPENAI_EMBEDDINGS:
-    hf_embedding_model = HuggingFaceEmbeddings(
-        model_name=SENTENCE_TRANSFORMER_EMBEDDINGS_MODEL,
-        model_kwargs={"device": DEVICE},
-        encode_kwargs={"show_progress_bar": False},
-    )
-
-ModerationInfoType = Dict[str, Any]
+ModerationInfoType = dict[str, Any]
+Embedding = namedtuple("Embedding", ["vector", "text"])
+Vector = list[float]
 
 
 # --------------------
@@ -72,7 +73,9 @@ def handle_openai_errors(func):
             raise
         except APIError as e:
             if "502" in str(e):
-                logger.warning(f"OpenAI 502 Bad Gateway error. Trying again. Error: {e}")
+                logger.warning(
+                    f"OpenAI 502 Bad Gateway error. Trying again. Error: {e}"
+                )
             else:
                 logger.error(f"OpenAI API Error encountered: {e}")
             raise
@@ -92,66 +95,41 @@ def handle_openai_errors(func):
 
 
 @handle_openai_errors
-def _single_batch_moderation_check(batch: List[str]) -> List[ModerationInfoType]:
+def _single_batch_moderation_check(batch: list[str]) -> list[ModerationInfoType]:
     """Process a batch for moderation checks."""
-    return client.moderations.create(input=batch).results
+    if not openai_client:
+        return []
+    return openai_client.moderations.create(input=batch).results
 
 
-def moderation_check(texts: List[str], max_batch_size: int = 4096, tokens_counter: Callable[[str], int] = len) -> List[ModerationInfoType]:
+def moderation_check(texts: list[str]) -> list[ModerationInfoType]:
     """Batch moderation checks on list of texts.
 
     :param List[str] texts: the texts to be checked
     :param int max_batch_size: the max size in tokens for a single batch
     :param Callable[[str], int] tokens_counter: the function used to count tokens
     """
-    # A very ugly loop that will split the `texts` into smaller batches so that the
-    # total sum of tokens in each batch will not exceed `max_batch_size`
-    parts = []
-    part = []
-    part_count = 0
-    for item in texts:
-        if part_count + tokens_counter(item) > max_batch_size:
-            parts.append(part)
-            part = []
-            part_count = 0
-        part.append(item)
-        part_count += tokens_counter(item)
-    if part:
-        parts.append(part)
-
     return [
-        result
-        for batch in parts
-        for result in _single_batch_moderation_check(batch)
+        result for text in texts for result in _single_batch_moderation_check([text])
     ]
 
 
-@handle_openai_errors
-def _single_batch_compute_openai_embeddings(batch: List[str], **kwargs) -> List[List[float]]:
-    """Compute embeddings for a batch."""
-    batch_data = client.embeddings.create(input=batch, model=OPENAI_EMBEDDINGS_MODEL, **kwargs).data
-    return [d.embedding for d in batch_data]
+def batch_texts(texts: list[str], max_tokens: int) -> Generator[list[str], None, None]:
+    """Batch texts into chunks of max_tokens."""
+    batch = []
+    tokens = 0
+    for text in texts:
+        tokens += len(text)
+        if tokens > max_tokens:
+            yield batch
+            batch = []
+            tokens = 0
+        batch.append(text)
+    if batch:
+        yield batch
 
 
-def _compute_openai_embeddings(
-    non_flagged_texts: List[str], max_texts_num: int = 2048, **kwargs
-) -> List[List[float]]:
-    """Batch computation of embeddings for non-flagged texts."""
-    return [
-        embedding
-        for batch in (
-            non_flagged_texts[i : i + max_texts_num]
-            for i in range(0, len(non_flagged_texts), max_texts_num)
-        )
-        for embedding in _single_batch_compute_openai_embeddings(batch, **kwargs)
-    ]
-
-
-def get_embeddings_without_moderation(
-    texts: List[str],
-    source: Optional[str] = None,
-    **kwargs,
-) -> List[List[float]]:
+def embed_texts(texts: list[str]) -> list[Embedding]:
     """
     Obtain embeddings without moderation checks.
 
@@ -163,83 +141,63 @@ def get_embeddings_without_moderation(
     Returns:
     - List[List[float]]: List of embeddings for the provided texts.
     """
-    if not texts:
+    if not texts or not voyageai_client:
         return []
 
     texts = [text.replace("\n", " ") for text in texts]
-    if USE_OPENAI_EMBEDDINGS:
-        embeddings = _compute_openai_embeddings(texts, **kwargs)
-    elif hf_embedding_model:
-        embeddings = hf_embedding_model.embed_documents(texts)
-    else:
-        raise MissingEmbeddingModelError("No embedding model available.")
 
-    # Bias adjustment
-    if source and (bias := EMBEDDING_LENGTH_BIAS.get(source, 1.0)):
-        embeddings = [[bias * e for e in embedding] for embedding in embeddings]
+    def e_b(batch, model):
+        try:
+            return voyageai_client.embed(batch, model=model).embeddings
+        except Exception as e:
+            logger.error(f"Error embedding batch: {e}")
+            logger.error(f"Batch: {batch}")
+            raise
 
-    return embeddings
-
-
-def get_embeddings_or_none_if_flagged(
-    texts: List[str],
-    source: Optional[str] = None,
-    **kwargs,
-) -> Tuple[List[List[float]] | None, List[ModerationInfoType]]:
-    """
-    Obtain embeddings for the provided texts. If any text is flagged during moderation,
-    the function returns None for the embeddings while still providing the moderation results.
-
-    Parameters:
-    - texts (List[str]): List of texts to be embedded.
-    - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
-    - **kwargs: Additional keyword arguments passed to the embedding function.
-
-    Returns:
-    - Tuple[Optional[List[List[float]]], ModerationInfoListType]: Tuple containing the list of embeddings (or None if any text is flagged) and the moderation results.
-    """
-    moderation_results = moderation_check(texts)
-    if any(result.flagged for result in moderation_results):
-        return None, moderation_results
-
-    embeddings = get_embeddings_without_moderation(texts, source, **kwargs)
-    return embeddings, moderation_results
+    vectors = [
+        vector
+        for batch in batch_texts(texts, MAX_EMBEDDING_TOKENS)
+        if batch
+        for vector in e_b(batch, VOYAGEAI_EMBEDDINGS_MODEL)
+    ]
+    return [Embedding(vector=v, text=t) for t, v in zip(texts, vectors)]
 
 
 def get_embeddings(
-    texts: List[str],
-    source: Optional[str] = None,
-    **kwargs,
-) -> Tuple[List[List[float] | None], List[ModerationInfoType]]:
+    texts: list[str],
+) -> tuple[list[Embedding], list[ModerationInfoType]]:
     """
     Obtain embeddings for the provided texts, replacing the embeddings of flagged texts with `None`.
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
-    - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
-    - **kwargs: Additional keyword arguments passed to the embedding function.
 
     Returns:
     - Tuple[List[Optional[List[float]]], ModerationInfoListType]: Tuple containing the list of embeddings (with None for flagged texts) and the moderation results.
     """
-    assert all(texts), "No empty strings allowed in the input list."
-
     # replace newlines, which can negatively affect performance
-    texts = [text.replace("\n", " ") for text in texts]
+    texts = [text.replace("\n", " ").strip() for text in texts]
+    texts = [text for text in texts if text]
+    if not texts:
+        return [], []
 
     # Check all texts for moderation flags
+    if not USE_MODERATION:
+        return embed_texts(texts), []
+
     moderation_results = moderation_check(texts)
-    flags = [result.flagged for result in moderation_results]
+    flagged = [
+        dict(result) | {"text": t}
+        for t, result in zip(texts, moderation_results)
+        if result.flagged
+    ]
 
-    non_flagged_texts = [text for text, flag in zip(texts, flags) if not flag]
-    non_flagged_embeddings = get_embeddings_without_moderation(non_flagged_texts, source, **kwargs)
-    embeddings = [None if flag else non_flagged_embeddings.pop(0) for flag in flags]
-    return embeddings, moderation_results
+    ok = [t for t, r in zip(texts, moderation_results) if not r.flagged]
+    vectors = ok and embed_texts(ok)
+    return vectors, flagged
 
 
-def get_embedding(
-    text: str, source: Optional[str] = None, **kwargs
-) -> Tuple[List[float] | None, ModerationInfoType]:
+def get_embedding(text: str) -> tuple[list[Embedding], list[ModerationInfoType]]:
     """Obtain an embedding for a single text."""
-    embedding, moderation_result = get_embeddings([text], source, **kwargs)
-    return embedding[0], moderation_result[0]
+    embedding, moderation_result = get_embeddings([text])
+    return embedding, moderation_result

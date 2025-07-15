@@ -67,12 +67,16 @@ class AlignmentDataset:
 
     def make_data_entry(self, data, **kwargs) -> Article:
         data = article_dict(data, **kwargs)
-        summaries = data.pop('summaries', [])
+        summaries = data.pop("summaries", [])
         article = Article(**data)
-        article.summaries += [Summary(text=summary, source=self.name) for summary in summaries]
+        article.summaries += [
+            Summary(text=summary, source=self.name) for summary in summaries
+        ]
         return article
 
-    def to_jsonl(self, out_path: Path | None = None, filename: str | None = None) -> Path:
+    def to_jsonl(
+        self, out_path: Path | None = None, filename: str | None = None
+    ) -> Path:
         out_path = out_path or self.data_path
         filename = filename or f"{self.name}.jsonl"
         filepath = out_path / filename
@@ -94,7 +98,7 @@ class AlignmentDataset:
                 query = query.order_by(sort_by)
 
             result = session.scalars(query)
-            for article in result.unique(): # removes duplicates
+            for article in result.unique():  # removes duplicates
                 yield article
 
     def _add_batch(self, session: Session, batch: tuple):
@@ -111,6 +115,7 @@ class AlignmentDataset:
 
         items = iter(entries)
         while batch := tuple(islice(items, self.batch_size)):
+            logger.info(f"Adding batch of {len(batch)} entries to {self.name}")
             with make_session() as session:
                 self._add_batch(session, batch)
                 # there might be duplicates in the batch, so if they cause
@@ -120,6 +125,7 @@ class AlignmentDataset:
                         session.add(entry)
                         if not commit():
                             logger.error(f"found duplicate of {entry}")
+                logger.info(f"Committed batch of {len(batch)} entries to {self.name}")
 
     def setup(self):
         self._outputted_items = self._load_outputted_items()
@@ -139,7 +145,6 @@ class AlignmentDataset:
     def _normalize_urls(self, urls: Iterable[str]) -> Set[str]:
         return {normalize_url(url) for url in urls}
 
-
     def _load_outputted_items(self) -> Set[str]:
         """
         Loads the outputted items from the database and returns them as a set.
@@ -152,10 +157,15 @@ class AlignmentDataset:
                 # This doesn't filter by self.name. The good thing about that is that it should handle a lot more
                 # duplicates. The bad thing is that this could potentially return a massive amount of data if there
                 # are lots of items.
-                items =  set(session.scalars(select(getattr(Article, self.done_key))).all())
+                items = set(
+                    session.scalars(select(getattr(Article, self.done_key))).all()
+                )
             # TODO: Properly handle this - it should create a proper SQL JSON select
             else:
-                items = {item.get(self.done_key) for item in session.scalars(select(Article.meta)).all()}
+                items = {
+                    item.get(self.done_key)
+                    for item in session.scalars(select(Article.meta)).all()
+                }
             return self._normalize_urls(items)
 
     def not_processed(self, item) -> bool:
@@ -175,10 +185,19 @@ class AlignmentDataset:
         items = items or self.items_list
 
         items_to_process = filter(self.not_processed, items)
+        logger.info(f"Outputted items: {len(self._outputted_items)}")
+        logger.info(f"Found items to process")
+
+        if isinstance(items, list):
+            logger.info(f"Found {len(items)} items to process")
+            items_to_process = list(items_to_process)
+            logger.info(f"Items: {len(items_to_process)}")
 
         # greedily fetch all items if not lazy eval. This makes the progress bar look nice
         if not self.lazy_eval:
+            logger.info(f"Fetching all items for {self.name}")
             return list(items_to_process)
+        logger.info(f"Not fetching all items for {self.name}")
 
         return items_to_process
 
@@ -187,6 +206,7 @@ class AlignmentDataset:
         for item in tqdm(self.unprocessed_items(), desc=f"Processing {self.name}"):
             entry = self.process_entry(item)
             if not entry:
+                logger.info(f"Skipping {item} because it's not valid")
                 continue
 
             try:
@@ -195,6 +215,7 @@ class AlignmentDataset:
                 logger.error(e)
                 continue
 
+            logger.info(f"Yielding {item} from {self.name}")
             yield entry
 
             if self.COOLDOWN:
@@ -239,7 +260,9 @@ class SummaryDataset(AlignmentDataset):
         with make_session() as session:
             return set(
                 session.scalars(
-                    select(Article.url).join(Article.summaries).filter(Summary.source == self.name)
+                    select(Article.url)
+                    .join(Article.summaries)
+                    .filter(Summary.source == self.name)
                 )
             )
 
@@ -263,7 +286,9 @@ class MultiDataset(AlignmentDataset):
     @property
     def items_list(self) -> Iterable:
         """Returns a collection of items to be processed."""
-        return ((item, dataset) for dataset in self.datasets for item in dataset.items_list)
+        return (
+            (item, dataset) for dataset in self.datasets for item in dataset.items_list
+        )
 
     def setup(self):
         for dataset in self.datasets:
@@ -285,4 +310,5 @@ class MultiDataset(AlignmentDataset):
                 if article.source != self.name:
                     article.add_meta("initial_source", article.source)
                     article.source = self.name
+                logger.info(f"Yielding article from {article.source}")
                 yield article

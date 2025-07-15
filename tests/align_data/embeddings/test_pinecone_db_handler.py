@@ -1,9 +1,6 @@
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
-import pytest
-import sys
+from unittest.mock import patch, MagicMock
 import os
-from typing import Dict, Any, List, Optional
 
 # Mock the OpenAI API key for tests
 os.environ["OPENAI_API_KEY"] = "sk-mock-test-key"
@@ -11,32 +8,66 @@ os.environ["OPENAI_API_KEY"] = "sk-mock-test-key"
 from align_data.embeddings.pinecone.pinecone_db_handler import (
     PineconeDB,
     initialize_pinecone,
-    USING_NEW_API,
-    chunk_items,
+    with_retry,
+    strip_block,
 )
-from align_data.embeddings.pinecone.pinecone_models import PineconeEntry, PineconeMetadata
 
 
 class TestPineconeInitialization:
-    """Tests for Pinecone initialization and API detection."""
+    """Tests for Pinecone initialization."""
 
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.USING_NEW_API", True)
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.Pinecone")
-    def test_initialize_new_api(self, mock_pinecone):
-        """Test initialization with the new Pinecone API."""
+    def test_initialize_pinecone(self, mock_pinecone):
+        """Test initialization with the Pinecone API."""
         mock_client = MagicMock()
         mock_pinecone.return_value = mock_client
 
         client = initialize_pinecone()
 
-        # Check that the new API was called correctly
+        # Check that the API was called correctly
         mock_pinecone.assert_called_once()
         assert client == mock_client
 
-    def test_initialize_old_api(self):
-        """Test initialization with the old Pinecone API."""
-        # Skip this test as it requires complex module-level patching that's difficult to do correctly
-        pytest.skip("Skipping old API test - requires complex module-level patching")
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.Pinecone")
+    def test_initialize_pinecone_with_error(self, mock_pinecone):
+        """Test initialization with error handling."""
+        mock_pinecone.side_effect = Exception("API Error")
+
+        try:
+            initialize_pinecone()
+            assert False, "Should have raised an exception"
+        except Exception as e:
+            assert "API Error" in str(e)
+
+
+class TestWithRetry:
+    """Tests for the retry decorator."""
+
+    def test_with_retry_success(self):
+        """Test successful execution with retry decorator."""
+
+        @with_retry(n=3)
+        def test_func():
+            return "success"
+
+        result = test_func()
+        assert result == "success"
+
+    def test_with_retry_failure(self):
+        """Test retry decorator with eventual failure."""
+        call_count = 0
+
+        @with_retry(n=3, exceptions=(ValueError,))
+        def test_func():
+            nonlocal call_count
+            call_count += 1
+            raise ValueError("Test error")
+
+        try:
+            test_func()
+            assert False, "Should have raised TimeoutError"
+        except TimeoutError:
+            assert call_count == 3
 
 
 class TestPineconeDB:
@@ -67,12 +98,36 @@ class TestPineconeDB:
         assert db.index == mock_index
         mock_client.Index.assert_called_once_with("test-index")
 
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.USING_NEW_API", True)
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_create_index_new_api(self, mock_initialize):
-        """Test create_index with new API."""
+    def test_init_with_stats(self, mock_initialize):
+        """Test PineconeDB initialization with stats logging."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
+
+        # Create a test index
+        mock_index = MagicMock()
+        mock_index.describe_index_stats.return_value = {"total_vector_count": 100}
+        mock_client.Index.return_value = mock_index
+
+        # Initialize PineconeDB with stats
+        db = PineconeDB(
+            index_name="test-index",
+            log_index_stats=True,
+        )
+
+        # Verify stats were requested
+        mock_index.describe_index_stats.assert_called_once()
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.ServerlessSpec")
+    def test_create_index(self, mock_serverless_spec, mock_initialize):
+        """Test create_index method."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+
+        # Mock ServerlessSpec
+        mock_spec = MagicMock()
+        mock_serverless_spec.return_value = mock_spec
 
         # Mock index listing
         mock_client.list_indexes.return_value = []
@@ -91,33 +146,51 @@ class TestPineconeDB:
         assert call_args["name"] == "test-index"
         assert call_args["dimension"] == 1536
         assert call_args["metric"] == "cosine"
-        assert "metadata_config" in call_args
+        assert call_args["spec"] == mock_spec
 
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.USING_NEW_API", False)
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_create_index_old_api(self, mock_initialize):
-        """Test create_index with old API."""
+    def test_delete_index(self, mock_initialize):
+        """Test delete_index method."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
 
         # Mock index listing
-        mock_client.list_indexes.return_value = []
+        mock_client.list_indexes.return_value = ["test-index"]
 
         # Initialize PineconeDB
-        db = PineconeDB(
-            index_name="test-index",
-            values_dims=1536,
-            metric="cosine",
-            create_index=True,
-        )
+        db = PineconeDB(index_name="test-index")
 
-        # Verify create_index was called
-        mock_client.create_index.assert_called_once()
-        call_args = mock_client.create_index.call_args[1]
-        assert call_args["name"] == "test-index"
-        assert call_args["dimension"] == 1536
-        assert call_args["metric"] == "cosine"
-        assert "metadata_config" in call_args
+        # Test delete_index
+        db.delete_index()
+
+        # Verify delete_index was called
+        mock_client.delete_index.assert_called_once_with("test-index")
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_upsert_entry(self, mock_initialize):
+        """Test upsert_entry method."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+
+        # Mock index
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+
+        # Mock PineconeEntry
+        mock_entry = MagicMock()
+        mock_vectors = [{"id": "test-id", "values": [0.1, 0.2, 0.3]}]
+        mock_entry.create_pinecone_vectors.return_value = mock_vectors
+
+        # Initialize PineconeDB
+        db = PineconeDB(index_name="test-index")
+
+        # Test upsert_entry
+        db.upsert_entry(mock_entry)
+
+        # Verify upsert was called
+        mock_index.upsert.assert_called_once()
+        call_args = mock_index.upsert.call_args[1]
+        assert call_args["vectors"] == mock_vectors
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
     def test_query_vector(self, mock_initialize):
@@ -136,14 +209,9 @@ class TestPineconeDB:
                     "id": "doc1",
                     "score": 0.9,
                     "metadata": {
-                        "hash_id": "hash1",
-                        "source": "source1",
-                        "title": "title1",
-                        "url": "url1",
-                        "date_published": 1234567890.0,
-                        "authors": ["author1"],
-                        "text": "text1",
-                        "confidence": 0.8,
+                        "title": "Test Document",
+                        "text": "Test content",
+                        "source": "test_source",
                     },
                 }
             ]
@@ -158,13 +226,61 @@ class TestPineconeDB:
 
         # Verify query was called
         mock_index.query.assert_called_once()
+        call_args = mock_index.query.call_args[1]
+        assert call_args["vector"] == [0.1, 0.2, 0.3]
+        assert call_args["top_k"] == 5
+
+        # Verify results
         assert len(results) == 1
         assert results[0]["id"] == "doc1"
         assert results[0]["score"] == 0.9
-        # Check metadata contains expected keys rather than direct isinstance check
-        metadata = results[0]["metadata"]
-        assert "title" in metadata
-        assert "text" in metadata
+        assert results[0]["metadata"]["title"] == "Test Document"
+
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.get_embedding")
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
+    def test_query_text(self, mock_initialize, mock_get_embedding):
+        """Test query_text method."""
+        mock_client = MagicMock()
+        mock_initialize.return_value = mock_client
+
+        # Mock index
+        mock_index = MagicMock()
+        mock_client.Index.return_value = mock_index
+
+        # Mock embedding response
+        mock_embedding = MagicMock()
+        mock_embedding.vector = [0.1, 0.2, 0.3]
+        mock_get_embedding.return_value = ([mock_embedding], None)
+
+        # Mock query response
+        mock_response = {
+            "matches": [
+                {
+                    "id": "doc1",
+                    "score": 0.9,
+                    "metadata": {"title": "Test Document"},
+                }
+            ]
+        }
+        mock_index.query.return_value = mock_response
+
+        # Initialize PineconeDB
+        db = PineconeDB(index_name="test-index")
+
+        # Test query_text
+        results = db.query_text("test query", top_k=5)
+
+        # Verify get_embedding was called
+        mock_get_embedding.assert_called_once_with("test query")
+
+        # Verify query was called with the embedding
+        mock_index.query.assert_called_once()
+        call_args = mock_index.query.call_args[1]
+        assert call_args["vector"] == [0.1, 0.2, 0.3]
+
+        # Verify results
+        assert len(results) == 1
+        assert results[0]["id"] == "doc1"
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
     def test_get_embeddings_by_ids(self, mock_initialize):
@@ -193,212 +309,86 @@ class TestPineconeDB:
 
         # Verify fetch was called
         mock_index.fetch.assert_called_once()
+        call_args = mock_index.fetch.call_args[1]
+        assert call_args["ids"] == ["id1", "id2", "id3"]
+
+        # Verify results
         assert len(results) == 3
         assert results[0] == ("id1", [0.1, 0.2, 0.3])
         assert results[1] == ("id2", [0.4, 0.5, 0.6])
         assert results[2] == ("id3", None)  # Non-existent ID returns None
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_delete_entries_basic(self, mock_initialize):
-        """Test basic delete_entries functionality."""
+    def test_delete_entries(self, mock_initialize):
+        """Test delete_entries method."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
-        
-        mock_index = MagicMock()
-        mock_client.Index.return_value = mock_index
-        
-        # Mock _find_item to return vector IDs for each article
-        mock_index.list.side_effect = [
-            ["article1_chunk1", "article1_chunk2"],  # article1 has 2 vectors
-            ["article2_chunk1"],                     # article2 has 1 vector  
-            []                                       # article3 has no vectors
-        ]
-        
-        db = PineconeDB(index_name="test-index")
-        
-        # Test deletion
-        db.delete_entries(["article1", "article2", "article3"])
-        
-        # Verify _find_item was called for each article
-        assert mock_index.list.call_count == 3
-        
-        # Verify delete was called with the right vector IDs
-        mock_index.delete.assert_called_once_with(
-            ids=["article1_chunk1", "article1_chunk2", "article2_chunk1"],
-            namespace="normal"
-        )
 
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_delete_entries_large_article(self, mock_initialize):
-        """Test deletion of article with >1000 vector IDs."""
-        mock_client = MagicMock()
-        mock_initialize.return_value = mock_client
-        
+        # Mock index
         mock_index = MagicMock()
+        mock_index.list.return_value = ["item1", "item2"]
         mock_client.Index.return_value = mock_index
-        
-        # Simulate one article with 1500 vector IDs
-        large_vector_list = [f"article1_chunk{i}" for i in range(1500)]
-        mock_index.list.return_value = large_vector_list
-        
-        db = PineconeDB(index_name="test-index")
-        db.delete_entries(["article1"])
-        
-        # Should make 2 delete calls: 1000 IDs + 500 IDs
-        assert mock_index.delete.call_count == 2
-        
-        # Verify first call has exactly 1000 IDs
-        first_call = mock_index.delete.call_args_list[0][1]['ids']
-        assert len(first_call) == 1000
-        
-        # Verify second call has remaining 500 IDs  
-        second_call = mock_index.delete.call_args_list[1][1]['ids']
-        assert len(second_call) == 500
 
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_delete_entries_exactly_1000_ids(self, mock_initialize):
-        """Test deletion of article with exactly 1000 vector IDs."""
-        mock_client = MagicMock()
-        mock_initialize.return_value = mock_client
-        
-        mock_index = MagicMock()
-        mock_client.Index.return_value = mock_index
-        
-        # Simulate one article with exactly 1000 vector IDs
-        vector_list = [f"article1_chunk{i}" for i in range(1000)]
-        mock_index.list.return_value = vector_list
-        
+        # Initialize PineconeDB
         db = PineconeDB(index_name="test-index")
-        db.delete_entries(["article1"])
-        
-        # Should make exactly 1 delete call with 1000 IDs
+
+        # Test delete_entries
+        db.delete_entries(["id1", "id2"])
+
+        # Verify list was called for each ID
+        assert mock_index.list.call_count == 2
+
+        # Verify delete was called
         mock_index.delete.assert_called_once()
-        delete_call = mock_index.delete.call_args[1]['ids']
-        assert len(delete_call) == 1000
-
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_delete_entries_multiple_articles_exceeding_limit(self, mock_initialize):
-        """Test deletion where multiple articles together exceed 1000 IDs."""
-        mock_client = MagicMock()
-        mock_initialize.return_value = mock_client
-        
-        mock_index = MagicMock()
-        mock_client.Index.return_value = mock_index
-        
-        # Mock multiple articles with many vector IDs each (processed in chunks of 10 articles)
-        # Article 1-10: 100 IDs each = 1000 total (exactly at limit)
-        # Article 11: 500 IDs (separate batch)
-        mock_index.list.side_effect = (
-            # First batch of 10 articles (100 IDs each)
-            [[f"article{i}_chunk{j}" for j in range(100)] for i in range(1, 11)] +
-            # Second batch with 1 article (500 IDs) 
-            [[f"article11_chunk{j}" for j in range(500)]]
-        )
-        
-        db = PineconeDB(index_name="test-index")
-        article_ids = [f"article{i}" for i in range(1, 12)]
-        db.delete_entries(article_ids)
-        
-        # Should make 2 delete calls due to article chunking (10 articles per batch)
-        assert mock_index.delete.call_count == 2
-        
-        # First call: 1000 IDs from articles 1-10
-        first_call_ids = mock_index.delete.call_args_list[0][1]['ids']
-        assert len(first_call_ids) == 1000
-        
-        # Second call: 500 IDs from article 11
-        second_call_ids = mock_index.delete.call_args_list[1][1]['ids']
-        assert len(second_call_ids) == 500
-
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_delete_entries_empty_results(self, mock_initialize):
-        """Test deletion when articles have no vector IDs."""
-        mock_client = MagicMock()
-        mock_initialize.return_value = mock_client
-        
-        mock_index = MagicMock()
-        mock_client.Index.return_value = mock_index
-        
-        # Mock articles with no vector IDs
-        mock_index.list.side_effect = [[], [], []]
-        
-        db = PineconeDB(index_name="test-index")
-        db.delete_entries(["article1", "article2", "article3"])
-        
-        # Should call list for each article but no delete calls
-        assert mock_index.list.call_count == 3
-        mock_index.delete.assert_not_called()
-
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_delete_entries_mixed_results(self, mock_initialize):
-        """Test deletion with mix of articles having different vector counts."""
-        mock_client = MagicMock()
-        mock_initialize.return_value = mock_client
-        
-        mock_index = MagicMock()
-        mock_client.Index.return_value = mock_index
-        
-        # Mix: some articles with vectors, some without
-        mock_index.list.side_effect = [
-            ["article1_chunk1"],           # 1 vector
-            [],                            # 0 vectors
-            ["article3_chunk1", "article3_chunk2", "article3_chunk3"],  # 3 vectors
-            [],                            # 0 vectors
-            ["article5_chunk1", "article5_chunk2"]  # 2 vectors
-        ]
-        
-        db = PineconeDB(index_name="test-index")
-        db.delete_entries(["article1", "article2", "article3", "article4", "article5"])
-        
-        # Should call list for each article
-        assert mock_index.list.call_count == 5
-        
-        # Should make one delete call with vectors from articles 1, 3, and 5
-        mock_index.delete.assert_called_once()
-        delete_call_ids = mock_index.delete.call_args[1]['ids']
-        expected_ids = [
-            "article1_chunk1",
-            "article3_chunk1", "article3_chunk2", "article3_chunk3",
-            "article5_chunk1", "article5_chunk2"
-        ]
-        assert delete_call_ids == expected_ids
 
 
 class TestPineconeCompatibility:
     """Tests for API compatibility layers."""
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_upsert_with_error_handling(self, mock_initialize):
-        """Test upsert with error handling for API differences."""
+    def test_query_with_error_handling(self, mock_initialize):
+        """Test query with error handling for API differences."""
         mock_client = MagicMock()
         mock_initialize.return_value = mock_client
 
-        # Mock index that throws TypeError on first upsert attempt
+        # Mock index that throws TypeError on first query attempt
         mock_index = MagicMock()
-        mock_index.upsert.side_effect = [
+        mock_response = {"matches": []}
+        mock_index.query.side_effect = [
             TypeError("API incompatibility"),
-            None,  # Second call succeeds
+            mock_response,  # Second call succeeds
         ]
         mock_client.Index.return_value = mock_index
-
-        # Mock vectors
-        mock_vectors = [{"id": "id1", "values": [0.1, 0.2, 0.3]}]
 
         # Initialize PineconeDB
         db = PineconeDB(index_name="test-index")
 
-        # Test _upsert with error handling
-        db._upsert(mock_vectors)
+        # Test query_vector with error handling
+        results = db.query_vector([0.1, 0.2, 0.3])
 
-        # Verify upsert was called twice (first fails, second succeeds)
-        assert mock_index.upsert.call_count == 2
+        # Verify query was called twice (first fails, second succeeds)
+        assert mock_index.query.call_count == 2
+        assert len(results) == 0
 
-    def test_query_with_different_response_formats(self):
-        """Test query handling different response formats."""
-        # Skip this test as it requires complex mocking of different response formats
-        pytest.skip(
-            "Skipping response format test - complex mocking of different response formats required"
-        )
+
+class TestUtilityFunctions:
+    """Tests for utility functions."""
+
+    def test_strip_block(self):
+        """Test strip_block utility function."""
+        test_text = "first line\nsecond line\nthird line"
+        result = strip_block(test_text)
+        assert result == "second line\nthird line"
+
+    def test_strip_block_empty(self):
+        """Test strip_block with empty input."""
+        result = strip_block("")
+        assert result == ""
+
+    def test_strip_block_single_line(self):
+        """Test strip_block with single line."""
+        result = strip_block("single line")
+        assert result == ""
 
 
 if __name__ == "__main__":

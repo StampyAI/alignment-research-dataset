@@ -17,7 +17,6 @@ from align_data.sources.articles.articles import (
     update_articles,
 )
 from align_data.embeddings.pinecone.update_pinecone import PineconeUpdater
-from align_data.embeddings.finetuning.training import finetune_embeddings
 from align_data.sources.validate import check_articles
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
@@ -54,7 +53,9 @@ class AlignmentDataset:
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
+            logger.info(f"Fetching {name}")
             dataset = get_dataset(name)
+            logger.info(f"Got dataset: {dataset}")
 
             dataset.add_entries(dataset.fetch_entries())
 
@@ -90,7 +91,9 @@ class AlignmentDataset:
         This function counts the number of tokens, words, and characters in the dataset
         :return: None
         """
-        assert os.path.exists(merged_dataset_path), "The path to the merged dataset does not exist"
+        assert os.path.exists(merged_dataset_path), (
+            "The path to the merged dataset does not exist"
+        )
         count_token(merged_dataset_path)
 
     def update(self, csv_path, delimiter=","):
@@ -148,19 +151,15 @@ class AlignmentDataset:
         
         PineconeUpdater().update(names, force_update, self.log_progress)
 
-    def pinecone_update_individual_articles(self, *hash_ids: str, force_update=False) -> None:
+    def pinecone_update_individual_articles(
+        self, *hash_ids: str, force_update=False
+    ) -> None:
         """
         Update the Pinecone entries of specific articles based on their IDs given as a comma-separated string.
 
         :param str hash_ids: space-separated list of article IDs.
         """
         PineconeUpdater().update_articles_by_ids(hash_ids, force_update, self.log_progress)
-
-    def train_finetuning_layer(self) -> None:
-        """
-        This function trains a finetuning layer on top of the OpenAI embeddings.
-        """
-        finetune_embeddings()
 
     def validate_articles(self, *names, n=100) -> None:
         """Check n articles to see whether their data is correct and that their urls point to valid addresses."""

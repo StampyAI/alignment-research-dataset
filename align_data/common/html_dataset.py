@@ -38,7 +38,6 @@ class HTMLDataset(AlignmentDataset):
     def extract_authors(self, article):
         return self.authors
 
-
     def get_item_key(self, item: Tag) -> str:
         first_href = item.find("a")["href"]
         href_base, *_ = first_href.split("?")
@@ -158,6 +157,8 @@ class RSSDataset(HTMLDataset):
         logger.info(f"Fetching entries from {self.feed_url}")
         feed = feedparser.parse(self.feed_url)
         self.items = {
-            url: item for item in feed["entries"] if (url := self._extract_item_url(item))
+            url: item
+            for item in feed["entries"]
+            if (url := self._extract_item_url(item))
         }
         return list(self.items.keys())

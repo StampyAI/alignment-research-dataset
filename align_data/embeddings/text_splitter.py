@@ -1,113 +1,135 @@
-from typing import List, Callable, Any
-from langchain.text_splitter import TextSplitter
-from nltk.tokenize import sent_tokenize
+import logging
+from typing import Iterable, Any
+import re
 
-# TODO: Fix this.
-# sent_tokenize has strange behavior sometimes: 'The units could be anything (characters, words, sentences, etc.), depending on how you want to chunk your text.'
-# splits into ['The units could be anything (characters, words, sentences, etc.', '), depending on how you want to chunk your text.']
+from align_data.settings import (
+    DEFAULT_CHUNK_TOKENS,
+    OVERLAP_TOKENS,
+)
 
-StrToIntFunction = Callable[[str], int]
-StrIntBoolToStrFunction = Callable[[str, int, bool], str]
-
-
-def default_truncate_function(string: str, length: int, from_end: bool = False) -> str:
-    return string[-length:] if from_end else string[:length]
+logger = logging.getLogger(__name__)
 
 
-class ParagraphSentenceUnitTextSplitter(TextSplitter):
-    """A custom TextSplitter that breaks text by paragraphs, sentences, and then units (chars/words/tokens/etc).
+Vector = list[float]
+Embedding = tuple[str, Vector, dict[str, Any]]
 
-    @param min_chunk_size: The minimum number of units in a chunk.
-    @param max_chunk_size: The maximum number of units in a chunk.
-    @param length_function: A function that returns the length of a string in units. Defaults to len().
-    @param truncate_function: A function that truncates a string to a given unit length.
+
+# Regex for sentence splitting
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def approx_token_count(text: str) -> int:
+    return len(text.split()) // 4
+
+
+def yield_word_chunks(
+    text: str, max_tokens: int = DEFAULT_CHUNK_TOKENS
+) -> Iterable[str]:
+    words = text.split()
+    if not words:
+        return
+
+    current = ""
+    for word in words:
+        new_chunk = f"{current} {word}".strip()
+        if current and approx_token_count(new_chunk) > max_tokens:
+            yield current
+            current = word
+        else:
+            current = new_chunk
+    if current:  # Only yield non-empty final chunk
+        yield current
+
+
+def yield_spans(text: str, max_tokens: int = DEFAULT_CHUNK_TOKENS) -> Iterable[str]:
     """
+    Yield text spans in priority order: paragraphs, sentences, words.
+    Each span is guaranteed to be under max_tokens.
 
-    DEFAULT_MIN_CHUNK_SIZE: int = 900
-    DEFAULT_MAX_CHUNK_SIZE: int = 1100
-    DEFAULT_LENGTH_FUNCTION: StrToIntFunction = len
-    DEFAULT_TRUNCATE_FUNCTION: StrIntBoolToStrFunction = default_truncate_function
+    Args:
+        text: The text to split
+        max_tokens: Maximum tokens per chunk
 
-    def __init__(
-        self,
-        min_chunk_size: int = DEFAULT_MIN_CHUNK_SIZE,
-        max_chunk_size: int = DEFAULT_MAX_CHUNK_SIZE,
-        length_function: StrToIntFunction = DEFAULT_LENGTH_FUNCTION,
-        truncate_function: StrIntBoolToStrFunction = DEFAULT_TRUNCATE_FUNCTION,
-        **kwargs: Any,
-    ):
-        super().__init__(**kwargs)
-        self.min_chunk_size = min_chunk_size
-        self.max_chunk_size = max_chunk_size
+    Yields:
+        Spans of text that fit within token limits
+    """
+    # Return early for empty text
+    if not text.strip():
+        return
 
-        self._length_function = length_function
-        self._truncate_function = truncate_function
+    for paragraph in text.split("\n\n"):
+        if not paragraph.strip():
+            continue
 
-    def split_text(self, text: str) -> List[str]:
-        """Split text into chunks of length between min_chunk_size and max_chunk_size."""
-        if not text:
-            return []
+        if approx_token_count(paragraph) <= max_tokens:
+            yield paragraph
+            continue
 
-        blocks: List[str] = []
-        current_block: str = ""
-
-        paragraphs = text.split("\n\n")
-        for paragraph in paragraphs:
-            current_block += "\n\n" + paragraph
-            block_length = self._length_function(current_block)
-
-            if block_length > self.max_chunk_size:
-                current_block = self._handle_large_paragraph(current_block, blocks, paragraph)
-            elif block_length >= self.min_chunk_size:
-                blocks.append(current_block)
-                current_block = ""
-            else:  # current block is too small, continue appending to it
+        for sentence in _SENT_SPLIT_RE.split(paragraph):
+            if not sentence.strip():
                 continue
 
-        blocks = self._handle_remaining_text(current_block, blocks)
-        return [block.strip() for block in blocks]
-
-    def _handle_large_paragraph(self, current_block: str, blocks: List[str], paragraph: str) -> str:
-        # Undo adding the whole paragraph
-        offset = len(paragraph) + 2  # +2 accounts for "\n\n"
-        current_block = current_block[:-offset]
-
-        sentences = sent_tokenize(paragraph)
-        for sentence in sentences:
-            current_block += f" {sentence}"
-
-            block_length = self._length_function(current_block)
-            if block_length < self.min_chunk_size:
+            if approx_token_count(sentence) <= max_tokens:
+                yield sentence
                 continue
-            elif block_length <= self.max_chunk_size:
-                blocks.append(current_block)
-                current_block = ""
-            else:
-                current_block = self._truncate_large_block(current_block, blocks)
-        return current_block
 
-    def _truncate_large_block(self, current_block: str, blocks: List[str]) -> str:
-        while self._length_function(current_block) > self.max_chunk_size:
-            # Truncate current_block to max size, set remaining text as current_block
-            truncated_block = self._truncate_function(current_block, self.max_chunk_size, False)
-            blocks.append(truncated_block)
+            for chunk in yield_word_chunks(sentence, max_tokens):
+                yield chunk
 
-            current_block = current_block[len(truncated_block) :].lstrip()
 
-        return current_block
+def chunk_text(
+    text: str, max_tokens: int = DEFAULT_CHUNK_TOKENS, overlap: int = OVERLAP_TOKENS
+) -> Iterable[str]:
+    """
+    Split text into chunks respecting semantic boundaries while staying within token limits.
 
-    def _handle_remaining_text(self, last_block: str, blocks: List[str]) -> List[str]:
-        if blocks == []:  # no blocks were added
-            return [last_block]
-        elif last_block:  # any leftover text
-            len_last_block = self._length_function(last_block)
-            if self.min_chunk_size - len_last_block > 0:
-                # Add text from previous block to last block if last_block is too short
-                part_prev_block = self._truncate_function(
-                    blocks[-1], self.min_chunk_size - len_last_block, True
-                )
-                last_block = part_prev_block + last_block
+    Args:
+        text: The text to chunk
+        max_tokens: Maximum tokens per chunk (default: 512 for optimal semantic search)
+        overlap: Number of tokens to overlap between chunks (default: 50)
 
-            blocks.append(last_block)
+    Returns:
+        List of text chunks
+    """
+    text = text.strip()
+    if not text:
+        return
 
-        return blocks
+    if approx_token_count(text) <= max_tokens:
+        yield text
+        return
+
+    overlap_chars = overlap * 4
+    current = ""
+
+    for span in yield_spans(text, max_tokens):
+        current = f"{current} {span}".strip()
+        if approx_token_count(current) < max_tokens:
+            continue
+
+        if overlap <= 0:
+            yield current
+            current = ""
+            continue
+
+        overlap_text = current[-overlap_chars:]
+        clean_break = max(
+            overlap_text.rfind(". "), overlap_text.rfind("! "), overlap_text.rfind("? ")
+        )
+
+        if clean_break < 0:
+            yield current
+            current = ""
+            continue
+
+        break_offset = -overlap_chars + clean_break + 1
+        chunk = current[break_offset:].strip()
+        yield current
+        current = chunk
+
+    if current:
+        yield current.strip()
+
+
+def split_text(text: str) -> list[str]:
+    return list(chunk_text(text))

@@ -10,7 +10,9 @@ from align_data.db.models import Article, PineconeStatus
 logger = logging.getLogger(__name__)
 
 # We create a single engine for the entire application
-engine = create_engine(DB_CONNECTION_URI, echo=False, pool_pre_ping=True, pool_recycle=1800)
+engine = create_engine(
+    DB_CONNECTION_URI, echo=False, pool_pre_ping=True, pool_recycle=1800
+)
 
 
 @contextmanager
@@ -35,13 +37,12 @@ def get_pinecone_articles(
 
 
 def get_pinecone_articles_to_remove(session: Session):
-    return (
-        session.query(Article)
-        .filter(or_(
+    return session.query(Article).filter(
+        or_(
             Article.pinecone_status == PineconeStatus.pending_removal,
             Article.is_valid == False,
-            Article.confidence < MIN_CONFIDENCE
-        ))
+            Article.confidence < MIN_CONFIDENCE,
+        )
     )
 
 
@@ -51,7 +52,9 @@ def get_pinecone_articles_by_sources(
     force_update: bool = False,
     statuses: List[PineconeStatus] = [PineconeStatus.pending_addition],
 ):
-    return get_pinecone_articles(session, force_update, statuses).filter(Article.source.in_(custom_sources))
+    return get_pinecone_articles(session, force_update, statuses).filter(
+        Article.source.in_(custom_sources)
+    )
 
 
 def get_pinecone_articles_by_ids(
@@ -60,7 +63,9 @@ def get_pinecone_articles_by_ids(
     force_update: bool = False,
     statuses: List[PineconeStatus] = [PineconeStatus.pending_addition],
 ):
-    return get_pinecone_articles(session, force_update, statuses).filter(Article.id.in_(hash_ids))
+    return get_pinecone_articles(session, force_update, statuses).filter(
+        Article.id.in_(hash_ids)
+    )
 
 
 def get_all_valid_article_ids(session: Session) -> List[str]:
@@ -78,7 +83,9 @@ def get_pinecone_to_delete_by_sources(
     session: Session,
     custom_sources: List[str],
 ):
-    return get_pinecone_articles_to_remove(session).filter(Article.source.in_(custom_sources))
+    return get_pinecone_articles_to_remove(session).filter(
+        Article.source.in_(custom_sources)
+    )
 
 
 def get_pinecone_to_delete_by_ids(
