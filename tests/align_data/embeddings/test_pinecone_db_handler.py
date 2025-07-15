@@ -346,32 +346,6 @@ class TestPineconeCompatibility:
     """Tests for API compatibility layers."""
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_upsert_with_error_handling(self, mock_initialize):
-        """Test upsert with error handling for API differences."""
-        mock_client = MagicMock()
-        mock_initialize.return_value = mock_client
-
-        # Mock index that throws TypeError on first upsert attempt
-        mock_index = MagicMock()
-        mock_index.upsert.side_effect = [
-            TypeError("API incompatibility"),
-            None,  # Second call succeeds
-        ]
-        mock_client.Index.return_value = mock_index
-
-        # Mock vectors
-        mock_vectors = [{"id": "id1", "values": [0.1, 0.2, 0.3]}]
-
-        # Initialize PineconeDB
-        db = PineconeDB(index_name="test-index")
-
-        # Test _upsert with error handling
-        db._upsert(mock_vectors)
-
-        # Verify upsert was called twice (first fails, second succeeds)
-        assert mock_index.upsert.call_count == 2
-
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
     def test_query_with_error_handling(self, mock_initialize):
         """Test query with error handling for API differences."""
         mock_client = MagicMock()

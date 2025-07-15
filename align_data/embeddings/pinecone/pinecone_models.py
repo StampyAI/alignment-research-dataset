@@ -82,7 +82,9 @@ class PineconeEntry(BaseModel):
                         authors=self.authors,
                         url=self.url,
                         date_published=self.date_published,
-                        text=embedding.text,
+                        # Pinecone only accepts up to 40960 bytes in the metadata.
+                        # Make sure to truncate the text if its too long.
+                        text=embedding.text and embedding.text.strip()[:38000],
                         confidence=self.confidence,
                         miri_confidence=self.miri_confidence,
                         miri_distance=self.miri_distance,

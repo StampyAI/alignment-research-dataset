@@ -1,6 +1,6 @@
 import logging
 from collections import namedtuple
-from typing import Any
+from typing import Any, Generator
 from functools import wraps
 
 from openai import OpenAI
@@ -25,10 +25,18 @@ from align_data.settings import (
     VOYAGEAI_API_KEY,
     VOYAGEAI_EMBEDDINGS_MODEL,
     USE_MODERATION,
+    MAX_EMBEDDING_TOKENS,
 )
 
-openai_client = OpenAI(api_key=OPENAI_API_KEY, organization=OPENAI_ORGANIZATION)
-voyageai_client = voyageai.Client(api_key=VOYAGEAI_API_KEY)
+if OPENAI_API_KEY:
+    openai_client = OpenAI(api_key=OPENAI_API_KEY, organization=OPENAI_ORGANIZATION)
+else:
+    openai_client = None
+
+if VOYAGEAI_API_KEY:
+    voyageai_client = voyageai.Client(api_key=VOYAGEAI_API_KEY)
+else:
+    voyageai_client = None
 
 # --------------------
 # CONSTANTS & CONFIGURATION
@@ -89,6 +97,8 @@ def handle_openai_errors(func):
 @handle_openai_errors
 def _single_batch_moderation_check(batch: list[str]) -> list[ModerationInfoType]:
     """Process a batch for moderation checks."""
+    if not openai_client:
+        return []
     return openai_client.moderations.create(input=batch).results
 
 
@@ -104,6 +114,21 @@ def moderation_check(texts: list[str]) -> list[ModerationInfoType]:
     ]
 
 
+def batch_texts(texts: list[str], max_tokens: int) -> Generator[list[str], None, None]:
+    """Batch texts into chunks of max_tokens."""
+    batch = []
+    tokens = 0
+    for text in texts:
+        tokens += len(text)
+        if tokens > max_tokens:
+            yield batch
+            batch = []
+            tokens = 0
+        batch.append(text)
+    if batch:
+        yield batch
+
+
 def embed_texts(texts: list[str]) -> list[Embedding]:
     """
     Obtain embeddings without moderation checks.
@@ -116,11 +141,25 @@ def embed_texts(texts: list[str]) -> list[Embedding]:
     Returns:
     - List[List[float]]: List of embeddings for the provided texts.
     """
-    if not texts:
+    if not texts or not voyageai_client:
         return []
 
     texts = [text.replace("\n", " ") for text in texts]
-    vectors = voyageai_client.embed(texts, model=VOYAGEAI_EMBEDDINGS_MODEL).embeddings
+
+    def e_b(batch, model):
+        try:
+            return voyageai_client.embed(batch, model=model).embeddings
+        except Exception as e:
+            logger.error(f"Error embedding batch: {e}")
+            logger.error(f"Batch: {batch}")
+            raise
+
+    vectors = [
+        vector
+        for batch in batch_texts(texts, MAX_EMBEDDING_TOKENS)
+        if batch
+        for vector in e_b(batch, VOYAGEAI_EMBEDDINGS_MODEL)
+    ]
     return [Embedding(vector=v, text=t) for t, v in zip(texts, vectors)]
 
 
@@ -138,6 +177,7 @@ def get_embeddings(
     """
     # replace newlines, which can negatively affect performance
     texts = [text.replace("\n", " ").strip() for text in texts]
+    texts = [text for text in texts if text]
     if not texts:
         return [], []
 
@@ -152,9 +192,8 @@ def get_embeddings(
         if result.flagged
     ]
 
-    vectors = embed_texts(
-        [t for t, r in zip(texts, moderation_results) if not r.flagged]
-    )
+    ok = [t for t, r in zip(texts, moderation_results) if not r.flagged]
+    vectors = ok and embed_texts(ok)
     return vectors, flagged
 
 

@@ -88,11 +88,13 @@ class PineconeDB:
                 logger.error(f"Failed to get index stats: {e}")
 
     @with_retry(exceptions=(ProtocolError,))
-    def _get_vectors(self, entry: PineconeEntry):
+    def _get_vectors(self, entry: PineconeEntry) -> list[dict]:
         return entry.create_pinecone_vectors()
 
     @with_retry(exceptions=(ProtocolError,))
-    def _upsert(self, vectors, upsert_size: int = 100, show_progress: bool = True):
+    def _upsert(
+        self, vectors: list[dict], upsert_size: int = 100, show_progress: bool = True
+    ):
         try:
             self.index.upsert(
                 vectors=vectors,
@@ -100,22 +102,9 @@ class PineconeDB:
                 namespace=PINECONE_NAMESPACE,
                 show_progress=show_progress,
             )
-        except TypeError as e:
-            # Handle possible API differences
-            logger.warning(
-                f"Encountered API compatibility issue: {e}, attempting alternate approach"
-            )
-            try:
-                # Try alternative parameter format for legacy API
-                self.index.upsert(
-                    vectors=vectors,
-                    namespace=PINECONE_NAMESPACE,
-                )
-            except Exception as inner_e:
-                logger.error(
-                    f"Failed to upsert vectors with alternative approach: {inner_e}"
-                )
-                raise
+        except Exception as e:
+            logger.error(f"Failed to upsert vectors: {e}")
+            raise
 
     def upsert_entry(
         self,
