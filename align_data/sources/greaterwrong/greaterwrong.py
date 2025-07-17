@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import logging
 import time
@@ -93,7 +94,8 @@ class GreaterWrong(AlignmentDataset):
         authors = ",".join(self.extract_authors(item))
 
         return (
-            url not in self._outputted_items[0] and (title, authors) not in self._outputted_items[1]
+            url not in self._outputted_items[0]
+            and (title, authors) not in self._outputted_items[1]
         )
 
     def _get_published_date(self, item):
@@ -111,7 +113,7 @@ class GreaterWrong(AlignmentDataset):
                 terms: {{
                     excludeEvents: {str(exclude_events).lower()}
                     view: "old"
-                    af: {self.af}
+                    af: {json.dumps(self.af)}
                     limit: {self.limit}
                     karmaThreshold: {karma_threshold}
                     after: "{after}"

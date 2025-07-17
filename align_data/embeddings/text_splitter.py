@@ -185,7 +185,11 @@ def chunks(
     Returns: (chunks_list, boundary_stats)
     where chunks_list contains (chunk_text, chars_before, chars_after)
     """
-    doc = re.sub(r"(?:(?<=\n)|^)(?:\.mjx|\.MJX|@font).*{.*}.*\n|(?:\s*\n){4,}", "", doc)
+    doc = (
+        re.sub(r"(?:(?<=\n)|^)(?:\.mjx|\.MJX|@font).*{.*}.*\n|(?:\s*\n){4,}", "", doc)
+        .replace("<|endofprompt|>", "<endofprompt>")
+        .replace("<|endoftext|>", "<endoftext>")
+    )
 
     if not doc.strip():
         return [], {}
