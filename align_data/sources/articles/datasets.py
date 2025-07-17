@@ -35,7 +35,7 @@ class SpreadsheetDataset(AlignmentDataset):
     spreadsheet_id: str
     sheet_id: str
     done_key = "url"
-    source_filetype = None # type: str
+    source_filetype = None  # type: str
     batch_size = 1
 
     @staticmethod
@@ -53,11 +53,7 @@ class SpreadsheetDataset(AlignmentDataset):
         url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.sheet_id}"
         logger.info(f"Fetching {url}")
         df = pd.read_csv(url)
-        return (
-            item 
-            for item in df.itertuples() 
-            if self.get_item_key(item) is not None
-            )
+        return (item for item in df.itertuples() if self.get_item_key(item) is not None)
 
     @staticmethod
     def _get_text(item):
@@ -112,8 +108,11 @@ class SpecialDocs(SpreadsheetDataset):
                 "title": self.maybe(item, "title") or contents.get("title"),
                 "source": contents.get("source_type") or self.name,
                 "source_url": self.maybe(item, "source_url"),
-                "source_type": contents.get("source_type") or self.maybe(item, "source_type"),
-                "date_published": self._get_published_date(self.maybe(item, "date_published"))
+                "source_type": contents.get("source_type")
+                or self.maybe(item, "source_type"),
+                "date_published": self._get_published_date(
+                    self.maybe(item, "date_published")
+                )
                 or contents.get("date_published"),
                 "authors": self.extract_authors(item) or contents.get("authors", []),
                 "text": contents.get("text"),
@@ -121,7 +120,6 @@ class SpecialDocs(SpreadsheetDataset):
                 "comments": contents.get("error"),
             },
         )
-
 
     def not_processed(self, item: tuple) -> bool:
         item_key = self.get_item_key(item)
@@ -152,6 +150,7 @@ class SpecialDocs(SpreadsheetDataset):
 
         return self.make_data_entry(contents)
 
+
 class PDFArticles(SpreadsheetDataset):
     source_filetype = "pdf"
     COOLDOWN = 1
@@ -163,8 +162,12 @@ class PDFArticles(SpreadsheetDataset):
 
     def _get_text(self, item):
         filename = self.files_path / f"{item.title}.pdf"
-        if download(output=str(filename), id=item.file_id):
-            return read_pdf(filename)
+        try:
+            if download(output=str(filename), id=item.file_id):
+                return read_pdf(filename)
+        except Exception as e:
+            logger.error(f"Error downloading {item.title}, {item.file_id}: {e}")
+            return None
 
 
 class HTMLArticles(SpreadsheetDataset):
@@ -189,7 +192,9 @@ class EbookArticles(SpreadsheetDataset):
 
     def _get_text(self, item):
         file_id = item.source_url.split("/")[-2]
-        filename = download(output=str(self.files_path / f"{item.title}.epub"), id=file_id)
+        filename = download(
+            output=str(self.files_path / f"{item.title}.epub"), id=file_id
+        )
         return convert_file(filename, "plain", "epub", extra_args=["--wrap=none"])
 
 
