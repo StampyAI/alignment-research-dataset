@@ -27,6 +27,7 @@ alembic==1.12.1
 mysql-connector-python==8.2.0
 
 pandas
+tiktoken==0.9.0
 transformers
 tqdm==4.66.1
 openai
