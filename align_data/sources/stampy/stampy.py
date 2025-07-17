@@ -1,15 +1,49 @@
 import sys
 import re
 import logging
+import requests
 from dataclasses import dataclass
 
-from codaio import Coda, Document
 import html
 
 from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.settings import CODA_TOKEN, CODA_DOC_ID, ON_SITE_TABLE
 
 logger = logging.getLogger(__name__)
+
+
+headers = {"Authorization": f"Bearer {CODA_TOKEN}"}
+
+
+def get_columns():
+    uri = f"https://coda.io/apis/v1/docs/{CODA_DOC_ID}/tables/{ON_SITE_TABLE}/columns"
+    response = requests.get(uri, headers=headers)
+    return {c["id"]: c["name"] for c in response.json()["items"]}
+
+
+def paginated(url):
+    response = requests.get(url, headers=headers)
+    resp = response.json()
+    for row in resp["items"]:
+        yield row
+    if more := resp.get("nextPageLink"):
+        yield from paginated(more)
+
+
+def format_row(row, columns: dict[str, str]) -> dict[str, str]:
+    values = row.pop("values")
+    return row | {
+        column_name: v for k, v in values.items() if (column_name := columns.get(k))
+    }
+
+
+def get_rows(columns: dict[str, str]):
+    return [
+        format_row(row, columns)
+        for row in paginated(
+            f"https://coda.io/apis/v1/docs/{CODA_DOC_ID}/tables/{ON_SITE_TABLE}/rows"
+        )
+    ]
 
 
 @dataclass
@@ -27,11 +61,7 @@ class Stampy(AlignmentDataset):
 
     @property
     def items_list(self):
-        coda = Coda(CODA_TOKEN)
-        doc = Document(CODA_DOC_ID, coda=coda)
-        logger.info("Fetching table: %s", CODA_DOC_ID)
-        table = doc.get_table(ON_SITE_TABLE)
-        return table.to_dict()  # a list of dicts
+        return get_rows(get_columns())
 
     def get_item_key(self, entry) -> str:
         return html.unescape(entry["Question"])
@@ -43,9 +73,13 @@ class Stampy(AlignmentDataset):
     def process_entry(self, entry):
         def clean_text(text):
             text = html.unescape(text)
-            return re.sub(r"\(/\?state=(\w+)\)", r"(http://aisafety.info?state=\1)", text)
+            return re.sub(
+                r"\(/\?state=(\w+)\)", r"(http://aisafety.info?state=\1)", text
+            )
 
-        question = clean_text(entry["Question"])  # raise an error if the entry has no question
+        question = clean_text(
+            entry["Question"]
+        )  # raise an error if the entry has no question
         answer = clean_text(entry["Rich Text"])
         url = "https://aisafety.info?state=" + entry["UI ID"]
 
