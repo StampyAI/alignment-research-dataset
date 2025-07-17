@@ -1,30 +1,30 @@
+import logging
 import os
 from dataclasses import dataclass
 from typing import List
-import logging
-
-# Configure logging to suppress excessive httpx logs
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("openai").setLevel(logging.WARNING)
 
 import fire
 
 from align_data import ALL_DATASETS, get_dataset
 from align_data.analysis.count_tokens import count_token
-from align_data.sources.articles.articles import (
-    update_new_items,
-    check_new_articles,
-    update_articles,
-)
 from align_data.embeddings.pinecone.update_pinecone import PineconeUpdater
-from align_data.sources.validate import check_articles
 from align_data.settings import (
     METADATA_OUTPUT_SPREADSHEET,
     METADATA_SOURCE_SHEET,
     METADATA_SOURCE_SPREADSHEET,
 )
+from align_data.sources.articles.articles import (
+    check_new_articles,
+    update_articles,
+    update_new_items,
+)
+from align_data.sources.validate import check_articles
 
 logger = logging.getLogger(__name__)
+
+# Configure logging to suppress excessive httpx logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
 
 
 @dataclass
@@ -35,7 +35,7 @@ class AlignmentDataset:
     @property
     def log_progress(self) -> bool:
         """Don't log progress when running in GitHub Actions."""
-        return not os.getenv('GITHUB_ACTIONS', False)
+        return not os.getenv("GITHUB_ACTIONS", False)
 
     def list(self) -> List[str]:
         """Returns a list of all the datasets"""
@@ -140,15 +140,7 @@ class AlignmentDataset:
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
-        
-        PineconeUpdater().update(names, force_update, self.log_progress)
 
-    def pinecone_update_all(self, *skip, force_update=False) -> None:
-        """
-        This function updates the Pinecone vector DB.
-        """
-        names = [name for name in ALL_DATASETS if name not in skip]
-        
         PineconeUpdater().update(names, force_update, self.log_progress)
 
     def pinecone_update_individual_articles(
@@ -159,7 +151,9 @@ class AlignmentDataset:
 
         :param str hash_ids: space-separated list of article IDs.
         """
-        PineconeUpdater().update_articles_by_ids(hash_ids, force_update, self.log_progress)
+        PineconeUpdater().update_articles_by_ids(
+            hash_ids, force_update, self.log_progress
+        )
 
     def validate_articles(self, *names, n=100) -> None:
         """Check n articles to see whether their data is correct and that their urls point to valid addresses."""
