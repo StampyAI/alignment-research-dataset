@@ -186,6 +186,7 @@ def chunks(
     where chunks_list contains (chunk_text, chars_before, chars_after)
     """
     doc = re.sub(r"(?:(?<=\n)|^)(?:\.mjx|\.MJX|@font).*{.*}.*\n|(?:\s*\n){4,}", "", doc)
+    doc = re.sub(r"\S{60,}(?:\s+(?:\S{30,}))*", r"[! blob removed by s/\\S{60,}(?:\\s+(?:\\S{30,}))*/$this_msg/ !]", doc)
 
     if not doc.strip():
         return [], {}
