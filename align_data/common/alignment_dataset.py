@@ -124,7 +124,7 @@ class AlignmentDataset:
                     for entry in batch:
                         session.add(entry)
                         if not commit():
-                            logger.error(f"found duplicate of {entry}")
+                            logger.debug(f"found duplicate of {entry}")
                 logger.info(f"Committed batch of {len(batch)} entries to {self.name}")
 
     def setup(self):
@@ -186,7 +186,7 @@ class AlignmentDataset:
 
         items_to_process = filter(self.not_processed, items)
         logger.info(f"Outputted items: {len(self._outputted_items)}")
-        logger.info(f"Found items to process")
+        logger.info("Found items to process")
 
         if isinstance(items, list):
             logger.info(f"Found {len(items)} items to process")
@@ -215,7 +215,7 @@ class AlignmentDataset:
                 logger.error(e)
                 continue
 
-            logger.info(f"Yielding {item} from {self.name}")
+            logger.debug(f"Yielding {item} from {self.name}")
             yield entry
 
             if self.COOLDOWN:

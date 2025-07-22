@@ -187,6 +187,11 @@ def chunks(
     """
     doc = re.sub(r"(?:(?<=\n)|^)(?:\.mjx|\.MJX|@font).*{.*}.*\n|(?:\s*\n){4,}", "", doc)
     doc = re.sub(r"\S{60,}(?:\s+(?:\S{30,}))*", r"[! blob removed by s/\\S{60,}(?:\\s+(?:\\S{30,}))*/$this_msg/ !]", doc)
+    doc = (
+        doc
+        .replace("<|endofprompt|>", "<endofprompt>")
+        .replace("<|endoftext|>", "<endoftext>")
+    )
 
     if not doc.strip():
         return [], {}
