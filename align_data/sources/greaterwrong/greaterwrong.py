@@ -144,6 +144,9 @@ class GreaterWrong(AlignmentDataset):
                         displayName
                     }}
                     af
+                    contents {{
+                        markdown
+                    }}
                     htmlBody
                 }}
             }}
@@ -194,7 +197,9 @@ class GreaterWrong(AlignmentDataset):
                 return
 
             for post in posts["results"]:
-                if post["htmlBody"] and self.tags_ok(post):
+                # Check if post has content (prefer markdown, fallback to htmlBody)
+                has_content = (post.get("contents") and post["contents"].get("markdown")) or post.get("htmlBody")
+                if has_content and self.tags_ok(post):
                     yield post
 
             last_item = posts["results"][-1]
@@ -215,10 +220,19 @@ class GreaterWrong(AlignmentDataset):
         return [a["displayName"] for a in authors] or ["anonymous"]
 
     def process_entry(self, item):
+        # Prefer markdown from contents field (preserves LaTeX), fallback to htmlBody
+        if item.get("contents") and item["contents"].get("markdown"):
+            text = item["contents"]["markdown"].strip()
+        elif item.get("htmlBody"):
+            # Fallback to htmlBody (LaTeX will be lost but at least we get the content)
+            text = markdownify(item["htmlBody"]).strip()
+        else:
+            raise ValueError(f"missing both htmlBody and contents.markdown on {item.get('title')!r} from {item.get('url')!r}")
+
         return self.make_data_entry(
             {
                 "title": item["title"],
-                "text": markdownify(item["htmlBody"]).strip(),
+                "text": text,
                 "url": item["pageUrl"],
                 "date_published": self._get_published_date(item),
                 "modified_at": item["modifiedAt"],
