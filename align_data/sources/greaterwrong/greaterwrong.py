@@ -154,15 +154,52 @@ class GreaterWrong(AlignmentDataset):
         """
 
     def fetch_posts(self, query: str):
-        res = requests.post(
-            f"{self.base_url}/graphql",
-            # The GraphQL endpoint returns a 403 if the user agent isn't set... Makes sense, but is annoying
-            headers={
-                "User-Agent": "Mozilla /5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0"
-            },
-            json={"query": query},
-        )
-        return res.json()["data"]["posts"]
+        url = f"{self.base_url}/graphql"
+        headers = {
+            "User-Agent": "Mozilla /5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0"
+        }
+
+        logger.info(f"Fetching posts from {url}")
+
+        try:
+            res = requests.post(
+                url,
+                headers=headers,
+                json={"query": query},
+                timeout=30,
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request to {url} failed: {e}")
+            raise
+
+        logger.info(f"Response status code: {res.status_code}")
+
+        if res.status_code != 200:
+            logger.error(f"GraphQL request to {url} failed with status {res.status_code}")
+            logger.error(f"Response headers: {dict(res.headers)}")
+            logger.error(f"Response body (first 1000 chars): {res.text[:1000]}")
+            raise Exception(
+                f"GraphQL request to {url} failed with status {res.status_code}. "
+                f"Response: {res.text[:200]}"
+            )
+
+        try:
+            data = res.json()
+        except Exception as e:
+            logger.error(f"Failed to parse JSON response from {url}")
+            logger.error(f"Response text (first 1000 chars): {res.text[:1000]}")
+            logger.error(f"Parse error: {e}")
+            raise Exception(f"Failed to parse JSON from {url}: {e}. Response: {res.text[:200]}")
+
+        if "data" not in data:
+            logger.error(f"Response missing 'data' field. Response: {data}")
+            raise Exception(f"GraphQL response missing 'data' field: {data}")
+
+        if "posts" not in data["data"]:
+            logger.error(f"Response missing 'posts' field. Response: {data}")
+            raise Exception(f"GraphQL response missing 'posts' field: {data}")
+
+        return data["data"]["posts"]
 
     @property
     def last_date_published(self) -> str:

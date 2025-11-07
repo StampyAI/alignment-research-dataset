@@ -135,6 +135,7 @@ def dataset():
 
     def post(url, *args, **kwargs):
         response = Mock()
+        response.status_code = 200
         page = json.loads(kwargs.get("data", "{}")).get("pageAlias")
 
         if "json/explore" in url:
@@ -197,6 +198,7 @@ def test_extract_authors(dataset):
     def post(url, data, **kwargs):
         pageAlias = json.loads(data).get("pageAlias")
         resp = Mock()
+        resp.status_code = 200
         resp.json.return_value = {"pages": {pageAlias: {"title": pageAlias}}}
         return resp
 
