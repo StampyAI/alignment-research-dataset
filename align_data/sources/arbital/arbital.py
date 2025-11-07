@@ -202,7 +202,23 @@ class Arbital(AlignmentDataset):
         headers = self.headers.copy()
         headers['referer'] = f"{referer_base}{page_alias}/"
         data = f'{{"pageAlias":"{page_alias}"}}'
-        return requests.post(url, headers=headers, data=data)
+
+        logger.debug(f"Sending POST request to {url} for page {page_alias}")
+
+        try:
+            response = requests.post(url, headers=headers, data=data, timeout=30)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request to {url} failed: {e}")
+            raise
+
+        if response.status_code != 200:
+            logger.error(f"Request to {url} failed with status {response.status_code}")
+            logger.error(f"Response: {response.text[:1000]}")
+            raise Exception(
+                f"Request to {url} for page {page_alias} failed with status {response.status_code}"
+            )
+
+        return response
 
     def get_arbital_page_aliases(self, subspace: str) -> List[str]:
         response = self.send_post_request(
@@ -210,7 +226,19 @@ class Arbital(AlignmentDataset):
             page_alias=subspace,
             referer_base='https://arbital.com/explore/'
         )
-        return list(response.json()['pages'].keys())
+
+        try:
+            data = response.json()
+        except Exception as e:
+            logger.error(f"Failed to parse JSON response for subspace {subspace}")
+            logger.error(f"Response: {response.text[:1000]}")
+            raise Exception(f"Failed to parse JSON: {e}")
+
+        if 'pages' not in data:
+            logger.error(f"Response missing 'pages' field for subspace {subspace}. Response: {data}")
+            raise Exception(f"Response missing 'pages' field")
+
+        return list(data['pages'].keys())
 
     def get_page(self, alias: str) -> Page:
         response = self.send_post_request(
@@ -218,7 +246,23 @@ class Arbital(AlignmentDataset):
             page_alias=alias,
             referer_base='https://arbital.com/p/'
         )
-        return response.json()['pages'][alias]
+
+        try:
+            data = response.json()
+        except Exception as e:
+            logger.error(f"Failed to parse JSON response for page {alias}")
+            logger.error(f"Response: {response.text[:1000]}")
+            raise Exception(f"Failed to parse JSON: {e}")
+
+        if 'pages' not in data:
+            logger.error(f"Response missing 'pages' field for page {alias}. Response: {data}")
+            raise Exception(f"Response missing 'pages' field")
+
+        if alias not in data['pages']:
+            logger.error(f"Page {alias} not found in response. Available pages: {list(data['pages'].keys())}")
+            raise Exception(f"Page {alias} not found in response")
+
+        return data['pages'][alias]
 
     @staticmethod
     def _get_published_date(page: Page) -> datetime | None:

@@ -22,6 +22,13 @@ from align_data.sources.validate import check_articles
 
 logger = logging.getLogger(__name__)
 
+# Configure root logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 # Configure logging to suppress excessive httpx logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("openai").setLevel(logging.WARNING)
