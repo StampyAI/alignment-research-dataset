@@ -5,13 +5,13 @@ on:
     - cron: "0 0 * * 0"  # Every Sunday at midnight
 
 jobs:
-  update_dataset:
+  fetch_and_index:
     strategy:
       fail-fast: false
       matrix:
         datasource: ${{ fromJson(vars.WEEKLY_DATASOURCES) }}
 
-    uses: ./.github/workflows/fetch-dataset.yml
+    uses: ./.github/workflows/fetch-and-index-datasource.yml
     with:
       datasource: ${{ matrix.datasource }}
       coda_token: ${{ inputs.coda_token }}
@@ -19,17 +19,6 @@ jobs:
       agisf_airtable_base_id: ${{ inputs.agisf_airtable_base_id }}
       agisf_airtable_table_id: ${{ inputs.agisf_airtable_table_id }}
       youtube_api_key: ${{ inputs.youtube_api_key }}
-      db_user: ${{ inputs.db_user }}
-      db_password: ${{ inputs.db_password }}
-      db_host: ${{ inputs.db_host }}
-    secrets: inherit
-
-  update_indexes:
-    needs: update_dataset
-
-    uses: ./.github/workflows/update-pinecone.yml
-    with:
-      datasource: "all"
       db_user: ${{ inputs.db_user }}
       db_password: ${{ inputs.db_password }}
       db_host: ${{ inputs.db_host }}
