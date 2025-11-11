@@ -44,6 +44,10 @@ on:
           - lesswrong
           - special_docs
           - youtube
+      force_update:
+        description: 'Force full reindex (ignoring pinecone_status)'
+        type: boolean
+        default: false
 
 jobs:
   build-dataset:
@@ -74,4 +78,8 @@ jobs:
         LOG_LEVEL: INFO
         USE_MODERATION: false
       run: |
-        python main.py pinecone_update ${{ inputs.datasource }}
+        if [ "${{ inputs.force_update }}" = "true" ]; then
+          python main.py pinecone_update ${{ inputs.datasource }} --force_update=True
+        else
+          python main.py pinecone_update ${{ inputs.datasource }}
+        fi
