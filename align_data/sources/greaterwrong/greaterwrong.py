@@ -14,6 +14,7 @@ from align_data.common.alignment_dataset import AlignmentDataset
 from align_data.db.session import make_session
 from align_data.db.models import Article
 from align_data.sources.greaterwrong.config import SOURCE_CONFIG, get_source_config
+from align_data.settings import LW_GRAPHQL_ACCESS
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,11 @@ class GreaterWrong(AlignmentDataset):
            # The GraphQL endpoint returns a 403 if the user agent isn't set... Makes sense, but is annoying
             "User-Agent": "Mozilla /5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0"
         }
+
+        # Add LessWrong bot-bypass header if configured
+        if LW_GRAPHQL_ACCESS:
+            header_name, header_value = LW_GRAPHQL_ACCESS.split(":", 1)
+            headers[header_name.strip()] = header_value.strip()
 
         logger.info(f"Fetching posts from {url}")
 

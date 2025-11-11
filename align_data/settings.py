@@ -82,6 +82,9 @@ PINECONE_NAMESPACE = os.environ.get(
     "PINECONE_NAMESPACE", "normal"
 )  # "normal" or "finetuned"
 
+### LESSWRONG / GREATERWRONG ###
+LW_GRAPHQL_ACCESS = os.environ.get("LW_GRAPHQL_ACCESS")
+
 ### MISCELLANEOUS ###
 MIN_CONFIDENCE = float(os.environ.get("MIN_CONFIDENCE") or "0.5")
 if MIN_CONFIDENCE < 0 or MIN_CONFIDENCE > 1:
