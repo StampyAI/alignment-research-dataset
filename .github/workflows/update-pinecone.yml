@@ -1,7 +1,9 @@
 name: Update Pinecone Index
 
 on:
-  workflow_dispatch: # manual triggering only
+  schedule:
+    - cron: "0 4 * * 0"  # Every Sunday at 1am (after weekly fetches complete)
+  workflow_dispatch:
     inputs:
       datasource:
         description: 'The datasource to reindex'
@@ -22,6 +24,7 @@ on:
           - lesswrong
           - special_docs
           - youtube
+        default: all
       force_update:
         description: 'Force full reindex (ignoring pinecone_status)'
         type: boolean
@@ -57,7 +60,7 @@ jobs:
         USE_MODERATION: false
       run: |
         if [ "${{ inputs.force_update }}" = "true" ]; then
-          python main.py pinecone_update ${{ inputs.datasource }} --force_update=True
+          python main.py pinecone_update ${{ inputs.datasource || 'all' }} --force_update=True
         else
-          python main.py pinecone_update ${{ inputs.datasource }}
+          python main.py pinecone_update ${{ inputs.datasource || 'all' }}
         fi

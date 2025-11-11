@@ -14,15 +14,4 @@ jobs:
     uses: ./.github/workflows/fetch-and-index-datasource.yml
     with:
       datasource: ${{ matrix.datasource }}
-      coda_token: ${{ inputs.coda_token }}
-      airtable_api_key: ${{ inputs.airtable_api_key }}
-      agisf_airtable_base_id: ${{ inputs.agisf_airtable_base_id }}
-      agisf_airtable_table_id: ${{ inputs.agisf_airtable_table_id }}
-      youtube_api_key: ${{ inputs.youtube_api_key }}
-      db_user: ${{ inputs.db_user }}
-      db_password: ${{ inputs.db_password }}
-      db_host: ${{ inputs.db_host }}
-      openai_api_key: ${{ inputs.openai_api_key }}
-      pinecone_api_key: ${{ inputs.pinecone_api_key }}
-      pinecone_environment: ${{ inputs.pinecone_environment }}
     secrets: inherit

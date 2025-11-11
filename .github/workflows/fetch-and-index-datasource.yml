@@ -6,39 +6,6 @@ on:
       datasource:
         type: string
         required: true
-      coda_token:
-        type: string
-        required: true
-      airtable_api_key:
-        type: string
-        required: true
-      agisf_airtable_base_id:
-        type: string
-        required: true
-      agisf_airtable_table_id:
-        type: string
-        required: true
-      youtube_api_key:
-        type: string
-        required: true
-      db_user:
-        type: string
-        required: true
-      db_password:
-        type: string
-        required: true
-      db_host:
-        type: string
-        required: true
-      openai_api_key:
-        type: string
-        required: true
-      pinecone_api_key:
-        type: string
-        required: true
-      pinecone_environment:
-        type: string
-        required: true
   workflow_dispatch:
     inputs:
       datasource:
@@ -85,15 +52,15 @@ jobs:
 
     - name: Fetch dataset
       env:
-        CODA_TOKEN: ${{ secrets.CODA_TOKEN || inputs.coda_token }}
-        AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY || inputs.airtable_api_key }}
-        AGISF_AIRTABLE_BASE_ID: ${{ secrets.AGISF_AIRTABLE_BASE_ID || inputs.agisf_airtable_base_id }}
-        AGISF_AIRTABLE_TABLE_ID: ${{ secrets.AGISF_AIRTABLE_TABLE_ID || inputs.agisf_airtable_table_id }}
-        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY || inputs.youtube_api_key }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
-        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
-        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
-        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
+        CODA_TOKEN: ${{ secrets.CODA_TOKEN }}
+        AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+        AGISF_AIRTABLE_BASE_ID: ${{ secrets.AGISF_AIRTABLE_BASE_ID }}
+        AGISF_AIRTABLE_TABLE_ID: ${{ secrets.AGISF_AIRTABLE_TABLE_ID }}
+        YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
         ARD_DB_NAME: alignment_research_dataset
         LW_GRAPHQL_ACCESS: ${{ secrets.LW_GRAPHQL_ACCESS }}
       run: python main.py fetch ${{ inputs.datasource }}
@@ -116,13 +83,13 @@ jobs:
 
     - name: Update Pinecone index
       env:
-        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
-        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
-        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
         ARD_DB_NAME: alignment_research_dataset
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || inputs.openai_api_key }}
-        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY || inputs.pinecone_api_key }}
-        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT || inputs.pinecone_environment }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+        PINECONE_ENVIRONMENT: ${{ secrets.PINECONE_ENVIRONMENT }}
         VOYAGEAI_API_KEY: ${{ secrets.VOYAGEAI_API_KEY }}
         LOG_LEVEL: INFO
         USE_MODERATION: false
