@@ -141,8 +141,8 @@ class PineconeAdder(PineconeAction):
         for article, pinecone_entry in batch:
             if pinecone_entry:
                 self.pinecone_db.upsert_entry(pinecone_entry)
-
-            article.pinecone_status = PineconeStatus.added
+                article.pinecone_status = PineconeStatus.added
+            # If pinecone_entry is None, leave status as pending_addition for retry
         return [a for a, _ in batch]
 
     def batch_entries(
