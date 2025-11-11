@@ -156,6 +156,7 @@ class GreaterWrong(AlignmentDataset):
     def fetch_posts(self, query: str):
         url = f"{self.base_url}/graphql"
         headers = {
+           # The GraphQL endpoint returns a 403 if the user agent isn't set... Makes sense, but is annoying
             "User-Agent": "Mozilla /5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0"
         }
 
