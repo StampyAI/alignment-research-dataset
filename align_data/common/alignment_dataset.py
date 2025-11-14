@@ -113,6 +113,8 @@ class AlignmentDataset:
                 session.rollback()
                 return False
 
+        total_added = 0
+        total_duplicates = 0
         items = iter(entries)
         while batch := tuple(islice(items, self.batch_size)):
             logger.info(f"Adding batch of {len(batch)} entries to {self.name}")
@@ -123,12 +125,21 @@ class AlignmentDataset:
                 if not commit():
                     for entry in batch:
                         session.add(entry)
-                        if not commit():
+                        if commit():
+                            total_added += 1
+                        else:
+                            total_duplicates += 1
                             logger.debug(f"found duplicate of {entry}")
+                else:
+                    total_added += len(batch)
                 logger.info(f"Committed batch of {len(batch)} entries to {self.name}")
 
+        logger.info(f"Completed adding entries to {self.name}: {total_added} new, {total_duplicates} duplicates")
+
     def setup(self):
+        logger.info(f"Loading previously processed items for {self.name} from database...")
         self._outputted_items = self._load_outputted_items()
+        logger.info(f"Loaded {len(self._outputted_items)} previously processed items")
 
     @property
     def items_list(self) -> Iterable:
@@ -185,7 +196,7 @@ class AlignmentDataset:
         items = items or self.items_list
 
         items_to_process = filter(self.not_processed, items)
-        logger.info(f"Outputted items: {len(self._outputted_items)}")
+        logger.info(f"Database contains {len(self._outputted_items)} previously processed items for {self.name}")
         logger.info("Found items to process")
 
         if isinstance(items, list):

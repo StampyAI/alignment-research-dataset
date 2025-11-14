@@ -54,10 +54,12 @@ class GreaterWrong(AlignmentDataset):
     _outputted_items = (set(), set())
 
     def setup(self):
+        logger.info(f"Setting up {self.name} datasource...")
         super().setup()
 
-        logger.debug("Fetching allowed tags...")
+        logger.info(f"Fetching allowed tags for {self.name}...")
         self.allowed_tags = get_allowed_tags(self.name)
+        logger.info(f"Setup complete for {self.name}")
 
     def tags_ok(self, post):
         # Check if we should bypass tag checking based on source configuration
@@ -217,19 +219,28 @@ class GreaterWrong(AlignmentDataset):
 
         # If there is no previous item or it doesn't have a published date, return default datetime
         if not prev_item or not prev_item.date_published:
-            return datetime(self.start_year, 1, 1).isoformat() + "Z"
+            default_date = datetime(self.start_year, 1, 1).isoformat() + "Z"
+            logger.info(f"No previous entries found for {self.name}, starting from {default_date}")
+            return default_date
 
         # If the previous item has a published date, return it in isoformat
-        return prev_item.date_published.isoformat() + "Z"
+        last_date = prev_item.date_published.isoformat() + "Z"
+        logger.info(f"Found most recent entry for {self.name}: '{prev_item.title}' published {last_date}")
+        return last_date
 
     @property
     def items_list(self):
         next_date = self.last_date_published
-        logger.info("Starting from %s", next_date)
+        logger.info(f"Starting incremental fetch from date: {next_date}")
         last_item = None
+        batch_count = 0
+        total_posts_fetched = 0
+        total_posts_yielded = 0
+
         while next_date:
             posts = self.fetch_posts(self.make_query(next_date))
             if not posts["results"]:
+                logger.info(f"No more posts found. Fetched {total_posts_fetched} posts, yielded {total_posts_yielded} matching posts")
                 return
 
             # If the only item we find was the one we advanced our iterator to, we're done
@@ -238,16 +249,28 @@ class GreaterWrong(AlignmentDataset):
                 and last_item
                 and posts["results"][0]["pageUrl"] == last_item["pageUrl"]
             ):
+                logger.info(f"Reached end of new posts. Fetched {total_posts_fetched} posts, yielded {total_posts_yielded} matching posts")
                 return
+
+            batch_count += 1
+            total_posts_fetched += len(posts["results"])
+            batch_yielded = 0
 
             for post in posts["results"]:
                 # Check if post has content (prefer markdown, fallback to htmlBody)
                 has_content = (post.get("contents") and post["contents"].get("markdown")) or post.get("htmlBody")
                 if has_content and self.tags_ok(post):
+                    batch_yielded += 1
+                    total_posts_yielded += 1
                     yield post
 
             last_item = posts["results"][-1]
             new_next_date = posts["results"][-1]["postedAt"]
+
+            # Log progress every 10 batches
+            if batch_count % 10 == 0:
+                logger.info(f"Progress: batch {batch_count}, fetched {total_posts_fetched} posts, yielded {total_posts_yielded}, current date: {new_next_date}")
+
             if next_date == new_next_date:
                 raise ValueError(
                     f"could not advance through dataset, next date did not advance after {next_date}"

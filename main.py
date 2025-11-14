@@ -60,11 +60,15 @@ class AlignmentDataset:
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
         for name in names:
-            logger.info(f"Fetching {name}")
+            logger.info(f"=" * 60)
+            logger.info(f"Starting fetch for datasource: {name}")
+            logger.info(f"=" * 60)
             dataset = get_dataset(name)
             logger.info(f"Got dataset: {dataset}")
 
             dataset.add_entries(dataset.fetch_entries())
+            logger.info(f"Completed fetch for datasource: {name}")
+            logger.info(f"=" * 60)
 
     def fetch_all(self, *skip) -> None:
         """
