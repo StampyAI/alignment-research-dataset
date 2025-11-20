@@ -1,297 +1,176 @@
-import re
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import logging
-from typing import List, Tuple, Iterator, Dict, Union, Any, TypedDict
+import time
+from dataclasses import dataclass
+from typing import Dict, Iterator, List
 
 import requests
-from dateutil.parser import parse
 
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.settings import LW_GRAPHQL_ACCESS
 
 logger = logging.getLogger(__name__)
 
 
-class Page(TypedDict, total=False):
-    text: str
-    likeableId: str
-    likeableType: str
-    title: str
-    editCreatedAt: str
-    pageCreatedAt: str
-    alias: str
-    userId: str
-    tagIds: str
-    changeLogs: List[Dict[str, Any]] 
-
-
-def parse_arbital_link(internal_link: str) -> str:
-    """
-    Parses the Arbital internal link.
-    :param str internal_link: The internal link to parse.
-
-    :return: The parsed link.
-    :rtype: str
-
-    Typical format: `123 Some title` -> `[Some title](https://arbital.com/p/123)`
-    Special cases: 
-        `toc:` -> `toc:`
-        `https://www.gwern.net/ Gwern Branwen` -> `[Gwern Branwen](https://www.gwern.net/)`
-    """
-    page_id, *title_parts = internal_link.split(" ")
-    if not page_id or page_id.startswith("toc:"):
-        # could be a regular text bracket, ignore it
-        return internal_link
-    if page_id.startswith("http"):
-        # could be a regular link, ignore it
-        return f"[{' '.join(title_parts)}]({page_id})"
-    url = f"https://arbital.com/p/{page_id}"
-    title = " ".join(title_parts) if title_parts else url
-    return f"[{title}]({url})"
-
-
-def flatten(val: Union[List[str], Tuple[str], str]) -> List[str]:
-    """Flattens a nested list."""
-    if isinstance(val, (list, tuple)):
-        return [item for sublist in val for item in flatten(sublist)]
-    return [val]
-
-
-def markdownify_text(current: List[str], view: Iterator[Tuple[str, str]]) -> Tuple[List[str], str]:
-    """
-    Recursively parse text segments from `view` to generate a markdown Abstract Syntax Tree (AST).
-    
-    This function helps in transitioning from Arbital's specific markdown extensions to standard markdown. It specifically
-    handles two main features:
-    - "[summary: <contents>]" blocks, which are used in Arbital to add summaries.
-    - "[123 <title>]" which are Arbital's internal links pointing to https://arbital.com/p/123, with link title <title>.
-    
-    Args:
-    :param List[str] current: A list of parsed items. Should generally be initialized as an empty list.
-    :param Iterator[Tuple[str, str]] view: An iterator that returns pairs of `part` and `next_part`, where `part` is the 
-        current segment and `next_part` provides a lookahead.
-    
-    :return: <summaries>, <text>, where <summaries> are the summaries extracted from the text, and <text> is the text with all
-        Arbital-specific markdown extensions replaced with standard markdown.
-    :rtype: Tuple[List[str], str]
-    
-    Example:
-    From the text: "[summary: A behaviorist [6w genie]]"
-    We get the input:
-        current = []
-        view = iter([('[', 'summary: A behaviorist '), ('summary: A behaviorist ', '['), ('[', '6w genie'), ('6w genie', ']'), (']', ']'), (']', None)])
-    The function should return:
-        `(['A behaviorist [genie](https://arbital.com/p/6w)'], '')`
-    
-    Note:
-    This function assumes that `view` provides a valid Arbital markdown sequence. Malformed sequences might lead to 
-    unexpected results.
-    """
-    in_link = False
-    summaries = []
-
-    for part, next_part in view:
-        if part == "[":
-            # Recursively try to parse this new section - it's probably a link, but can be something else
-            sub_summaries, text = markdownify_text([part], view)
-            summaries.extend(sub_summaries)
-            current.append(text)
-
-        elif part == "]":
-            if next_part == "(":
-                # Indicate that it's in the URL part of a markdown link.
-                current.append(part)
-                in_link = True
-            else:
-                # Extract the descriptor, which might be a summary tag, TODO tag, or an Arbital internal link's "<page_id> <title>".
-                descriptor = current[1]
-
-                # Handle Arbital summary.
-                if descriptor.startswith("summary"):
-                    # descriptor will be something like "summary(Technical): <contents>", so we split by `:`
-                    summary_tag, summary_content = "".join(current[1:]).split(":", 1)
-                    return [f"{summary_tag}: {summary_content.strip()}"], ""
-
-                # Handle TODO section (ignore it).
-                if descriptor.startswith("todo"):
-                    return [], ""
-
-                # Handle Arbital link (e.g., "6w genie" -> "[6w genie](https://arbital.com/p/6w)").
-                return [], parse_arbital_link(descriptor)
-
-        elif in_link and part == ")":
-            # this is the end of a markdown link - just join the contents, as they're already correct
-            return [], "".join(current + [part])
-
-        elif in_link and current[-1] == "(" and next_part != ")":
-            # This link is strange... looks like it could be malformed?
-            # Assuming that it's malformed and missing a closing `)`
-            # This will remove any additional info in the link, but that seems a reasonable price?
-            words = part.split(" ")
-            return [], "".join(current + [words[0], ") ", " ".join(words[1:])])
-
-        else:
-            # Just your basic text - add it to the processed parts and go on your merry way
-            current.append(part)
-
-    # Otherwise just join all the parts back together
-    return summaries, "".join(flatten(current)).strip()
-
-
-def extract_text(text: str) -> Tuple[str, str]:
-    parts = [i for i in re.split(r"([\[\]()])", text) if i]
-    return markdownify_text([], zip(parts, parts[1:] + [None]))
+def _merge_authors(*author_lists) -> List[str]:
+    """Collect unique non-empty author display names."""
+    names = []
+    seen = set()
+    for authors in author_lists:
+        if not authors:
+            continue
+        for a in authors:
+            if not a:
+                continue
+            name = a.get("displayName") if isinstance(a, dict) else a
+            if name and name not in seen:
+                names.append(name)
+                seen.add(name)
+    return names
 
 
 @dataclass
 class Arbital(AlignmentDataset):
+    """
+    Arbital dataset backed by LessWrong wikitags (isArbitalImport=true) via GraphQL.
+    """
 
-    ARBITAL_SUBSPACES = ["ai_alignment", "math", "rationality"]
-    done_key = "alias"
-    headers = {
-        "authority": "arbital.com",
-        "accept": "application/json, text/plain, */*",
-        "content-type": "application/json;charset=UTF-8",
-        "sec-ch-ua-mobile": "?0",
-        "origin": "https://arbital.com",
-        "sec-fetch-site": "same-origin",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-dest": "empty",
-        "accept-language": "en-US,en;q=0.9",
-    }
-    titles_map: Dict[str, str] = field(default_factory=dict)
+    base_url: str = "https://www.lesswrong.com/graphql"
+    limit: int = 100  # paginated page size for GraphQL
+    COOLDOWN = 1.0  # courteous pause between pages
+    done_key = "slug"
+
+    def _headers(self) -> Dict[str, str]:
+        if not LW_GRAPHQL_ACCESS:
+            raise ValueError(
+                "LW_GRAPHQL_ACCESS env var is required (format 'header-name: header-value')"
+            )
+
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "alignment-research-dataset/arbital-lw",
+        }
+        header_name, header_val = LW_GRAPHQL_ACCESS.split(":", 1)
+        headers[header_name.strip()] = header_val.strip()
+        return headers
+
+    def _fetch_page(self, offset: int) -> Dict:
+        query = """
+        query ArbitalTags($limit:Int!, $offset:Int!) {
+          tags(selector:{allArbitalTags:{excludedTagIds:[]}}, limit:$limit, offset:$offset) {
+            results {
+              _id
+              slug
+              name
+              createdAt
+              textLastUpdatedAt
+              isArbitalImport
+              wikiOnly
+              description {
+                markdown
+                plaintextMainText
+                editedAt
+                user { displayName slug }
+              }
+              description_latest
+              contributors {
+                contributors { user { displayName slug } }
+                totalCount
+              }
+              arbitalLinkedPages {
+                faster
+                slower
+                moreTechnical
+                lessTechnical
+                requirements
+                teaches
+                parents
+                children
+              }
+            }
+            totalCount
+          }
+        }
+        """
+
+        res = requests.post(
+            self.base_url,
+            headers=self._headers(),
+            json={"query": query, "variables": {"limit": self.limit, "offset": offset}},
+            timeout=30,
+        )
+        if res.status_code != 200:
+            raise Exception(
+                f"GraphQL request failed with status {res.status_code}: {res.text[:200]}"
+            )
+        data = res.json()
+        if "errors" in data:
+            raise Exception(f"GraphQL errors: {data['errors']}")
+        if "data" not in data or "tags" not in data["data"]:
+            raise Exception(f"Unexpected response structure: {data}")
+        return data["data"]["tags"]
 
     @property
-    def items_list(self) -> List[str]:
-        logger.info("Getting page aliases")
-        items = [
-            alias
-            for subspace in self.ARBITAL_SUBSPACES
-            for alias in self.get_arbital_page_aliases(subspace)
+    def items_list(self) -> Iterator[Dict]:
+        offset = 0
+        while True:
+            page = self._fetch_page(offset)
+            results = page.get("results") or []
+            for tag in results:
+                yield tag
+            offset += self.limit
+            total = page.get("totalCount") or 0
+            if offset >= total or not results:
+                break
+            time.sleep(self.COOLDOWN)
+
+    def get_item_key(self, item: Dict) -> str:
+        return item.get("slug") or item.get("_id")
+
+    def _choose_text(self, tag: Dict) -> str:
+        desc = tag.get("description") or {}
+        return (
+            desc.get("markdown")
+            or desc.get("plaintextMainText")
+            or tag.get("description_latest")
+            or ""
+        ).strip()
+
+    def _get_published_date(self, tag: Dict):
+        desc = tag.get("description") or {}
+        return super()._get_published_date(
+            desc.get("editedAt") or tag.get("textLastUpdatedAt") or tag.get("createdAt")
+        )
+
+    def _extract_authors(self, tag: Dict) -> List[str]:
+        desc_user = (tag.get("description") or {}).get("user")
+        contribs = (tag.get("contributors") or {}).get("contributors") or []
+        contrib_users = [c.get("user") for c in contribs if c.get("user")]
+        return _merge_authors([desc_user] if desc_user else [], contrib_users) or [
+            "anonymous"
         ]
-        logger.info("Got %s page aliases", len(items))
-        return items
 
-    def get_item_key(self, item: str) -> str:
-        return item
-
-    def process_entry(self, alias: str):
+    def process_entry(self, tag: Dict):
         try:
-            page = self.get_page(alias)
-            summaries, text = extract_text(page["text"])
+            text = self._choose_text(tag)
+            if not text:
+                logger.warning("Skipping tag %s: no text", tag.get("slug"))
+                return None
 
             return self.make_data_entry(
                 {
-                    "title": page.get("title") or "",
+                    "title": tag.get("name", ""),
                     "text": text,
-                    "date_published": self._get_published_date(page),
-                    "url": f'https://arbital.com/p/{page.get("alias") or alias}',
+                    "date_published": self._get_published_date(tag),
+                    "url": f"https://www.lesswrong.com/tag/{tag.get('slug')}",
                     "source": self.name,
-                    "source_type": "text",
-                    "authors": self.extract_authors(page),
-                    "alias": alias,
-                    "tags": list(filter(None, map(self.get_title, page["tagIds"]))),
-                    "summaries": summaries,
+                    "source_type": "wikitag",
+                    "authors": self._extract_authors(tag),
+                    "slug": tag.get("slug"),
+                    "is_arbital_import": tag.get("isArbitalImport", False),
+                    "wiki_only": tag.get("wikiOnly", False),
+                    "arbital_linked_pages": tag.get("arbitalLinkedPages"),
                 }
             )
         except Exception as e:
-            logger.error(f"Error getting page {alias}: {e}")
-        return None
-    
-    def send_post_request(self, url: str, page_alias: str, referer_base: str) -> requests.Response:
-        headers = self.headers.copy()
-        headers['referer'] = f"{referer_base}{page_alias}/"
-        data = f'{{"pageAlias":"{page_alias}"}}'
-
-        logger.debug(f"Sending POST request to {url} for page {page_alias}")
-
-        try:
-            response = requests.post(url, headers=headers, data=data, timeout=30)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request to {url} failed: {e}")
-            raise
-
-        if response.status_code != 200:
-            logger.error(f"Request to {url} failed with status {response.status_code}")
-            logger.error(f"Response: {response.text[:1000]}")
-            raise Exception(
-                f"Request to {url} for page {page_alias} failed with status {response.status_code}"
-            )
-
-        return response
-
-    def get_arbital_page_aliases(self, subspace: str) -> List[str]:
-        response = self.send_post_request(
-            url='https://arbital.com/json/explore/',
-            page_alias=subspace,
-            referer_base='https://arbital.com/explore/'
-        )
-
-        try:
-            data = response.json()
-        except Exception as e:
-            logger.error(f"Failed to parse JSON response for subspace {subspace}")
-            logger.error(f"Response: {response.text[:1000]}")
-            raise Exception(f"Failed to parse JSON: {e}")
-
-        if 'pages' not in data:
-            logger.error(f"Response missing 'pages' field for subspace {subspace}. Response: {data}")
-            raise Exception(f"Response missing 'pages' field")
-
-        return list(data['pages'].keys())
-
-    def get_page(self, alias: str) -> Page:
-        response = self.send_post_request(
-            url='https://arbital.com/json/primaryPage/',
-            page_alias=alias,
-            referer_base='https://arbital.com/p/'
-        )
-
-        try:
-            data = response.json()
-        except Exception as e:
-            logger.error(f"Failed to parse JSON response for page {alias}")
-            logger.error(f"Response: {response.text[:1000]}")
-            raise Exception(f"Failed to parse JSON: {e}")
-
-        if 'pages' not in data:
-            logger.error(f"Response missing 'pages' field for page {alias}. Response: {data}")
-            raise Exception(f"Response missing 'pages' field")
-
-        if alias not in data['pages']:
-            logger.error(f"Page {alias} not found in response. Available pages: {list(data['pages'].keys())}")
-            raise Exception(f"Page {alias} not found in response")
-
-        return data['pages'][alias]
-
-    @staticmethod
-    def _get_published_date(page: Page) -> datetime | None:
-        date_published = page.get("editCreatedAt") or page.get("pageCreatedAt")
-        if date_published:
-            return parse(date_published).astimezone(timezone.utc)
-        return None
-
-    def get_title(self, itemId: str) -> str | None:
-        if title := self.titles_map.get(itemId):
-            return title
-
-        try:
-            page = self.get_page(itemId)
-        except Exception as e:
-            # give up on this item - maybe next time will work
-            logger.error(e)
+            logger.error("Error processing Arbital wikitag %s: %s", tag.get("slug"), e)
             return None
-
-        if title := page.get("title"):
-            self.titles_map[itemId] = title
-            return title
-        return None
-
-    def extract_authors(self, page: Page) -> List[str]:
-        """Get all authors of this page.
-
-        This will work faster the more its used, as it only fetches info for authors it hasn't yet seen.
-        """
-        authors = {c["userId"] for c in page.get("changeLogs", [])}
-
-        return list(filter(None, map(self.get_title, authors)))
