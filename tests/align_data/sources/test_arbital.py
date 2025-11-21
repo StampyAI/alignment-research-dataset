@@ -1,259 +1,143 @@
-import json
-from unittest.mock import Mock, patch
-
 import pytest
+import pytz
 from dateutil.parser import parse
 
-from align_data.sources.arbital.arbital import (
-    Arbital,
-    extract_text,
-    flatten,
-    parse_arbital_link,
-)
-
-
-@pytest.mark.parametrize(
-    "contents, expected",
-    (
-        ("123", "[https://arbital.com/p/123](https://arbital.com/p/123)"),
-        ("123 Some title", "[Some title](https://arbital.com/p/123)"),
-        (
-            "123 Some title with multiple words",
-            "[Some title with multiple words](https://arbital.com/p/123)",
-        ),
-        ("https://www.gwern.net/ Gwern Branwen", "[Gwern Branwen](https://www.gwern.net/)"),
-        ("toc:", "toc:"),  # `toc:` is a mysterious thing
-    ),
-)
-def test_parse_arbital_link(contents, expected):
-    assert parse_arbital_link(contents) == expected
-
-
-@pytest.mark.parametrize(
-    "input, expected",
-    (
-        ([1, 2, 3], [1, 2, 3]),
-        ([1, [2, [3], 4]], [1, 2, 3, 4]),
-        ((1, (2, 3), 4), [1, 2, 3, 4]),
-        ([], []),
-        ([5], [5]),
-        ([1, "a", [2, ["b"], 3]], [1, "a", 2, "b", 3]),
-        ([1, None, [2, [3], None]], [1, None, 2, 3, None]),
-    ),
-)
-def test_flatten(input, expected):
-    assert flatten(input) == expected
-
-
-@pytest.mark.parametrize(
-    "text",
-    (
-        "" "asdasd asd asd as",
-        "Stuff that is in parenthesizes (like this) should be left alone"
-        "Markdown links [like this](https://bla.bla.com) should not be changed",
-    ),
-)
-def test_markdownify_text_contents_basic_markdown(text):
-    _, result = extract_text(text)
-    assert result == text
-
-
-@pytest.mark.parametrize(
-    "text, expected",
-    (
-        (
-            "Arbital links [123 like this] should be transformed",
-            "Arbital links [like this](https://arbital.com/p/123) should be transformed",
-        ),
-        ("[summary: summaries should be removed] bla bla bla", "bla bla bla"),
-        (
-            "    \n \t \n contents get stripped of whitespace    \t \n",
-            "contents get stripped of whitespace",
-        ),
-        (
-            "malformed [links](http://bla.bla are handled somewhat",
-            "malformed [links](http://bla.bla) are handled somewhat",
-        ),
-    ),
-)
-def test_markdownify_text_contents_arbital_markdown(text, expected):
-    _, result = extract_text(text)
-    assert result == expected
-
-
-@pytest.mark.parametrize(
-    "text, expected",
-    (
-        (
-            "[summary: summaries should be extracted] bla bla bla",
-            (["summary: summaries should be extracted"], "bla bla bla"),
-        ),
-        (
-            "[summary: summaries should be extracted] [summary(Technical): technical summary should be handled separately] bla bla bla",
-            (["summary: summaries should be extracted", "summary(Technical): technical summary should be handled separately"], "bla bla bla"),
-        ),
-        (
-            "[summary: summaries should be extracted] bla bla bla [summary(Technical): summaries should work in the middle too] bla bla bla",
-            (["summary: summaries should be extracted", "summary(Technical): summaries should work in the middle too"], "bla bla bla  bla bla bla"),
-        ),
-        (
-            "[summary: \n    whitespace should be stripped       \n] bla bla bla",
-            (["summary: whitespace should be stripped"], "bla bla bla"),
-        ),
-        (
-            "[summary(Bold): special summaries should be extracted] bla bla bla",
-            (["summary(Bold): special summaries should be extracted"], "bla bla bla"),
-        ),
-        (
-            "[summary(Markdown): special summaries should be extracted] bla bla bla",
-            (["summary(Markdown): special summaries should be extracted"], "bla bla bla"),
-        ),
-        (
-            "[summary(BLEEEE): special summaries should be extracted] bla bla bla",
-            (["summary(BLEEEE): special summaries should be extracted"], "bla bla bla"),
-        ),
-        (
-            "[summary: markdown is handled: [bla](https://bla.bla)] bla bla bla",
-            (["summary: markdown is handled: [bla](https://bla.bla)"], "bla bla bla"),
-        ),
-        (
-            "[summary: markdown is handled: [123 ble ble]] bla bla bla",
-            (["summary: markdown is handled: [ble ble](https://arbital.com/p/123)"], "bla bla bla"),
-        ),
-    ),
-)
-def test_markdownify_text_summary_and_content(text, expected):
-    summaries, text = extract_text(text)
-    assert summaries == expected[0]
-    assert text == expected[1]
+from align_data.sources.arbital import arbital as arbital_module
+from align_data.sources.arbital.arbital import Arbital, _merge_authors
 
 
 @pytest.fixture
 def dataset():
-    dataset = Arbital(name="arbital")
-    dataset.titles_map = {}
-
-    def post(url, *args, **kwargs):
-        response = Mock()
-        response.status_code = 200
-        page = json.loads(kwargs.get("data", "{}")).get("pageAlias")
-
-        if "json/explore" in url:
-            response.json.return_value = {"pages": {f"{page}-{i}": i for i in range(10)}}
-        elif "json/primaryPage" in url:
-            response.json.return_value = {
-                "pages": {
-                    page: {
-                        "title": f"{page}-title",
-                    }
-                }
-            }
-        else:
-            response.json.return_value = {}
-        return response
-
-    with patch("requests.post", post):
-        yield dataset
+    return Arbital(name="arbital")
 
 
-def test_items_list(dataset):
-    assert dataset.items_list == [
-        f"{page}-{i}" for page in dataset.ARBITAL_SUBSPACES for i in range(10)
-    ]
+def test_headers_require_access_token(monkeypatch, dataset):
+    monkeypatch.setattr(arbital_module, "LW_GRAPHQL_ACCESS", None)
+
+    with pytest.raises(ValueError):
+        dataset._headers()
 
 
-def test_get_title_no_items(dataset):
-    assert dataset.get_title("bla") == "bla-title"
+def test_headers_include_custom_header(monkeypatch, dataset):
+    monkeypatch.setattr(arbital_module, "LW_GRAPHQL_ACCESS", "X-Test-Header: abc123")
+
+    headers = dataset._headers()
+
+    assert headers["Content-Type"] == "application/json"
+    assert headers["User-Agent"] == "alignment-research-dataset/arbital-lw"
+    assert headers["X-Test-Header"] == "abc123"
 
 
-def test_get_title_cached(dataset):
-    dataset.titles_map["bla"] = "ble ble ble"
-    assert dataset.get_title("bla") == "ble ble ble"
+def test_merge_authors_dedupes_and_ignores_empty():
+    primary = [{"displayName": "Alice"}, {"displayName": "Bob"}, {"displayName": ""}]
+    secondary = ["Alice", None, "Charlie"]
+
+    assert _merge_authors(primary, secondary) == ["Alice", "Bob", "Charlie"]
 
 
 @pytest.mark.parametrize(
-    "side_effect, return_value",
+    "tag, expected",
     (
-        # The request was successful but no title present
-        (None, {"pages": {"bla": {}}}),
-        # The request was successful but the title is empty
-        (None, {"pages": {"bla": {"title": ""}}}),
-        # The request failed
-        (ValueError("Oh noes!!"), None),
+        ({"description": {"markdown": "md text\n", "plaintextMainText": "fallback"}}, "md text"),
+        ({"description": {"plaintextMainText": "plain "}, "description_latest": "latest"}, "plain"),
+        ({"description": {}, "description_latest": " latest "}, "latest"),
+        ({"description": {}, "description_latest": None}, ""),
     ),
 )
-def test_get_title_error(dataset, side_effect, return_value):
-    titles_map = {"a random entry": "to check that nothing gets changed"}
-    dataset.titles_map = titles_map
-
-    with patch("requests.post", return_value=return_value, side_effect=side_effect):
-        assert dataset.get_title("bla") is None
-        # Make sure that errors don't change the titles map
-        assert dataset.titles_map == titles_map
-
-
-def test_extract_authors(dataset):
-    authors = ["John Snow", "mr. blobby"]
-
-    def post(url, data, **kwargs):
-        pageAlias = json.loads(data).get("pageAlias")
-        resp = Mock()
-        resp.status_code = 200
-        resp.json.return_value = {"pages": {pageAlias: {"title": pageAlias}}}
-        return resp
-
-    with patch("requests.post", post):
-        page = {"changeLogs": [{"userId": author} for author in authors]}
-        assert sorted(dataset.extract_authors(page)) == sorted(authors)
-
-
-def test_extract_authors_ignore_missing(dataset):
-    authors = ["", None, "John Snow", None, None, "mr. blobby", "", ""]
-    page = {"changeLogs": [{"userId": author} for author in authors]}
-
-    with patch.object(dataset, "get_title", lambda author: author):
-        assert sorted(dataset.extract_authors(page)) == sorted(["John Snow", "mr. blobby"])
+def test_choose_text_priority(dataset, tag, expected):
+    assert dataset._choose_text(tag) == expected
 
 
 @pytest.mark.parametrize(
-    "page, expected",
+    "tag, expected",
     (
-        ({"editCreatedAt": "2021-02-01T01:23:45Z"}, parse("2021-02-01T01:23:45Z")),
-        ({"pageCreatedAt": "2021-02-01T01:23:45Z"}, parse("2021-02-01T01:23:45Z")),
-        (
-            {
-                "editCreatedAt": "2021-02-01T01:23:45Z",
-                "pageCreatedAt": "2024-02-01T01:23:45Z",
-            },
-            parse("2021-02-01T01:23:45Z"),
-        ),
+        ({"description": {"editedAt": "2024-01-02T03:04:05Z"}, "textLastUpdatedAt": "2023-01-01T00:00:00Z"}, parse("2024-01-02T03:04:05Z").replace(tzinfo=pytz.UTC)),
+        ({"description": {}, "textLastUpdatedAt": "2023-02-03T04:05:06Z"}, parse("2023-02-03T04:05:06Z").replace(tzinfo=pytz.UTC)),
+        ({"description": {}, "textLastUpdatedAt": None, "createdAt": "2020-05-06T07:08:09Z"}, parse("2020-05-06T07:08:09Z").replace(tzinfo=pytz.UTC)),
         ({}, None),
-        ({"bla": "asdasd"}, None),
     ),
 )
-def test_get_published_date(dataset, page, expected):
-    assert dataset._get_published_date(page) == expected
+def test_get_published_date_order(dataset, tag, expected):
+    assert dataset._get_published_date(tag) == expected
 
 
-def test_process_entry(dataset):
-    page = {
-        "title": "test article",
-        "text": "bla bla bla",
-        "editCreatedAt": "2001-02-03T12:34:45Z",
-        "alias": "blee",
-        "tagIds": [],
+def test_extract_authors_merges_and_dedupes(dataset):
+    tag = {
+        "description": {"user": {"displayName": "Primary"}},
+        "contributors": {
+            "contributors": [
+                {"user": {"displayName": "Helper"}},
+                {"user": {"displayName": "Primary"}},
+            ]
+        },
     }
-    with patch.object(dataset, "get_page", return_value=page):
-        assert dataset.process_entry("bla").to_dict() == {
-            "alias": "bla",
-            "authors": [],
-            "date_published": "2001-02-03T12:34:45Z",
-            "id": None,
-            "source": "arbital",
-            "source_type": "text",
-            "summaries": [],
-            "tags": [],
-            "text": "bla bla bla",
-            "title": "test article",
-            "url": "https://arbital.com/p/blee",
-        }
+
+    assert dataset._extract_authors(tag) == ["Primary", "Helper"]
+
+
+def test_extract_authors_defaults_to_anonymous(dataset):
+    assert dataset._extract_authors({}) == ["anonymous"]
+
+
+def test_items_list_paginates(monkeypatch, dataset):
+    dataset.limit = 2
+    dataset.COOLDOWN = 0
+
+    pages = {
+        0: {"results": [{"slug": "a"}, {"slug": "b"}], "totalCount": 3},
+        2: {"results": [{"slug": "c"}], "totalCount": 3},
+    }
+    fetch_offsets = []
+
+    def fake_fetch(offset):
+        fetch_offsets.append(offset)
+        return pages.get(offset, {"results": [], "totalCount": 3})
+
+    monkeypatch.setattr(dataset, "_fetch_page", fake_fetch)
+
+    assert list(dataset.items_list) == [{"slug": "a"}, {"slug": "b"}, {"slug": "c"}]
+    assert fetch_offsets == [0, 2]
+
+
+def test_get_item_key_prefers_slug(dataset):
+    assert dataset.get_item_key({"slug": "tag-slug", "_id": "123"}) == "tag-slug"
+    assert dataset.get_item_key({"_id": "fallback"}) == "fallback"
+
+
+def test_process_entry_returns_article(dataset):
+    tag = {
+        "name": "Test Tag",
+        "slug": "test-tag",
+        "description": {
+            "markdown": "Some text",
+            "editedAt": "2020-01-02T03:04:05Z",
+            "user": {"displayName": "Author 1"},
+        },
+        "contributors": {"contributors": [{"user": {"displayName": "Author 2"}}]},
+        "textLastUpdatedAt": "2020-01-01T00:00:00Z",
+        "createdAt": "2019-12-31T00:00:00Z",
+        "isArbitalImport": True,
+        "wikiOnly": False,
+        "arbitalLinkedPages": {"parents": ["abc"]},
+    }
+
+    entry = dataset.process_entry(tag)
+
+    assert entry is not None
+
+    data = entry.to_dict()
+    assert data["title"] == "Test Tag"
+    assert data["text"] == "Some text"
+    assert data["authors"] == ["Author 1", "Author 2"]
+    assert data["url"] == "https://www.lesswrong.com/tag/test-tag"
+    assert data["date_published"] == "2020-01-02T03:04:05Z"
+    assert data["slug"] == "test-tag"
+    assert data["arbital_linked_pages"] == {"parents": ["abc"]}
+    assert data["is_arbital_import"] is True
+    assert data["wiki_only"] is False
+
+
+def test_process_entry_skips_when_no_text(dataset):
+    tag = {"name": "Empty", "slug": "empty", "description": {"markdown": "   "}}
+
+    assert dataset.process_entry(tag) is None
