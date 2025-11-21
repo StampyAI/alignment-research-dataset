@@ -133,7 +133,6 @@ class Arbital(AlignmentDataset):
     def items_list(self) -> Iterator[Dict]:
         offset = 0
         seen = set()
-        with tqdm()
         while True:
             page = self._fetch_page(offset)
             results = page.get("results") or []
