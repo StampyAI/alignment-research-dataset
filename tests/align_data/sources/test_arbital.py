@@ -3,7 +3,7 @@ import pytz
 from dateutil.parser import parse
 
 from align_data.sources.arbital import arbital as arbital_module
-from align_data.sources.arbital.arbital import Arbital, _merge_authors
+from align_data.sources.arbital.arbital import Arbital, _merge_authors, _extract_summaries
 
 
 @pytest.fixture
@@ -35,6 +35,19 @@ def test_merge_authors_dedupes_and_ignores_empty():
     assert _merge_authors(primary, secondary) == ["Alice", "Bob", "Charlie"]
 
 
+def test_extract_summaries_removes_from_text():
+    text = """
+    [summary: short overview]
+    Body text remains here.
+    [summary(Technical): deeper points]
+    """
+
+    summaries, cleaned = _extract_summaries(text)
+
+    assert summaries == ["short overview", "deeper points"]
+    assert cleaned == "Body text remains here."
+
+
 @pytest.mark.parametrize(
     "tag, expected",
     (
@@ -51,6 +64,8 @@ def test_choose_text_priority(dataset, tag, expected):
 @pytest.mark.parametrize(
     "tag, expected",
     (
+        ({"editCreatedAt": "2025-01-01T00:00:00Z"}, parse("2025-01-01T00:00:00Z").replace(tzinfo=pytz.UTC)),
+        ({"pageCreatedAt": "2024-05-06T07:08:09Z"}, parse("2024-05-06T07:08:09Z").replace(tzinfo=pytz.UTC)),
         ({"description": {"editedAt": "2024-01-02T03:04:05Z"}, "textLastUpdatedAt": "2023-01-01T00:00:00Z"}, parse("2024-01-02T03:04:05Z").replace(tzinfo=pytz.UTC)),
         ({"description": {}, "textLastUpdatedAt": "2023-02-03T04:05:06Z"}, parse("2023-02-03T04:05:06Z").replace(tzinfo=pytz.UTC)),
         ({"description": {}, "textLastUpdatedAt": None, "createdAt": "2020-05-06T07:08:09Z"}, parse("2020-05-06T07:08:09Z").replace(tzinfo=pytz.UTC)),
@@ -99,6 +114,22 @@ def test_items_list_paginates(monkeypatch, dataset):
     assert fetch_offsets == [0, 2]
 
 
+def test_items_list_skips_duplicates(monkeypatch, dataset):
+    dataset.limit = 2
+    dataset.COOLDOWN = 0
+
+    pages = {
+        0: {"results": [{"slug": "a"}, {"slug": "dup"}], "totalCount": 4},
+        2: {"results": [{"slug": "dup"}, {"slug": "b"}], "totalCount": 4},
+    }
+    def fake_fetch(offset):
+        return pages.get(offset, {"results": [], "totalCount": 4})
+
+    monkeypatch.setattr(dataset, "_fetch_page", fake_fetch)
+
+    assert list(dataset.items_list) == [{"slug": "a"}, {"slug": "dup"}, {"slug": "b"}]
+
+
 def test_get_item_key_prefers_slug(dataset):
     assert dataset.get_item_key({"slug": "tag-slug", "_id": "123"}) == "tag-slug"
     assert dataset.get_item_key({"_id": "fallback"}) == "fallback"
@@ -109,7 +140,7 @@ def test_process_entry_returns_article(dataset):
         "name": "Test Tag",
         "slug": "test-tag",
         "description": {
-            "markdown": "Some text",
+            "markdown": "[summary: overview]\nSome text",
             "editedAt": "2020-01-02T03:04:05Z",
             "user": {"displayName": "Author 1"},
         },
@@ -135,6 +166,7 @@ def test_process_entry_returns_article(dataset):
     assert data["arbital_linked_pages"] == {"parents": ["abc"]}
     assert data["is_arbital_import"] is True
     assert data["wiki_only"] is False
+    assert data["summaries"] == ["overview"]
 
 
 def test_process_entry_skips_when_no_text(dataset):
