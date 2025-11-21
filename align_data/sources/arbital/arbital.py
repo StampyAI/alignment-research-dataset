@@ -77,14 +77,14 @@ class Arbital(AlignmentDataset):
                 totalCount
               }
               arbitalLinkedPages {
-                faster
-                slower
-                moreTechnical
-                lessTechnical
-                requirements
-                teaches
-                parents
-                children
+                faster { _id name slug }
+                slower { _id name slug }
+                moreTechnical { _id name slug }
+                lessTechnical { _id name slug }
+                requirements { _id name slug }
+                teaches { _id name slug }
+                parents { _id name slug }
+                children { _id name slug }
               }
             }
             totalCount
