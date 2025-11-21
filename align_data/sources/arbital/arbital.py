@@ -1,7 +1,8 @@
 import logging
+import re
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, Tuple
 
 import requests
 
@@ -28,6 +29,25 @@ def _merge_authors(*author_lists) -> List[str]:
     return names
 
 
+SUMMARY_PATTERN = re.compile(r"\[summary(?:\([^\]]*\))?:\s*(.*?)\]", re.IGNORECASE | re.DOTALL)
+
+
+def _extract_summaries(text: str) -> Tuple[List[str], str]:
+    """Extract `[summary: ...]` blocks and return (summaries, cleaned_text).
+
+    This mimics the legacy Arbital scraper behaviour, so downstream code can
+    continue to rely on summaries being separated from the main text.
+    """
+
+    if not text:
+        return [], text
+
+    summaries = [match.strip() for match in SUMMARY_PATTERN.findall(text) if match.strip()]
+    cleaned = SUMMARY_PATTERN.sub("", text)
+    cleaned = cleaned.strip()
+    return summaries, cleaned
+
+
 @dataclass
 class Arbital(AlignmentDataset):
     """
@@ -36,7 +56,7 @@ class Arbital(AlignmentDataset):
 
     base_url: str = "https://www.lesswrong.com/graphql"
     limit: int = 100  # paginated page size for GraphQL
-    COOLDOWN = 1.0  # courteous pause between pages
+    PAGE_COOLDOWN = 1.0  # courteous pause between page fetches
     done_key = "slug"
 
     def _headers(self) -> Dict[str, str]:
@@ -56,7 +76,7 @@ class Arbital(AlignmentDataset):
     def _fetch_page(self, offset: int) -> Dict:
         query = """
         query ArbitalTags($limit:Int!, $offset:Int!) {
-          tags(selector:{allArbitalTags:{excludedTagIds:[]}}, limit:$limit, offset:$offset) {
+          tags(selector:{allArbitalTags:{excludedTagIds:[]}}, limit:$limit, offset:$offset, enableTotal:true) {
             results {
               _id
               slug
@@ -112,16 +132,23 @@ class Arbital(AlignmentDataset):
     @property
     def items_list(self) -> Iterator[Dict]:
         offset = 0
+        seen = set()
+        with tqdm()
         while True:
             page = self._fetch_page(offset)
             results = page.get("results") or []
             for tag in results:
+                key = self.get_item_key(tag)
+                if key in seen:
+                    logger.debug("Skipping duplicate tag %s", key)
+                    continue
+                seen.add(key)
                 yield tag
             offset += self.limit
             total = page.get("totalCount") or 0
             if offset >= total or not results:
                 break
-            time.sleep(self.COOLDOWN)
+            time.sleep(self.PAGE_COOLDOWN)
 
     def get_item_key(self, item: Dict) -> str:
         return item.get("slug") or item.get("_id")
@@ -137,8 +164,15 @@ class Arbital(AlignmentDataset):
 
     def _get_published_date(self, tag: Dict):
         desc = tag.get("description") or {}
+
+        # Preserve the legacy field preference (`editCreatedAt`, then `pageCreatedAt`)
+        # while still supporting the new LW tag fields (`editedAt`, `textLastUpdatedAt`, `createdAt`).
         return super()._get_published_date(
-            desc.get("editedAt") or tag.get("textLastUpdatedAt") or tag.get("createdAt")
+            tag.get("editCreatedAt")
+            or tag.get("pageCreatedAt")
+            or desc.get("editedAt")
+            or tag.get("textLastUpdatedAt")
+            or tag.get("createdAt")
         )
 
     def _extract_authors(self, tag: Dict) -> List[str]:
@@ -152,6 +186,8 @@ class Arbital(AlignmentDataset):
     def process_entry(self, tag: Dict):
         try:
             text = self._choose_text(tag)
+            summaries, text = _extract_summaries(text)
+
             if not text:
                 logger.warning("Skipping tag %s: no text", tag.get("slug"))
                 return None
@@ -160,6 +196,7 @@ class Arbital(AlignmentDataset):
                 {
                     "title": tag.get("name", ""),
                     "text": text,
+                    "summaries": summaries,
                     "date_published": self._get_published_date(tag),
                     "url": f"https://www.lesswrong.com/tag/{tag.get('slug')}",
                     "source": self.name,

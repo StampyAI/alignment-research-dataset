@@ -50,7 +50,8 @@ def article_dict(data, **kwargs) -> Dict[str, Any]:
     summaries = data.pop("summaries", [])
     summary = data.pop("summary", None)
 
-    data['summaries'] = summaries + [summary] if summary else []
+    # Preserve explicit summaries even when no single `summary` field is provided
+    data['summaries'] = summaries + [summary] if summary else summaries
     data['authors'] = format_authors(data.pop("authors", []))
     data['title'] = normalize_text(data.get('title'))
 

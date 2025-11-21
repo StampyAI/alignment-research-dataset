@@ -68,6 +68,10 @@ class AlignmentDataset:
     def make_data_entry(self, data, **kwargs) -> Article:
         data = article_dict(data, **kwargs)
         summaries = data.pop("summaries", [])
+        # If summaries ended up inside meta (article_dict buckets non-main fields)
+        # pull them out so they become Summary rows rather than meta baggage.
+        if not summaries and isinstance(data.get("meta"), dict):
+            summaries = data["meta"].pop("summaries", [])
         article = Article(**data)
         article.summaries += [
             Summary(text=summary, source=self.name) for summary in summaries
