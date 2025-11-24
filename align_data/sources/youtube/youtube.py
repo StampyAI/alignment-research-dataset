@@ -1,9 +1,13 @@
 import logging
+from datetime import datetime
 from dataclasses import dataclass, field
+import os
 from typing import List, Optional, Iterable
+from xml.etree.ElementTree import ParseError
 
 from googleapiclient.discovery import build, Resource
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.proxies import WebshareProxyConfig
 from youtube_transcript_api._errors import (
     NoTranscriptFound,
     VideoUnavailable,
@@ -12,6 +16,7 @@ from youtube_transcript_api._errors import (
 
 from align_data.settings import YOUTUBE_API_KEY
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.db.models import Article
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +26,6 @@ class YouTubeDataset(AlignmentDataset):
     batch_size = 1
     # COOLDOWN = 2
     authors: Optional[List[str]] = None
-    collection_ids: List[str] = field(default_factory=list)
-
 
     def setup(self):
         super().setup()
@@ -66,18 +69,39 @@ class YouTubeDataset(AlignmentDataset):
             for video in self.fetch_videos(collection_id)
         )
 
-    def get_item_key(self, item) -> str | None:
+    @property
+    def collection_ids(self) -> List[str]:
+        return getattr(self, "_collection_ids", [])
+
+    @collection_ids.setter
+    def collection_ids(self, value: List[str]):
+        self._collection_ids = value
+
+    def get_item_key(self, item) -> str:
         video_id = self._get_id(item)
-        return video_id and f"https://www.youtube.com/watch?v={video_id}"
+        if video_id is None:
+            raise ValueError("Invalid video item; missing videoId")
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    def _get_transcript_api(self):
+        """
+        Lazily construct the transcript client so callers (and tests) don't
+        need to remember to call setup() before fetching transcripts.
+        """
+        if not hasattr(self, "_transcript_api"):
+            self._transcript_api = YouTubeTranscriptApi()
+        return self._transcript_api
 
     def _get_contents(self, video):
         video_id = self._get_id(video)
+        logger.debug(f"Fetching transcript for video: {video_id} - {video.get('snippet', {}).get('title', 'Unknown title')}")
         try:
             transcript = (
-                YouTubeTranscriptApi
-                .list_transcripts(video_id)
+                self._get_transcript_api()
+                .list(video_id)
                 .find_transcript(["en", "en-GB"])
                 .fetch()
+                .to_raw_data()
             )
             return "\n".join([i["text"] for i in transcript])
         except (NoTranscriptFound, VideoUnavailable):
@@ -87,13 +111,30 @@ class YouTubeDataset(AlignmentDataset):
                 f"Transcripts disabled for https://www.youtube.com/watch?v={video_id} - skipping"
             )
             return None
+        except ParseError as e:
+            logger.warning(
+                f"Empty or malformed transcript XML for https://www.youtube.com/watch?v={video_id} "
+                f"(ParseError: {e}) - likely deleted/private video or corrupted transcript data - skipping"
+            )
+            return None
+        except Exception as e:
+            logger.error(
+                f"Unexpected error fetching transcript for https://www.youtube.com/watch?v={video_id}: "
+                f"{type(e).__name__}: {e} - skipping"
+            )
+            return None
 
     def extract_authors(self, video):
         if self.authors:
             return self.authors
         return [video["snippet"]["channelTitle"].strip()]
 
-    def process_entry(self, video):
+    @staticmethod
+    def _extract_published_date(video) -> str | None:
+        snippet = video.get("snippet", {}) if isinstance(video, dict) else {}
+        return snippet.get("publishTime") or snippet.get("publishedAt")
+
+    def process_entry(self, video) -> Article | None:
         video_url = self.get_item_key(video)
         contents = self._get_contents(video)
 
@@ -107,7 +148,9 @@ class YouTubeDataset(AlignmentDataset):
                 "title": video["snippet"]["title"],
                 "source": self.name,
                 "source_type": "youtube",
-                "date_published": self._get_published_date(video),
+                "date_published": self._get_published_date(
+                    self._extract_published_date(video)
+                ),
                 "authors": self.extract_authors(video),
             }
         )
@@ -134,8 +177,15 @@ class YouTubeChannelDataset(YouTubeDataset):
             .execute()
         )
 
-    def _get_published_date(self, video):
-        return super()._get_published_date(video["snippet"]["publishTime"])
+    @staticmethod
+    def _extract_published_date(video) -> str | None:
+        return video.get("snippet", {}).get("publishTime")
+
+    @staticmethod
+    def _get_published_date(date) -> datetime | None:  # type: ignore[override]
+        if isinstance(date, dict):
+            date = date.get("snippet", {}).get("publishTime")
+        return AlignmentDataset._get_published_date(date)
 
 
 @dataclass
@@ -159,5 +209,12 @@ class YouTubePlaylistDataset(YouTubeDataset):
             .execute()
         )
 
-    def _get_published_date(self, video):
-        return super()._get_published_date(video["snippet"]["publishedAt"])
+    @staticmethod
+    def _extract_published_date(video) -> str | None:
+        return video.get("snippet", {}).get("publishedAt")
+
+    @staticmethod
+    def _get_published_date(date) -> datetime | None:  # type: ignore[override]
+        if isinstance(date, dict):
+            date = date.get("snippet", {}).get("publishedAt")
+        return AlignmentDataset._get_published_date(date)
