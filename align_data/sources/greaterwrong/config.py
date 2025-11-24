@@ -25,7 +25,7 @@ SOURCE_CONFIG = {
         "karma_threshold": 1,
     },
     "eaforum": {
-        "required_tags": ["AI Safety"],
+        "required_tags": ["AI safety"],
         "excluded_tags": [],
         "bypass_tag_check": False,
         "exclude_events": True,

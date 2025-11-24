@@ -18,8 +18,8 @@ def test_get_allowed_tags():
     # Test lesswrong (should return AI tag)
     assert get_allowed_tags("lesswrong") == {"AI"}
 
-    # Test eaforum (should return AI Safety tag)
-    assert get_allowed_tags("eaforum") == {"AI Safety"}
+    # Test eaforum (should return AI safety tag)
+    assert get_allowed_tags("eaforum") == {"AI safety"}
 
     # Test unknown datasource
     with pytest.raises(ValueError):
