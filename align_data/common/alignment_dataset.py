@@ -109,13 +109,30 @@ class AlignmentDataset:
         session.add_all(batch)
 
     def add_entries(self, entries):
-        def commit() -> bool:
+        def is_duplicate_error(err: IntegrityError) -> bool:
+            msg = str(getattr(err, "orig", "")) or str(err)
+            return "Duplicate entry" in msg or "UNIQUE constraint failed" in msg
+
+        def commit(allow_duplicates=False, entry=None) -> bool:
             try:
                 session.commit()
                 return True
-            except IntegrityError:
+            except IntegrityError as err:
                 session.rollback()
-                return False
+                if is_duplicate_error(err):
+                    if allow_duplicates:
+                        logger.debug(
+                            "Duplicate entry skipped for %s: %s", self.name, entry
+                        )
+                        return False
+                    logger.error(
+                        "Duplicate entry encountered for %s: %s", self.name, entry
+                    )
+                    raise
+                logger.error(
+                    "Integrity error writing %s entry %s: %s", self.name, entry, err
+                )
+                raise
 
         items = iter(entries)
         while batch := tuple(islice(items, self.batch_size)):
@@ -124,11 +141,10 @@ class AlignmentDataset:
                 self._add_batch(session, batch)
                 # there might be duplicates in the batch, so if they cause
                 # an exception, try to commit them one by one
-                if not commit():
+                if not commit(allow_duplicates=True):
                     for entry in batch:
                         session.add(entry)
-                        if not commit():
-                            logger.debug(f"found duplicate of {entry}")
+                        commit(allow_duplicates=True, entry=entry)
                 logger.info(f"Committed batch of {len(batch)} entries to {self.name}")
 
     def setup(self):

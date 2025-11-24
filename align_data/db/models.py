@@ -75,13 +75,17 @@ class Article(Base):
         comment="Describes the confidence in how good this article is, as a value <0, 1>",
     )
     miri_confidence: Mapped[Optional[float]] = mapped_column(
-        Float, comment="How much MIRI wants this in the chatbot"
+        Float, nullable=True, comment="How much MIRI wants this in the chatbot"
     )
-    miri_distance: Mapped[str] = mapped_column(
-        String(128), comment="Whether this is core or wider from MIRI's perspective"
+    miri_distance: Mapped[Optional[str]] = mapped_column(
+        String(128),
+        nullable=True,
+        comment="Whether this is core or wider from MIRI's perspective",
     )
-    needs_tech: Mapped[bool] = mapped_column(
-        Boolean, comment="Whether the article is about technical details"
+    needs_tech: Mapped[Optional[bool]] = mapped_column(
+        Boolean,
+        nullable=True,
+        comment="Whether the article is about technical details",
     )
 
     date_published: Mapped[Optional[datetime]]

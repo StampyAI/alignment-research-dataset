@@ -16,17 +16,25 @@ from youtube_transcript_api._errors import (
 @pytest.fixture
 def transcriber():
     transcriber = Mock()
-    transcriber.list_transcripts.return_value.find_transcript.return_value.fetch.return_value = [
+    fetch_result = Mock()
+    fetch_result.to_raw_data.return_value = [
         {"text": "bla bla"},
         {"text": "second line"},
         {"text": "ble ble"},
     ]
+    transcriber.list.return_value.find_transcript.return_value.fetch.return_value = (
+        fetch_result
+    )
 
-    with patch("align_data.sources.youtube.youtube.YouTubeTranscriptApi", transcriber):
-        yield
+    with patch(
+        "align_data.sources.youtube.youtube.YouTubeTranscriptApi",
+        return_value=transcriber,
+    ):
+        yield transcriber
 
 
-def test_key_required():
+def test_key_required(monkeypatch):
+    monkeypatch.setattr("align_data.sources.youtube.youtube.YOUTUBE_API_KEY", None)
     dataset = YouTubeDataset(name="asd")
     with pytest.raises(ValueError, match="No YOUTUBE_API_KEY provided"):
         dataset.setup()
@@ -222,9 +230,12 @@ def test_get_contents_with_no_transcript_found(error):
     }
 
     transcriber = Mock()
-    transcriber.list_transcripts.return_value.find_transcript.return_value.fetch.side_effect = error
+    transcriber.list.return_value.find_transcript.return_value.fetch.side_effect = error
 
-    with patch("align_data.sources.youtube.youtube.YouTubeTranscriptApi", transcriber):
+    with patch(
+        "align_data.sources.youtube.youtube.YouTubeTranscriptApi",
+        return_value=transcriber,
+    ):
         assert dataset._get_contents(video) is None
 
 
@@ -236,13 +247,20 @@ def test_get_contents():
     }
 
     transcriber = Mock()
-    transcriber.list_transcripts.return_value.find_transcript.return_value.fetch.return_value = [
+    fetch_result = Mock()
+    fetch_result.to_raw_data.return_value = [
         {"text": "bla bla"},
         {"text": "second line"},
         {"text": "ble ble"},
     ]
+    transcriber.list.return_value.find_transcript.return_value.fetch.return_value = (
+        fetch_result
+    )
 
-    with patch("align_data.sources.youtube.youtube.YouTubeTranscriptApi", transcriber):
+    with patch(
+        "align_data.sources.youtube.youtube.YouTubeTranscriptApi",
+        return_value=transcriber,
+    ):
         assert dataset._get_contents(video) == "bla bla\nsecond line\nble ble"
 
 
