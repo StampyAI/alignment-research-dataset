@@ -299,7 +299,14 @@ There are Datasets defined for various types of data sources - first check if an
 
 ## Contributing
 
-The scraper code and dataset are maintained by [StampyAI](http://stampy.ai) / [AI Safety Info](http://aisafety.info). [Learn more](https://coda.io/d/AI-Safety-Info_dfau7sl2hmG/Get-involved_susRF#_lufSr) or join us on [Rob Miles AI Discord server](https://discord.gg/vjFSCDyMCy).
+The scraper code and dataset are maintained by [StampyAI](http://stampy.ai) / [AI Safety Info](http://aisafety.info). [Learn more](https://coda.io/d/AI-Safety-Info_dfau7sl2hmG/Get-involved_susRF#_lufSr) or join us on [Rob Miles AI Discord server](https://discord.gg/vjFSCDyMCy?channel=1125882422731472896). For dataset-specific questions, join the "Alignment Research Dataset dev" thread of the #💻-stampy-dev-forum channel.
+
+### Ways to contribute
+
+  - **Suggest content**: Use [this form](https://bit.ly/ard-suggestion) to suggest sources not already in the dataset
+  - **Add a new data source**: See [Adding New Datasets](#adding-new-datasets) above
+  - **Fix bugs or tackle open issues**: Check [open issues](https://github.com/StampyAI/alignment-research-dataset/issues) for bugs or enhancements or suggest your own
+  - **Join our meetings**: Check the Discord Events to find out the time of the next AISafety.info Team Meeting
 
 ## Citing the Dataset
 
