@@ -21,6 +21,6 @@ EOF
 
 echo "Running migrations"
 
-alembic --config migrations/alembic.ini upgrade head
+alembic upgrade head
 
 echo "The database is set up. Connect to it via 'mysql -h 127.0.0.1 -u user \"--password=we all live in a yellow submarine\" alignment_research_dataset'"
