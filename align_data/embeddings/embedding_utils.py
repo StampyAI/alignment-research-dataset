@@ -115,16 +115,19 @@ def moderation_check(texts: list[str]) -> list[ModerationInfoType]:
 
 
 def batch_texts(texts: list[str], max_tokens: int) -> Generator[list[str], None, None]:
-    """Batch texts into chunks of max_tokens."""
+    """Batch texts into chunks of max_tokens (using char length as proxy)."""
     batch = []
     tokens = 0
     for text in texts:
-        tokens += len(text)
-        if tokens > max_tokens:
+        text_len = len(text)
+        if text_len > max_tokens:
+            logger.warning(f"Single text exceeds max_tokens ({text_len} > {max_tokens}), sending anyway")
+        if tokens + text_len > max_tokens and batch:
             yield batch
             batch = []
             tokens = 0
         batch.append(text)
+        tokens += text_len
     if batch:
         yield batch
 
@@ -135,30 +138,31 @@ def embed_texts(texts: list[str]) -> list[Embedding]:
 
     Parameters:
     - texts (List[str]): List of texts to be embedded.
-    - source (Optional[str], optional): Source identifier to potentially adjust embedding bias. Defaults to None.
-    - **kwargs: Additional keyword arguments passed to the embedding function.
+    - model: Voyage model to use (default from settings)
 
     Returns:
-    - List[List[float]]: List of embeddings for the provided texts.
+    - List[Embedding]: List of embeddings for the provided texts.
     """
     if not texts or not voyageai_client:
         return []
 
-    texts = [text.replace("\n", " ") for text in texts]
+    model = VOYAGEAI_EMBEDDINGS_MODEL
 
-    def e_b(batch, model):
-        try:
+    use_contextualized = model == "voyage-context-3"
+
+    def e_b(batch):
+        if use_contextualized:
+            # Wrap each text as single-chunk document for contextualized API
+            results = _contextualized_embed_batch([[t] for t in batch], model, "document")
+            return [doc[0] for doc in results]
+        else:
             return voyageai_client.embed(batch, model=model).embeddings
-        except Exception as e:
-            logger.error(f"Error embedding batch: {e}")
-            logger.error(f"Batch: {batch}")
-            raise
 
     vectors = [
         vector
         for batch in batch_texts(texts, MAX_EMBEDDING_TOKENS)
         if batch
-        for vector in e_b(batch, VOYAGEAI_EMBEDDINGS_MODEL)
+        for vector in e_b(batch)
     ]
     return [Embedding(vector=v, text=t) for t, v in zip(texts, vectors)]
 
@@ -175,8 +179,7 @@ def get_embeddings(
     Returns:
     - Tuple[List[Optional[List[float]]], ModerationInfoListType]: Tuple containing the list of embeddings (with None for flagged texts) and the moderation results.
     """
-    # replace newlines, which can negatively affect performance
-    texts = [text.replace("\n", " ").strip() for text in texts]
+    texts = [text.strip() for text in texts]
     texts = [text for text in texts if text]
     if not texts:
         return [], []
@@ -201,3 +204,133 @@ def get_embedding(text: str) -> tuple[list[Embedding], list[ModerationInfoType]]
     """Obtain an embedding for a single text."""
     embedding, moderation_result = get_embeddings([text])
     return embedding, moderation_result
+
+
+# --------------------
+# CONTEXTUALIZED EMBEDDINGS (voyage-context-3)
+# --------------------
+
+
+def embed_documents_contextualized(
+    documents: list[list[str]],
+    input_type: str = "document",
+) -> list[list[Vector]]:
+    """
+    Embed documents using voyage-context-3 contextualized embeddings.
+
+    Unlike embed_texts(), this function takes documents as lists of chunks,
+    where each chunk is aware of its siblings in the same document.
+
+    Parameters:
+    - documents: List of documents, each document is a list of chunk strings
+    - input_type: "document" for indexing, "query" for search
+
+    Returns:
+    - List of lists of vectors, matching the input structure exactly.
+      Empty documents return empty lists. Maintains 1:1 correspondence with input.
+
+    Rate limits per request:
+    - Maximum 1,000 documents (inner lists)
+    - Maximum 120,000 total tokens
+    - Maximum 16,000 total chunks
+    """
+    if not voyageai_client:
+        return [[] for _ in documents]
+    if not documents:
+        return []
+
+    model = VOYAGEAI_EMBEDDINGS_MODEL
+
+    # Validate chunks - no empty/whitespace-only chunks allowed
+    # Caller must filter these before calling; we crash to surface bugs
+    for i, doc in enumerate(documents):
+        for j, chunk in enumerate(doc):
+            if not (chunk and chunk.strip()):
+                raise ValueError(
+                    f"Empty chunk at doc[{i}][{j}] - caller must filter empty chunks"
+                )
+
+    # Track which documents are non-empty so we can restore alignment later
+    cleaned_docs = []
+    doc_indices = []  # Maps cleaned index -> original index
+    for i, doc in enumerate(documents):
+        if doc:
+            cleaned_docs.append(doc)
+            doc_indices.append(i)
+
+    if not cleaned_docs:
+        return [[] for _ in documents]
+
+    # Batch by voyage-context-3 limits
+    # Use cleaned_docs for embedding, then restore alignment
+    cleaned_results = []
+    batch = []
+    batch_tokens = 0
+    batch_chunks = 0
+
+    # Be conservative: ~3 chars/token to avoid underestimating technical content
+    # Also use 80% of MAX_EMBEDDING_TOKENS as safety margin (120k -> 96k)
+    safe_token_limit = int(MAX_EMBEDDING_TOKENS * 0.8)
+
+    for doc in cleaned_docs:
+        # Conservative token estimate: ~3 chars/token for technical content
+        doc_tokens = sum(len(chunk) for chunk in doc) // 3 + len(doc)
+        doc_chunks = len(doc)
+
+        # If adding this doc would exceed limits, process current batch first
+        if batch and (
+            len(batch) >= 1000  # Max 1000 documents per request
+            or batch_tokens + doc_tokens > safe_token_limit
+            or batch_chunks + doc_chunks > 16000
+        ):
+            batch_result = _contextualized_embed_batch(batch, model, input_type)
+            cleaned_results.extend(batch_result)
+            batch = []
+            batch_tokens = 0
+            batch_chunks = 0
+
+        batch.append(doc)
+        batch_tokens += doc_tokens
+        batch_chunks += doc_chunks
+
+    # Process final batch
+    if batch:
+        batch_result = _contextualized_embed_batch(batch, model, input_type)
+        cleaned_results.extend(batch_result)
+
+    # Verify we got results for all documents - fail loudly if not
+    if len(cleaned_results) != len(cleaned_docs):
+        raise RuntimeError(
+            f"Embedding count mismatch: got {len(cleaned_results)} results "
+            f"for {len(cleaned_docs)} documents. Partial batch failure?"
+        )
+
+    # Restore alignment: map cleaned results back to original document positions
+    results = [[] for _ in documents]
+    for cleaned_idx, orig_idx in enumerate(doc_indices):
+        results[orig_idx] = cleaned_results[cleaned_idx]
+
+    return results
+
+
+@retry(
+    wait=wait_random_exponential(multiplier=1, min=2, max=60),
+    stop=stop_after_attempt(6),
+)
+def _contextualized_embed_batch(
+    documents: list[list[str]],
+    model: str,
+    input_type: str,
+) -> list[list[Vector]]:
+    """Embed a single batch of documents with retry on rate limits."""
+    try:
+        result = voyageai_client.contextualized_embed(
+            inputs=documents,
+            model=model,
+            input_type=input_type,
+        )
+        # result.results is a list of objects, each with .embeddings
+        return [doc_result.embeddings for doc_result in result.results]
+    except Exception as e:
+        logger.error(f"Error in contextualized embedding: {e}")
+        raise

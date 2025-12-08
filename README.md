@@ -131,7 +131,7 @@ database can be started in Docker by running
 For Pinecone updates to work, you'll need to configure the API key:
 
 1. Get an API key, as described [here](https://docs.pinecone.io/docs/quickstart#2-get-and-verify-your-pinecone-api-key)
-2. Create a Pinecone index named "stampy-chat-ard" (or whatever is set as `PINECONE_INDEX_NAME`) with the `dotproduct` metric and `1536` dimensions
+2. Create a Pinecone index named "stampy-chat-ard" (or whatever is set as `PINECONE_INDEX_NAME`) with the `dotproduct` metric and `1024` dimensions
 3. Set the `PINECONE_API_KEY` to the key from step 1
 4. Set the `PINECONE_ENVIRONMENT` to whatever is the environment of your index
 
@@ -173,7 +173,9 @@ The airtable we currently scrape is <https://airtable.com/appbiNKDcn1sGPGOG/shro
 
 ### VoyageAI
 
-Voyage AI is used for embeddings. For this to work, you'll need a voyageai [API key](https://dashboard.voyageai.com/organization/api-keys) which should added to `.env` as
+Voyage AI is used for embeddings. For this to work, you'll need a voyageai [API key](https://dashboard.voyageai.com/organization/api-keys) which should added to `.env` as `VOYAGEAI_API_KEY`.
+
+Current embedding model: `voyage-context-3` (1024 dimensions).
 
 ## Testing
 

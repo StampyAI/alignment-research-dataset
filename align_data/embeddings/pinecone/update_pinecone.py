@@ -6,7 +6,10 @@ from typing import Any, Callable, Iterable, List, Tuple, Generator, Iterator
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 
-from align_data.embeddings.embedding_utils import get_embeddings
+from align_data.embeddings.embedding_utils import (
+    embed_documents_contextualized,
+    Embedding,
+)
 from align_data.db.models import Article, PineconeStatus
 from align_data.db.session import (
     make_session,
@@ -148,37 +151,61 @@ class PineconeAdder(PineconeAction):
     def batch_entries(
         self, article_stream: Generator[Article, None, None], log_progress: bool = True
     ) -> Iterator[List[Tuple[Article, PineconeEntry | None]]]:
+        """Batch articles and embed them together using voyage-context-3."""
         items = iter(article_stream)
-        while batch := tuple(islice(items, self.batch_size)):
-            yield [(article, self._make_pinecone_entry(article)) for article in batch]
+        while batch := list(islice(items, self.batch_size)):
+            yield self._embed_batch(batch)
 
-    def _make_pinecone_entry(self, article: Article) -> PineconeEntry | None:
-        logger.info(f"Getting embeddings for {article.title}")
-        article.comments = ""
+    def _embed_batch(
+        self, articles: List[Article]
+    ) -> List[Tuple[Article, PineconeEntry | None]]:
+        """Embed a batch of articles together using contextualized embeddings."""
+        logger.info("Embedding batch of %s articles", len(articles))
+
+        # Build {article: chunks} for articles with content
+        chunks_by_article = {a: get_raw_chunks(a) for a in articles}
+        valid_articles = [a for a in articles if chunks_by_article[a]]
+        for a in articles:
+            if not chunks_by_article[a]:
+                logger.warning(f"No chunks for {a.title}")
+
+        if not valid_articles:
+            return [(a, None) for a in articles]
+
         try:
-            text_chunks = get_text_chunks(article)
-            embeddings, moderation_results = get_embeddings(text_chunks)
-            if not embeddings:
-                logger.warning(f"No embeddings found for {article.title}")
-                logger.warning(f"Moderation results: {moderation_results}")
-                logger.info("text: %s", text_chunks)
-                return None
+            all_embeddings = embed_documents_contextualized([chunks_by_article[a] for a in valid_articles])
+        except Exception as e:
+            traceback.print_exc()
+            logger.error(f"Batch embedding failed: {e}")
+            for a in valid_articles:
+                a.append_comment(f"Batch embedding error: {e}")
+            return [(a, None) for a in articles]
 
-            if moderation_results:
-                flagged_text_chunks = [result["text"] for result in moderation_results]
-                logger.warning(
-                    f"OpenAI moderation flagged text chunks for the following article: {article.id}"
-                )
-                article.append_comment(
-                    f"OpenAI moderation flagged the following text chunks: {flagged_text_chunks}"
-                )
+        # Map embeddings back to articles
+        embeddings_by_article = dict(zip(valid_articles, all_embeddings))
+        results = []
+        for article in articles:
+            vectors = embeddings_by_article.get(article, [])
+            if not vectors:
+                results.append((article, None))
+                continue
+            chunks = chunks_by_article[article]
+            assert len(vectors) == len(chunks), f"Embedding count mismatch: {len(vectors)} vs {len(chunks)}"
+            embeddings = [Embedding(vector=v, text=t) for v, t in zip(vectors, chunks)]
+            results.append((article, self._make_pinecone_entry_from_embeddings(article, embeddings)))
+        return results
 
+    def _make_pinecone_entry_from_embeddings(
+        self, article: Article, embeddings: List[Embedding]
+    ) -> PineconeEntry | None:
+        """Create a PineconeEntry from pre-computed embeddings."""
+        try:
             return PineconeEntry(
-                hash_id=article.id,  # the hash_id of the article
+                hash_id=article.id,
                 source=article.source,
                 title=article.title,
                 url=article.url,
-                date_published=article.date_published.timestamp(),
+                date_published=article.date_published.timestamp() if article.date_published else None,
                 authors=[
                     author.strip()
                     for author in article.authors.split(",")
@@ -190,24 +217,10 @@ class PineconeAdder(PineconeAction):
                 miri_distance=article.miri_distance or "general",
                 needs_tech=article.needs_tech,
             )
-        except (
-            # ValueError,
-            # TypeError,
-            # AttributeError,
-            ValidationError,
-            # MissingFieldsError,
-            # MissingEmbeddingModelError,
-        ) as e:
+        except ValidationError as e:
             logger.warning(e)
-            article.append_comment(
-                f"Error encountered while processing this article: {e}"
-            )
+            article.append_comment(f"Error creating PineconeEntry: {e}")
             return None
-
-        except Exception as e:
-            traceback.print_exc()
-            logger.error(e)
-            raise
 
 
 class PineconeDeleter(PineconeAction):
@@ -273,35 +286,13 @@ class PineconeUpdater(PineconeAction):
             logger.info("Pinecone update by ID completed")
 
 
-def get_text_chunks(article: Article) -> List[str]:
-    title = article.title.replace("\n", " ")
+def get_raw_chunks(article: Article) -> List[str]:
+    """Get raw text chunks for an article (no signature prefix).
 
-    authors_lst = [author.strip() for author in article.authors.split(",")]
-    authors = get_authors_str(authors_lst)
-
-    signature = f"Title: {title}; Author(s): {authors}."
-
+    For voyage-context-3, chunks are embedded with awareness of their siblings,
+    so we don't need to repeat title/author in each chunk.
+    """
     text_chunks = split_text(article.text)
     for summary in article.summaries:
         text_chunks += split_text(summary.text)
-
-    return [f'###{signature}###\n"""{text_chunk}"""' for text_chunk in text_chunks]
-
-
-def get_authors_str(authors_lst: List[str]) -> str:
-    if not authors_lst:
-        return "n/a"
-
-    if len(authors_lst) == 1:
-        authors_str = authors_lst[0]
-    else:
-        authors_lst = authors_lst[:4]
-        authors_str = f"{', '.join(authors_lst[:-1])} and {authors_lst[-1]}"
-
-    authors_str = authors_str.replace("\n", " ")
-
-    # Truncate if necessary
-    if len(authors_str) > 500:
-        authors_str = authors_str[:497] + "..."
-
-    return authors_str
+    return [c.strip() for c in text_chunks if c and c.strip()]
