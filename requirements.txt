@@ -31,4 +31,4 @@ transformers
 tqdm==4.66.1
 openai
 pinecone
-voyageai==0.3.3
+voyageai>=0.3.5  # voyage-context-3 requires 0.3.5+

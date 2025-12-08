@@ -58,14 +58,16 @@ ARTICLE_MAIN_KEYS = [
 
 ### EMBEDDINGS ###
 MAX_EMBEDDING_TOKENS = 120000
-MIN_CHUNK_LENGTH = 700
-MAX_CHUNK_LENGTH = 1500
-PREFERRED_CHUNK_LENGTH = 1000
-CHUNK_MAX_OVERLAP = 100
+# voyage-context-3 recommends smaller chunks with NO overlap
+# (context is handled internally by the model)
+MIN_CHUNK_LENGTH = 70      # ~50 words
+MAX_CHUNK_LENGTH = 200     # ~150 words
+PREFERRED_CHUNK_LENGTH = 100  # ~75 words
+CHUNK_MAX_OVERLAP = 0      # voyage-context-3 handles context internally
 
 VOYAGEAI_API_KEY = os.environ.get("VOYAGEAI_API_KEY")
 VOYAGEAI_EMBEDDINGS_MODEL = os.environ.get(
-    "VOYAGEAI_EMBEDDINGS_MODEL", "voyage-3-large"
+    "VOYAGEAI_EMBEDDINGS_MODEL", "voyage-context-3"
 )
 EMBEDDINGS_DIMS = 1024
 USE_MODERATION = os.environ.get("USE_MODERATION", "true").lower() == "true"
