@@ -84,6 +84,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Test caches
+.hypothesis/
+
 # IDEs
 .idea
 launch.json
