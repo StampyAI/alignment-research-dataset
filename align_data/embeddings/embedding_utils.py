@@ -1,3 +1,6 @@
+import os
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+
 import logging
 from collections import namedtuple
 from typing import Any, Generator
