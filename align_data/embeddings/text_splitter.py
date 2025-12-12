@@ -313,30 +313,31 @@ def chunks(
 
         start_pos = best_boundary.pos
 
-    # Handle undersized final chunk by merging with previous
-    if (
-        len(result_chunks) >= 2
-        and doc_tokens.char_span_to_tokens(
+    # Handle undersized final chunk by merging with previous (if merge wouldn't exceed max)
+    if len(result_chunks) >= 2:
+        final_tokens = doc_tokens.char_span_to_tokens(
             result_chunks[-1].start_pos,
             result_chunks[-1].start_pos + len(result_chunks[-1].value),
         )
-        < min_chunk_length
-    ):
-        result_chunks[-2:] = [
-            Chunk(
-                result_chunks[-2].start_pos,
-                doc[result_chunks[-2].start_pos :],
-                0,
-                doc_tokens.char_span_to_tokens(result_chunks[-2].start_pos, len(doc)),
-                BPat(
-                    "merge_last",
-                    [result_chunks[-2].pat, result_chunks[-1].pat],
-                    None,
-                    None,
-                ),
-            )
-        ]
-        boundary_stats["merged_last"] += 1
+        merged_tokens = doc_tokens.char_span_to_tokens(
+            result_chunks[-2].start_pos, len(doc)
+        )
+        if final_tokens < min_chunk_length and merged_tokens <= max_chunk_length:
+            result_chunks[-2:] = [
+                Chunk(
+                    result_chunks[-2].start_pos,
+                    doc[result_chunks[-2].start_pos :],
+                    0,
+                    merged_tokens,
+                    BPat(
+                        "merge_last",
+                        [result_chunks[-2].pat, result_chunks[-1].pat],
+                        None,
+                        None,
+                    ),
+                )
+            ]
+            boundary_stats["merged_last"] += 1
 
     return result_chunks, dict(boundary_stats)
 
