@@ -22,7 +22,7 @@ from align_data.embeddings.pinecone.pinecone_db_handler import PineconeDB
 from align_data.embeddings.pinecone.pinecone_models import (
     PineconeEntry,
 )
-from align_data.embeddings.text_splitter import split_text
+from align_data.embeddings.text_splitter import split_text, Chunk
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class PineconeAdder(PineconeAction):
         """Embed a batch of articles together using contextualized embeddings."""
         logger.info("Embedding batch of %s articles", len(articles))
 
-        # Build {article: chunks} for articles with content
+        # Build {article: chunks} for articles with content (now returns Chunk objects)
         chunks_by_article = {a: get_raw_chunks(a) for a in articles}
         valid_articles = [a for a in articles if chunks_by_article[a]]
         for a in articles:
@@ -173,7 +173,9 @@ class PineconeAdder(PineconeAction):
             return [(a, None) for a in articles]
 
         try:
-            all_embeddings = embed_documents_contextualized([chunks_by_article[a] for a in valid_articles])
+            # Extract text strings for embedding API (Chunk.value)
+            texts_by_article = [[c.value for c in chunks_by_article[a]] for a in valid_articles]
+            all_embeddings = embed_documents_contextualized(texts_by_article)
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Batch embedding failed: {e}")
@@ -191,7 +193,11 @@ class PineconeAdder(PineconeAction):
                 continue
             chunks = chunks_by_article[article]
             assert len(vectors) == len(chunks), f"Embedding count mismatch: {len(vectors)} vs {len(chunks)}"
-            embeddings = [Embedding(vector=v, text=t) for v, t in zip(vectors, chunks)]
+            # Create Embeddings with section_heading from Chunks
+            embeddings = [
+                Embedding(vector=v, text=c.value, section_heading=c.section_heading)
+                for v, c in zip(vectors, chunks)
+            ]
             results.append((article, self._make_pinecone_entry_from_embeddings(article, embeddings)))
         return results
 
@@ -199,6 +205,10 @@ class PineconeAdder(PineconeAction):
         self, article: Article, embeddings: List[Embedding]
     ) -> PineconeEntry | None:
         """Create a PineconeEntry from pre-computed embeddings."""
+        # Extract meta fields (GreaterWrong articles have tags, karma, etc.)
+        meta = article.meta if isinstance(article.meta, dict) else {}
+        tags = [t.strip() for t in meta.get('tags', []) if t and t.strip()]
+
         try:
             return PineconeEntry(
                 hash_id=article.id,
@@ -216,6 +226,11 @@ class PineconeAdder(PineconeAction):
                 miri_confidence=article.miri_confidence,
                 miri_distance=article.miri_distance or "general",
                 needs_tech=article.needs_tech,
+                tags=tags,
+                karma=meta.get('karma'),
+                votes=meta.get('votes'),
+                comment_count=meta.get('comment_count'),
+                source_type=article.source_type,
             )
         except ValidationError as e:
             logger.warning(e)
@@ -286,13 +301,14 @@ class PineconeUpdater(PineconeAction):
             logger.info("Pinecone update by ID completed")
 
 
-def get_raw_chunks(article: Article) -> List[str]:
-    """Get raw text chunks for an article (no signature prefix).
+def get_raw_chunks(article: Article) -> List[Chunk]:
+    """Get raw text chunks with metadata for an article.
 
     For voyage-context-3, chunks are embedded with awareness of their siblings,
     so we don't need to repeat title/author in each chunk.
+    Returns full Chunk objects with section heading metadata.
     """
     text_chunks = split_text(article.text)
     for summary in article.summaries:
         text_chunks += split_text(summary.text)
-    return [c.strip() for c in text_chunks if c and c.strip()]
+    return [c for c in text_chunks if c.value and c.value.strip()]
