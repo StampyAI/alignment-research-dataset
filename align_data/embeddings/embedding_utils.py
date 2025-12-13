@@ -192,6 +192,10 @@ def get_embeddings(
         return embed_texts(texts), []
 
     moderation_results = moderation_check(texts)
+    # If moderation unavailable (no OpenAI key), treat all as OK
+    if not moderation_results:
+        return embed_texts(texts), []
+
     flagged = [
         dict(result) | {"text": t}
         for t, result in zip(texts, moderation_results)
