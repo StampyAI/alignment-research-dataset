@@ -24,6 +24,19 @@ class PineconeMetadata(TypedDict):
     miri_confidence: float | None
     miri_distance: Literal["core", "wider", "general"]
     needs_tech: bool | None
+    # New fields for filtering
+    tags: List[str]
+    karma: int | None
+    votes: int | None
+    comment_count: int | None
+    source_type: str | None
+    # Per-chunk position fields (computed from chunk text)
+    chunk_index: int
+    chunk_count: int
+    doc_words: int  # total words in document (sum of all chunk words)
+    words_before: int
+    words_after: int
+    section_heading: str | None
 
 
 class PineconeEntry(BaseModel):
@@ -36,7 +49,13 @@ class PineconeEntry(BaseModel):
     confidence: float | None
     miri_confidence: float | None
     miri_distance: Literal["core", "wider", "general"]
-    needs_tech: bool | None
+    needs_tech: bool | None # whether ingestion fixes are needed
+    tags: List[str]
+    karma: int | None
+    votes: int | None
+    comment_count: int | None
+    source_type: str | None
+    # Embeddings
     embeddings: List[Embedding]
 
     def __init__(self, **data):
@@ -64,13 +83,20 @@ class PineconeEntry(BaseModel):
 
         return f"PineconeEntry(hash_id={self.hash_id!r}, source={self.source!r}, title={self.title!r}, url={self.url!r}, date_published={self.date_published!r}, authors={self.authors!r}, text_chunks={display_chunks(self.embeddings)})"
 
-    @property
-    def chunk_num(self) -> int:
-        return len(self.embeddings)
-
     def create_pinecone_vectors(self) -> List[dict]:
-        return [
-            {
+        # Precompute word counts for position metadata
+        word_counts = [len(e.text.split()) for e in self.embeddings]
+        doc_words = sum(word_counts)
+        chunk_count = len(self.embeddings)
+
+        vectors = []
+        words_so_far = 0
+        for idx, embedding in enumerate(self.embeddings):
+            chunk_words = word_counts[idx]
+            words_before = words_so_far
+            words_after = doc_words - words_before - chunk_words
+
+            vectors.append({
                 "id": f"{self.hash_id}_{hash(embedding.text)}",
                 "values": embedding.vector,
                 "metadata": {
@@ -89,9 +115,22 @@ class PineconeEntry(BaseModel):
                         miri_confidence=self.miri_confidence,
                         miri_distance=self.miri_distance,
                         needs_tech=self.needs_tech,
+                        tags=self.tags,
+                        karma=self.karma,
+                        votes=self.votes,
+                        comment_count=self.comment_count,
+                        source_type=self.source_type,
+                        # Per-chunk position fields
+                        chunk_index=idx,
+                        chunk_count=chunk_count,
+                        doc_words=doc_words,
+                        words_before=words_before,
+                        words_after=words_after,
+                        section_heading=embedding.section_heading,
                     ).items()
                     if value is not None  # Filter out keys with None values
                 },
-            }
-            for embedding in self.embeddings
-        ]
+            })
+            words_so_far += chunk_words
+
+        return vectors

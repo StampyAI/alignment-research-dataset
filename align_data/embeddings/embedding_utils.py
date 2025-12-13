@@ -48,7 +48,10 @@ else:
 logger = logging.getLogger(__name__)
 
 ModerationInfoType = dict[str, Any]
-Embedding = namedtuple("Embedding", ["vector", "text"])
+Embedding = namedtuple("Embedding", [
+    "vector", "text",
+    "section_heading"  # from text_splitter.Chunk
+])
 Vector = list[float]
 
 
@@ -167,7 +170,9 @@ def embed_texts(texts: list[str]) -> list[Embedding]:
         if batch
         for vector in e_b(batch)
     ]
-    return [Embedding(vector=v, text=t) for t, v in zip(texts, vectors)]
+    # Legacy path: no chunk metadata available, use defaults
+    return [Embedding(vector=v, text=t, section_heading=None)
+            for t, v in zip(texts, vectors)]
 
 
 def get_embeddings(

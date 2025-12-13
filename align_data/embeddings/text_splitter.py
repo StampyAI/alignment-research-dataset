@@ -63,6 +63,49 @@ for idx, pat in enumerate(PATTERNS):
     pat.priority = len(PATTERNS) - 1 - idx
 
 
+def extract_headings(doc: str) -> List[Tuple[int, int, str]]:
+    """Extract headings with their positions and levels.
+
+    Returns: [(position, level, text), ...] sorted by position.
+    """
+    headings = []
+
+    # Match markdown # headings (# through ######)
+    for match in re.finditer(r'^(#{1,6})\s+(.+?)$', doc, re.MULTILINE):
+        level = len(match.group(1))
+        text = match.group(2).strip()
+        headings.append((match.start(), level, text))
+
+    # Match underline-style headings (Title\n=== or Section\n---)
+    for match in re.finditer(r'^(.+?)\n(={3,}|-{3,})$', doc, re.MULTILINE):
+        level = 1 if match.group(2)[0] == '=' else 2
+        text = match.group(1).strip()
+        headings.append((match.start(), level, text))
+
+    return sorted(headings, key=lambda h: h[0])
+
+
+def heading_at_position(headings: List[Tuple[int, int, str]], pos: int) -> str | None:
+    """Get the heading context at a given position.
+
+    Returns heading hierarchy like "Methods > Data Collection" or None.
+    """
+    stack = []  # [(level, text), ...]
+
+    for h_pos, level, text in headings:
+        if h_pos > pos:
+            break
+        # Pop any headings at same or deeper level
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        stack.append((level, text))
+
+    if not stack:
+        return None
+
+    return " > ".join(text for _, text in stack)
+
+
 class Boundary(NamedTuple):
     pos: int
     pattern: BPat
@@ -74,6 +117,7 @@ class Chunk(NamedTuple):
     remain_chars: int  # will be presented as part of post-RAG prompt
     tokencount: int
     pat: BPat
+    section_heading: str | None  # heading context like "Methods > Data Collection"
 
 
 class TokenMapper:
@@ -195,6 +239,9 @@ def chunks(
     if not doc.strip():
         return [], {}
 
+    # Extract headings for section context (before tokenization)
+    headings = extract_headings(doc)
+
     doc_tokens = TokenMapper(doc)
     assert len(doc_tokens.char_to_token) == len(doc)
 
@@ -250,6 +297,7 @@ def chunks(
                     0,
                     remaining_tokens,
                     BPat("last_chunk_by_chars", [r"$(?!.)"], None, None),
+                    None,  # placeholder: section_heading
                 )
             )
             boundary_stats["last_chunk_by_chars"] += 1
@@ -287,6 +335,7 @@ def chunks(
                     len(doc) - preferred_pos,
                     doc_tokens.char_span_to_tokens(actual_start_pos, preferred_pos),
                     BPat("chars", [r"."], None, None),
+                    None,  # placeholder: section_heading
                 )
             )
             boundary_stats["emergency_fallback"] += 1
@@ -305,6 +354,7 @@ def chunks(
                 len(doc) - best_boundary.pos,
                 doc_tokens.char_span_to_tokens(actual_start_pos, best_boundary.pos),
                 best_boundary.pattern,
+                None,  # placeholder: section_heading
             )
         )
 
@@ -335,14 +385,29 @@ def chunks(
                         None,
                         None,
                     ),
+                    None,  # placeholder: section_heading
                 )
             ]
             boundary_stats["merged_last"] += 1
 
-    return result_chunks, dict(boundary_stats)
+    # Fill in section headings for all chunks
+    chunks_with_headings = [
+        Chunk(
+            chunk.start_pos,
+            chunk.value,
+            chunk.remain_chars,
+            chunk.tokencount,
+            chunk.pat,
+            heading_at_position(headings, chunk.start_pos),
+        )
+        for chunk in result_chunks
+    ]
+
+    return chunks_with_headings, dict(boundary_stats)
 
 
-def split_text(text: str) -> list[str]:
+def split_text(text: str) -> list[Chunk]:
+    """Split text into chunks with section heading metadata."""
     chunks_list, _ = chunks(
         doc=text,
         min_chunk_length=MIN_CHUNK_LENGTH,
@@ -350,7 +415,4 @@ def split_text(text: str) -> list[str]:
         preferred_length_tokens=PREFERRED_CHUNK_LENGTH,
         chunk_max_overlap=CHUNK_MAX_OVERLAP,
     )
-    # TODO: we really want to store chars before and chars after in pinecone, so we know how far into the doc we are, and can put that in the prompt if it seems to help
-
-    # But for now, extract just the text values to match old API
-    return [chunk.value for chunk in chunks_list]
+    return chunks_list
