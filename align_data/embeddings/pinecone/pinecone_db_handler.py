@@ -256,10 +256,7 @@ class PineconeDB:
             if vector_ids:
                 self._del_items(vector_ids)
 
-    def create_index(self, replace_current_index: bool = True):
-        if replace_current_index:
-            self.delete_index()
-
+    def create_index(self):
         try:
             self.pinecone.create_index(
                 name=self.index_name,
