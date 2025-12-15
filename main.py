@@ -137,28 +137,31 @@ class AlignmentDataset:
         """
         return check_new_articles(source_spreadsheet, source_sheet)
 
-    def pinecone_update(self, *names, force_update=False) -> None:
+    def pinecone_update(self, *names, force_update=False, skip_status_update=False) -> None:
         """
         This function updates the Pinecone vector DB.
 
         :param List[str] names: The name of the dataset to update, or 'all' for all of them
+        :param bool skip_status_update: If True, don't update pinecone_status in the database.
+            Useful when populating a new index without affecting tracking for the old index.
         """
         if names == ("all",):
             names = ALL_DATASETS
         missing = {name for name in names if name not in ALL_DATASETS}
         assert not missing, f"{missing} are not valid dataset names"
 
-        PineconeUpdater().update(names, force_update, self.log_progress)
+        PineconeUpdater(skip_status_update=skip_status_update).update(names, force_update, self.log_progress)
 
     def pinecone_update_individual_articles(
-        self, *hash_ids: str, force_update=False
+        self, *hash_ids: str, force_update=False, skip_status_update=False
     ) -> None:
         """
         Update the Pinecone entries of specific articles based on their IDs given as a comma-separated string.
 
         :param str hash_ids: space-separated list of article IDs.
+        :param bool skip_status_update: If True, don't update pinecone_status in the database.
         """
-        PineconeUpdater().update_articles_by_ids(
+        PineconeUpdater(skip_status_update=skip_status_update).update_articles_by_ids(
             hash_ids, force_update, self.log_progress
         )
 
