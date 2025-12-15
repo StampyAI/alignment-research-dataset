@@ -130,8 +130,9 @@ class PineconeAction:
 class PineconeAdder(PineconeAction):
     batch_size = 10
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, skip_status_update=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.skip_status_update = skip_status_update
 
     def _articles_by_source(self, session, sources: List[str], force_update: bool):
         return get_pinecone_articles_by_sources(session, sources, force_update)
@@ -144,7 +145,8 @@ class PineconeAdder(PineconeAction):
         for article, pinecone_entry in batch:
             if pinecone_entry:
                 self.pinecone_db.upsert_entry(pinecone_entry)
-                article.pinecone_status = PineconeStatus.added
+                if not self.skip_status_update:
+                    article.pinecone_status = PineconeStatus.added
             # If pinecone_entry is None, leave status as pending_addition for retry
         return [a for a, _ in batch]
 
@@ -256,9 +258,9 @@ class PineconeDeleter(PineconeAction):
 
 
 class PineconeUpdater(PineconeAction):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, skip_status_update=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.adder = PineconeAdder(*args, pinecone=self.pinecone_db, **kwargs)
+        self.adder = PineconeAdder(*args, pinecone=self.pinecone_db, skip_status_update=skip_status_update, **kwargs)
         self.remover = PineconeDeleter(*args, pinecone=self.pinecone_db, **kwargs)
 
     def update(
