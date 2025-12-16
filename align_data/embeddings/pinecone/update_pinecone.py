@@ -4,6 +4,7 @@ from itertools import islice
 from typing import Any, Callable, Iterable, List, Tuple, Generator, Iterator
 
 from sqlalchemy.orm import Session
+from tqdm import tqdm
 from pydantic import ValidationError
 
 from align_data.embeddings.embedding_utils import (
@@ -56,23 +57,25 @@ class PineconeAction:
         if log_progress:
             logger.info("Processing %s items", total_articles)
 
+        # Calculate number of batches for tqdm
+        num_batches = (total_articles + self.batch_size - 1) // self.batch_size if total_articles > 0 else 0
+
+        batch_iter = self.batch_entries(articles_query)
+        if log_progress:
+            batch_iter = tqdm(
+                batch_iter,
+                total=num_batches,
+                desc="Pinecone update",
+                unit="batch",
+                dynamic_ncols=True,
+            )
+
         total_processed = 0
-        for batch in self.batch_entries(articles_query):
+        for batch in batch_iter:
             self.save_batch(session, batch)
             total_processed += len(batch)
-
-            if log_progress:
-                percentage = (
-                    (total_processed / total_articles) * 100
-                    if total_articles > 0
-                    else 0
-                )
-                logger.info(
-                    "Progress: %.1f%% (%d/%d)",
-                    percentage,
-                    total_processed,
-                    total_articles,
-                )
+            if log_progress and hasattr(batch_iter, 'set_postfix'):
+                batch_iter.set_postfix(articles=total_processed)
 
         if log_progress:
             logger.info("Completed processing %s items", total_processed)
