@@ -230,8 +230,10 @@ class Article(Base):
     def check_for_changes(cls, mapper, connection, target):
         if not target.is_valid:
             return
-        monitored_attributes = list(PineconeMetadata.__annotations__.keys())
-        monitored_attributes.remove("hash_id")
+        # Only monitor attributes that are actual Article columns AND in PineconeMetadata
+        article_columns = set(cls.__table__.columns.keys())
+        pinecone_fields = set(PineconeMetadata.__annotations__.keys()) - {"hash_id"}
+        monitored_attributes = article_columns & pinecone_fields
 
         if any(
             get_history(target, attr).has_changes() for attr in monitored_attributes
