@@ -1,9 +1,11 @@
 import logging
+import time
 import traceback
 from itertools import islice
 from typing import Any, Callable, Iterable, List, Tuple, Generator, Iterator
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 from tqdm import tqdm
 from pydantic import ValidationError
 
@@ -112,15 +114,89 @@ class PineconeAction:
         raise NotImplementedError
 
     def save_batch(self, session: Session, batch: List[Any]):
-        try:
-            session.add_all(self.process_batch(batch))
-            session.commit()
+        """
+        Save a batch to database with retry on MySQL connection loss.
 
-        except Exception as e:
-            # Rollback on any kind of error. The next run will redo this batch, but in the meantime keep trucking
-            logger.error(e)
-            traceback.print_exc()
-            session.rollback()
+        FIXES ERROR: "Lost connection to MySQL server during query"
+        This happens when MySQL connection times out during long embedding operations
+        (Voyage API calls can take 30+ seconds per batch).
+
+        WHY THIS FIX WORKS:
+        1. SQLAlchemy is configured with pool_pre_ping=True (see align_data/db/session.py:14)
+        2. pool_pre_ping means SQLAlchemy pings the connection before use
+        3. If ping fails (dead connection), pool automatically provides fresh connection
+        4. So after rollback(), the next database operation gets a working connection
+
+        WHY NOT session.close():
+        - close() would detach Article objects from the session
+        - On retry, process_batch() returns the same Article objects
+        - session.add_all() would then try to attach detached objects → state corruption
+        - rollback() keeps objects attached but discards pending changes (what we want)
+
+        IDEMPOTENCY:
+        - Pinecone upserts are idempotent (same ID = replace)
+        - article.pinecone_status = PineconeStatus.added is idempotent (same value)
+        - So calling process_batch() multiple times with same batch is safe
+
+        RECOVERY ON FAILURE:
+        - If all retries fail, batch stays in pending_addition status
+        - Next run will re-query these articles and process them
+        - Embeddings are cached (vector_cache.py) so no re-embedding needed
+        """
+        max_retries = 3
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                # process_batch does: Pinecone upsert (idempotent) → modify Article objects
+                # The expensive embedding work already happened in _embed_batch()
+                processed = self.process_batch(batch)
+                session.add_all(processed)
+                session.commit()
+                return  # Success
+
+            except OperationalError as e:
+                # OperationalError includes "Lost connection to MySQL server"
+                # and other connection-level failures
+                last_error = e
+                logger.warning(
+                    f"MySQL connection lost (attempt {attempt + 1}/{max_retries}): {e}"
+                )
+
+                # Rollback discards pending changes and marks transaction as inactive.
+                # pool_pre_ping=True ensures next DB operation gets a live connection.
+                # DO NOT call session.close() - see docstring above.
+                try:
+                    session.rollback()
+                except OperationalError:
+                    # Rollback itself failed because connection is truly dead.
+                    # That's expected - the rollback was best-effort cleanup.
+                    # pool_pre_ping will still give us a fresh connection.
+                    logger.debug("Rollback failed due to dead connection (expected)")
+                except Exception as rollback_err:
+                    logger.warning(f"Unexpected error during rollback: {rollback_err}")
+
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** (attempt + 1))  # 2s, 4s backoff
+                    continue
+
+            except Exception as e:
+                # Non-connection errors (validation, Pinecone permanent failure, etc.)
+                # Don't retry - these won't resolve with time
+                logger.error(f"Batch processing error: {e}")
+                traceback.print_exc()
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+                return  # Continue to next batch, don't crash entire job
+
+        # All retries exhausted - batch stays in pending_addition status
+        # Next run will re-process (embeddings cached, so just DB write + Pinecone upsert)
+        logger.error(
+            f"MySQL connection failed after {max_retries} attempts. "
+            f"Batch will be reprocessed on next run (embeddings are cached). Error: {last_error}"
+        )
 
     def batch_entries(
         self, article_stream: Generator[Article, None, None], log_progress: bool = True
