@@ -129,3 +129,5 @@ secrets/
 credentials.json
 
 data/raw/
+*.parquet
+*.log
