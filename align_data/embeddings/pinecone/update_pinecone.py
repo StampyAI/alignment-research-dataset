@@ -54,7 +54,11 @@ class PineconeAction:
         self, session: Session, articles_query, log_progress: bool
     ):
         """Helper method to handle update logic with consistent logging."""
+        import time
+        print(f"[DEBUG] Starting count query...", flush=True)
+        t0 = time.time()
         total_articles = articles_query.count()
+        print(f"[DEBUG] Count query done: {total_articles} articles in {time.time()-t0:.1f}s", flush=True)
 
         if log_progress:
             logger.info("Processing %s items", total_articles)
@@ -64,8 +68,12 @@ class PineconeAction:
 
         # yield_per streams results instead of loading all into memory
         # execution_options with stream_results enables server-side cursor
+        print(f"[DEBUG] Setting up streaming query...", flush=True)
+        t0 = time.time()
         streaming_query = articles_query.execution_options(stream_results=True).yield_per(100)
         batch_iter = self.batch_entries(streaming_query)
+        print(f"[DEBUG] Streaming setup done in {time.time()-t0:.1f}s", flush=True)
+
         if log_progress:
             batch_iter = tqdm(
                 batch_iter,
@@ -76,8 +84,13 @@ class PineconeAction:
             )
 
         total_processed = 0
+        batch_num = 0
         for batch in batch_iter:
+            batch_num += 1
+            print(f"[DEBUG] Got batch {batch_num}, {len(batch)} items, processing...", flush=True)
+            t0 = time.time()
             self.save_batch(session, batch)
+            print(f"[DEBUG] Batch {batch_num} saved in {time.time()-t0:.1f}s", flush=True)
             total_processed += len(batch)
             if log_progress and hasattr(batch_iter, 'set_postfix'):
                 batch_iter.set_postfix(articles=total_processed)
@@ -236,19 +249,37 @@ class PineconeAdder(PineconeAction):
         self, article_stream: Generator[Article, None, None], log_progress: bool = True
     ) -> Iterator[List[Tuple[Article, PineconeEntry | None]]]:
         """Batch articles and embed them together using voyage-context-3."""
+        import time
         items = iter(article_stream)
-        while batch := list(islice(items, self.batch_size)):
-            yield self._embed_batch(batch)
+        batch_num = 0
+        while True:
+            print(f"[DEBUG] batch_entries: fetching next {self.batch_size} articles from stream...", flush=True)
+            t0 = time.time()
+            batch = list(islice(items, self.batch_size))
+            if not batch:
+                print(f"[DEBUG] batch_entries: stream exhausted", flush=True)
+                break
+            batch_num += 1
+            print(f"[DEBUG] batch_entries: got {len(batch)} articles in {time.time()-t0:.1f}s, embedding...", flush=True)
+            t0 = time.time()
+            result = self._embed_batch(batch)
+            print(f"[DEBUG] batch_entries: embedded in {time.time()-t0:.1f}s", flush=True)
+            yield result
 
     def _embed_batch(
         self, articles: List[Article]
     ) -> List[Tuple[Article, PineconeEntry | None]]:
         """Embed a batch of articles together using contextualized embeddings."""
         logger.info("Embedding batch of %s articles", len(articles))
+        import time
+        print(f"[DEBUG] _embed_batch: chunking {len(articles)} articles...", flush=True)
 
         # Build {article: chunks} for articles with content (now returns Chunk objects)
+        t0 = time.time()
         chunks_by_article = {a: get_raw_chunks(a) for a in articles}
         valid_articles = [a for a in articles if chunks_by_article[a]]
+        total_chunks = sum(len(chunks_by_article[a]) for a in valid_articles)
+        print(f"[DEBUG] _embed_batch: chunked in {time.time()-t0:.1f}s, {len(valid_articles)} valid articles, {total_chunks} total chunks", flush=True)
         for a in articles:
             if not chunks_by_article[a]:
                 logger.warning(f"No chunks for {a.title}")
@@ -259,7 +290,10 @@ class PineconeAdder(PineconeAction):
         try:
             # Extract text strings for embedding API (Chunk.value)
             texts_by_article = [[c.value for c in chunks_by_article[a]] for a in valid_articles]
+            print(f"[DEBUG] _embed_batch: calling Voyage API...", flush=True)
+            t0 = time.time()
             all_embeddings = embed_documents_contextualized(texts_by_article)
+            print(f"[DEBUG] _embed_batch: Voyage API returned in {time.time()-t0:.1f}s", flush=True)
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Batch embedding failed: {e}")
