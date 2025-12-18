@@ -2,7 +2,7 @@ from typing import List
 import logging
 
 from contextlib import contextmanager
-from sqlalchemy import create_engine, or_
+from sqlalchemy import create_engine, or_, event
 from sqlalchemy.orm import Session
 from align_data.settings import DB_CONNECTION_URI, MIN_CONFIDENCE
 from align_data.db.models import Article, PineconeStatus
@@ -13,6 +13,22 @@ logger = logging.getLogger(__name__)
 engine = create_engine(
     DB_CONNECTION_URI, echo=False, pool_pre_ping=True, pool_recycle=1800
 )
+
+
+@event.listens_for(engine, "connect")
+def set_mysql_timeouts(dbapi_connection, connection_record):
+    """Set longer timeouts for slow network connections.
+
+    The default net_read_timeout (30s) and net_write_timeout (60s) are too
+    short for large queries over slow networks. This causes "Lost connection
+    to MySQL server during query" errors.
+
+    Setting to 6000s (100 min) to handle stochastic network delays.
+    """
+    cursor = dbapi_connection.cursor()
+    cursor.execute("SET SESSION net_read_timeout = 6000")
+    cursor.execute("SET SESSION net_write_timeout = 6000")
+    cursor.close()
 
 
 @contextmanager

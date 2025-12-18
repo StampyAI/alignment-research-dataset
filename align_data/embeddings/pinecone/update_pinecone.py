@@ -4,7 +4,7 @@ import traceback
 from itertools import islice
 from typing import Any, Callable, Iterable, List, Tuple, Generator, Iterator
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import OperationalError
 from tqdm import tqdm
 from pydantic import ValidationError
@@ -53,26 +53,37 @@ class PineconeAction:
     def _update_with_logging(
         self, session: Session, articles_query, log_progress: bool
     ):
-        """Helper method to handle update logic with consistent logging."""
+        """Helper method to handle update logic with consistent logging.
+
+        Uses ID-based batching to avoid long-running queries.
+
+        WHY NOT STREAMING:
+        mysql-connector-python doesn't support server-side cursors
+        (supports_server_side_cursors=False), so stream_results=True is ignored.
+        Loading 20K articles with TEXT columns takes 100+ minutes and the
+        connection dies after ~15 min due to network timeouts.
+
+        FIX: Fetch just IDs first (fast), then load articles in small batches.
+        Each batch is a fresh query that completes in seconds.
+        """
         import time
-        print(f"[DEBUG] Starting count query...", flush=True)
+
+        # Step 1: Fetch just the IDs (fast - no TEXT columns)
+        print(f"[DEBUG] Fetching article IDs...", flush=True)
         t0 = time.time()
-        total_articles = articles_query.count()
-        print(f"[DEBUG] Count query done: {total_articles} articles in {time.time()-t0:.1f}s", flush=True)
+        # .with_entities() returns just the specified columns
+        article_ids = [row[0] for row in articles_query.with_entities(Article.id).all()]
+        print(f"[DEBUG] Got {len(article_ids)} article IDs in {time.time()-t0:.1f}s", flush=True)
 
         if log_progress:
-            logger.info("Processing %s items", total_articles)
+            logger.info("Processing %s items", len(article_ids))
 
-        # Calculate number of batches for tqdm
-        num_batches = (total_articles + self.batch_size - 1) // self.batch_size if total_articles > 0 else 0
+        if not article_ids:
+            return
 
-        # yield_per streams results instead of loading all into memory
-        # execution_options with stream_results enables server-side cursor
-        print(f"[DEBUG] Setting up streaming query...", flush=True)
-        t0 = time.time()
-        streaming_query = articles_query.execution_options(stream_results=True).yield_per(100)
-        batch_iter = self.batch_entries(streaming_query)
-        print(f"[DEBUG] Streaming setup done in {time.time()-t0:.1f}s", flush=True)
+        # Step 2: Process in batches, loading full articles for each batch
+        num_batches = (len(article_ids) + self.batch_size - 1) // self.batch_size
+        batch_iter = range(0, len(article_ids), self.batch_size)
 
         if log_progress:
             batch_iter = tqdm(
@@ -84,14 +95,29 @@ class PineconeAction:
             )
 
         total_processed = 0
-        batch_num = 0
-        for batch in batch_iter:
-            batch_num += 1
-            print(f"[DEBUG] Got batch {batch_num}, {len(batch)} items, processing...", flush=True)
+        for batch_start in batch_iter:
+            batch_ids = article_ids[batch_start:batch_start + self.batch_size]
+            batch_num = batch_start // self.batch_size + 1
+
+            # Load full articles for this batch only, eagerly loading summaries
+            # to avoid lazy-load queries later that could fail on stale connections
+            print(f"[DEBUG] Loading batch {batch_num} ({len(batch_ids)} articles)...", flush=True)
             t0 = time.time()
-            self.save_batch(session, batch)
-            print(f"[DEBUG] Batch {batch_num} saved in {time.time()-t0:.1f}s", flush=True)
-            total_processed += len(batch)
+            articles = session.query(Article).options(
+                joinedload(Article.summaries)
+            ).filter(Article.id.in_(batch_ids)).all()
+            print(f"[DEBUG] Loaded in {time.time()-t0:.1f}s, processing...", flush=True)
+
+            # Process through batch_entries (which does embedding)
+            t0 = time.time()
+            embedded_batch = list(self.batch_entries(iter(articles)))[0] if articles else []
+            print(f"[DEBUG] Embedded in {time.time()-t0:.1f}s, saving...", flush=True)
+
+            t0 = time.time()
+            self.save_batch(session, embedded_batch)
+            print(f"[DEBUG] Saved in {time.time()-t0:.1f}s", flush=True)
+
+            total_processed += len(articles)
             if log_progress and hasattr(batch_iter, 'set_postfix'):
                 batch_iter.set_postfix(articles=total_processed)
 
