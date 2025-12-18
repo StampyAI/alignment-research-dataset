@@ -62,7 +62,10 @@ class PineconeAction:
         # Calculate number of batches for tqdm
         num_batches = (total_articles + self.batch_size - 1) // self.batch_size if total_articles > 0 else 0
 
-        batch_iter = self.batch_entries(articles_query)
+        # yield_per streams results instead of loading all into memory
+        # execution_options with stream_results enables server-side cursor
+        streaming_query = articles_query.execution_options(stream_results=True).yield_per(100)
+        batch_iter = self.batch_entries(streaming_query)
         if log_progress:
             batch_iter = tqdm(
                 batch_iter,
