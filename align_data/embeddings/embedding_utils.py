@@ -317,22 +317,18 @@ def _embed_documents_batched(
     3. Each sub-document is embedded separately (loses some cross-chunk context)
     4. Results are recombined by original document index
 
-    WHY 30K NOT 32K:
-    - Leave 2K headroom (~6000 chars) for API overhead and estimation error
-    - Token estimation is crude (~3 chars/token), could underestimate
-
     TRADE-OFF:
     - Split documents lose cross-chunk context (voyage-context-3's main benefit)
     - But partial context is better than complete failure
     """
     # voyage-context-3 has 32K context window per document
-    # Leave headroom for API overhead and estimation error
-    MAX_DOC_TOKENS = 30000
+    # Using real tokenizer, so we can push close to the limit (leave 500 token buffer)
+    MAX_DOC_TOKENS = 31500
 
     # First, handle oversized documents by splitting them
     processed_docs = []  # List of (original_idx, doc_chunks) tuples
     for orig_idx, doc in enumerate(documents):
-        doc_tokens = _estimate_tokens(doc)
+        doc_tokens = _count_tokens(doc)
 
         if doc_tokens <= MAX_DOC_TOKENS:
             # Document fits in context window
@@ -340,7 +336,7 @@ def _embed_documents_batched(
         else:
             # Document too large - split into sub-documents
             logger.info(
-                f"Document {orig_idx} has ~{doc_tokens} tokens (>{MAX_DOC_TOKENS}), "
+                f"Document {orig_idx} has {doc_tokens} tokens (>{MAX_DOC_TOKENS}), "
                 f"splitting into sub-batches"
             )
             sub_docs = _split_oversized_document(doc, MAX_DOC_TOKENS)
@@ -354,12 +350,12 @@ def _embed_documents_batched(
     batch_tokens = 0
     batch_chunks = 0
 
-    # Be conservative: ~3 chars/token to avoid underestimating technical content
-    # Also use 80% of MAX_EMBEDDING_TOKENS as safety margin (120k -> 96k)
-    safe_token_limit = int(MAX_EMBEDDING_TOKENS * 0.8)
+    # Using real tokenizer, can use closer to actual limit
+    # MAX_EMBEDDING_TOKENS is 120k, leave small buffer
+    safe_token_limit = int(MAX_EMBEDDING_TOKENS * 0.95)
 
     for orig_idx, doc in processed_docs:
-        doc_tokens = _estimate_tokens(doc)
+        doc_tokens = _count_tokens(doc)
         doc_chunks = len(doc)
 
         # If adding this doc would exceed limits, process current batch first
@@ -403,22 +399,16 @@ def _embed_documents_batched(
     return [results_by_orig_idx[i] for i in range(len(documents))]
 
 
-def _estimate_tokens(chunks: list[str]) -> int:
+def _count_tokens(chunks: list[str]) -> int:
     """
-    Estimate token count for a list of chunks.
+    Count tokens for a list of chunks using Voyage's tokenizer.
 
-    APPROXIMATION: ~3 chars/token for English technical content.
-    - Underestimates for long technical words (e.g., "contextualized" = 1 token, 14 chars)
-    - Overestimates for common short words and punctuation
-    - For this codebase (English AI safety content), works reasonably well
-
-    The +len(chunks) accounts for BPE token boundaries at chunk joins.
-
-    RISK: If estimation underestimates by >2K tokens, document won't be split
-    when it should be, and API will reject it. The 30K limit (vs 32K actual)
-    provides some buffer.
+    Uses the actual voyage-context-3 tokenizer for accurate counts,
+    allowing us to pack documents right up to the 32K limit.
     """
-    return sum(len(chunk) for chunk in chunks) // 3 + len(chunks)
+    if not chunks or not voyageai_client:
+        return 0
+    return voyageai_client.count_tokens(chunks, model=VOYAGEAI_EMBEDDINGS_MODEL)
 
 
 def _split_oversized_document(chunks: list[str], max_tokens: int) -> list[list[str]]:
@@ -430,34 +420,31 @@ def _split_oversized_document(chunks: list[str], max_tokens: int) -> list[list[s
     from sub-doc-1's chunks. This loses voyage-context-3's cross-chunk awareness.
     But partial context (within sub-doc) is better than complete failure.
 
-    CHUNK TRUNCATION (rare edge case):
-    If a SINGLE chunk exceeds max_tokens (~90K chars), it's truncated.
-    This would require a chunk ~90K chars with our 200-token chunk size setting,
-    which shouldn't happen unless text_splitter has a bug.
-    Truncation loses data but prevents API failure.
-
-    NOTE ON MUTATION:
-    The line `chunk = chunk[:max_chars]` rebinds the local variable, it does NOT
-    modify the original list. The truncated string is what gets appended to current_sub.
+    SINGLE CHUNK EDGE CASE:
+    If a single chunk exceeds max_tokens, we log a warning and put it in its own
+    sub-doc. The API will reject it, but that's better than silently truncating.
+    This shouldn't happen with our 200-token chunk size setting.
     """
     sub_docs = []
     current_sub = []
     current_tokens = 0
 
     for chunk in chunks:
-        chunk_tokens = len(chunk) // 3 + 1
+        chunk_tokens = _count_tokens([chunk])
 
-        # Handle single chunk exceeding max_tokens (rare edge case)
+        # Single chunk exceeding max_tokens - shouldn't happen with 200-token chunks
         if chunk_tokens > max_tokens:
-            # Truncate to fit - this loses data but prevents API failure
-            # Calculate max chars: max_tokens * 3 (inverse of our estimation)
-            max_chars = (max_tokens - 1) * 3
             logger.warning(
-                f"Single chunk exceeds context window (~{chunk_tokens} tokens > {max_tokens}), "
-                f"truncating from {len(chunk)} to {max_chars} chars"
+                f"Single chunk has {chunk_tokens} tokens (>{max_tokens}). "
+                f"This shouldn't happen - check text_splitter settings."
             )
-            chunk = chunk[:max_chars]
-            chunk_tokens = max_tokens
+            # Put it in its own sub-doc, API will reject but we'll see the error
+            if current_sub:
+                sub_docs.append(current_sub)
+                current_sub = []
+                current_tokens = 0
+            sub_docs.append([chunk])
+            continue
 
         if current_tokens + chunk_tokens > max_tokens and current_sub:
             # Current sub-doc is full, start a new one

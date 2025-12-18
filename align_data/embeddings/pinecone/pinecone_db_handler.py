@@ -28,104 +28,88 @@ def chunk_items(items, chunk_size):
         yield items[i : i + chunk_size]
 
 
-def with_retry(n=3, exceptions=(Exception,)):
-    """Basic retry decorator with limited attempts."""
+def with_retry(n=3, times=None, exceptions=(Exception,)):
+    """Generic retry decorator with limited attempts. Used for non-Pinecone operations."""
+    # 'times' is an alias for 'n' for compatibility with other code
+    attempts = times if times is not None else n
+
     def retrier_wrapper(f):
         def wrapper(*args, **kwargs):
-            for i in range(n):
+            last_error = None
+            for i in range(attempts):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    logger.error(f"Got exception while retrying: {e}")
-                time.sleep(2**i)
-            raise TimeoutError(f"Gave up after {n} tries")
-
+                    last_error = e
+                    logger.warning(f"Retry {i+1}/{attempts} after error: {e}")
+                    time.sleep(2 ** i)
+            raise last_error or TimeoutError(f"Gave up after {attempts} tries")
         return wrapper
-
     return retrier_wrapper
 
 
-def with_infinite_retry_on_429(f):
+def with_pinecone_retry(f):
     """
-    Retry decorator for Pinecone operations that retries indefinitely on 429 errors.
+    Single retry decorator for Pinecone operations. Handles all error types in one place.
 
-    FIXES ERROR: "429 Too Many Requests" and "You've reached the max storage allowed"
-    Both return HTTP 429 from Pinecone.
-
-    WHY INFINITE RETRY:
-    - Rate limits: Transient, resolve with backoff. Infinite retry = auto-recovery.
-    - Storage limits: Needs manual intervention. Infinite retry = process pauses
-      waiting for human to upgrade plan/delete data, rather than crashing.
-
-    WHY THIS LOCATION (on _upsert only):
-    - Upserts are the main bottleneck during indexing
-    - Deletes use plain @with_retry - if delete hits 429 and fails, batch stays
-      in pending_removal status and will be retried on next run (no data loss)
-
-    DECORATOR STACKING (line 167-168):
-        @with_infinite_retry_on_429  <- outer, catches PineconeApiException
-        @with_retry(exceptions=(ProtocolError,))  <- inner, catches network errors
-    Inner runs first. If ProtocolError 3x → TimeoutError → outer re-raises (don't
-    infinitely retry network failures, they're likely persistent).
+    Error handling strategy:
+    - 429 (rate limit / storage limit): Infinite retry with exponential backoff (max 5min)
+      Rate limits resolve on their own. Storage limits wait for human intervention.
+    - ProtocolError (network): 3 retries then give up (persistent network issue)
+    - Other PineconeApiException: No retry (400 bad request, etc. won't self-resolve)
+    - Other Exception: 3 retries then give up (unknown transient vs permanent)
     """
     def wrapper(*args, **kwargs):
-        attempt = 0
-        max_delay = 300  # 5 minutes max between retries
+        attempt_429 = 0
+        attempt_other = 0
+        max_delay_429 = 300  # 5 min max for rate limits
+        max_attempts_other = 3
 
         while True:
             try:
                 return f(*args, **kwargs)
+
             except PineconeApiException as e:
-                # Use getattr for safety - some Pinecone exception versions may differ
                 status = getattr(e, 'status', None)
                 if status == 429:
-                    attempt += 1
-                    # Exponential backoff: 2, 4, 8, 16, 32, 64, 128, 256, 300, 300...
-                    delay = min(2 ** attempt, max_delay)
+                    # Rate limit or storage limit - retry indefinitely
+                    attempt_429 += 1
+                    delay = min(2 ** attempt_429, max_delay_429)
 
-                    # Distinguish storage limit vs rate limit for logging only.
-                    # Both are retried indefinitely - the distinction is just for
-                    # clearer log messages to help operators understand what's happening.
-                    # FRAGILE: String matching could break if Pinecone changes error format.
                     error_body = str(e.body) if (hasattr(e, 'body') and e.body is not None) else str(e)
-                    is_storage_limit = 'storage' in error_body.lower() and 'limit' in error_body.lower()
+                    is_storage = 'storage' in error_body.lower() and 'limit' in error_body.lower()
 
-                    if is_storage_limit:
+                    if is_storage:
                         logger.warning(
-                            f"Pinecone STORAGE LIMIT reached (attempt {attempt}). "
-                            f"Waiting {delay}s for manual intervention. "
-                            f"Options: upgrade plan, delete old index, or free up space. "
-                            f"Error: {error_body[:200]}"
+                            f"STORAGE LIMIT (attempt {attempt_429}). Waiting {delay}s. "
+                            f"Fix: upgrade plan or delete old index. Error: {error_body[:200]}"
                         )
                     else:
-                        logger.warning(
-                            f"Pinecone rate limit hit (attempt {attempt}). "
-                            f"Backing off for {delay}s..."
-                        )
+                        logger.warning(f"Rate limit (attempt {attempt_429}). Backing off {delay}s...")
 
                     time.sleep(delay)
                 else:
-                    # Non-429 Pinecone errors (400 bad request, 500 internal, etc.)
-                    # Don't retry - likely permanent errors that won't resolve with time
+                    # Non-429 API error (400, 500, etc.) - don't retry, probably permanent
                     raise
-            except TimeoutError:
-                # TimeoutError comes from inner @with_retry exhausting its attempts.
-                # If the inner decorator gave up after 3 tries, the problem is persistent
-                # (network issues, DNS failures, etc.) - don't retry indefinitely.
-                raise
+
+            except ProtocolError as e:
+                # Network-level error - retry a few times
+                attempt_other += 1
+                if attempt_other > max_attempts_other:
+                    logger.error(f"Network error persisted after {attempt_other} attempts: {e}")
+                    raise
+                delay = 2 ** attempt_other
+                logger.warning(f"Network error (attempt {attempt_other}/{max_attempts_other}): {e}. Retrying in {delay}s...")
+                time.sleep(delay)
+
             except Exception as e:
-                # Other transient errors (network issues, etc.) - retry with backoff
-                # but NOT indefinitely (cap at 10 attempts) to avoid infinite loops
-                # on unexpected persistent errors.
-                attempt += 1
-                if attempt > 10:
-                    logger.error(f"Pinecone operation failed after {attempt} attempts, giving up: {e}")
+                # Unknown error - retry a few times in case it's transient
+                attempt_other += 1
+                if attempt_other > max_attempts_other:
+                    logger.error(f"Unknown error persisted after {attempt_other} attempts: {e}")
                     raise
-                delay = min(2 ** attempt, 60)  # Max 60s for non-429 errors
-                logger.warning(
-                    f"Pinecone operation failed (attempt {attempt}): {type(e).__name__}: {e}. "
-                    f"Retrying in {delay}s..."
-                )
+                delay = 2 ** attempt_other
+                logger.warning(f"Error (attempt {attempt_other}/{max_attempts_other}): {type(e).__name__}: {e}. Retrying in {delay}s...")
                 time.sleep(delay)
 
     return wrapper
@@ -176,25 +160,19 @@ class PineconeDB:
             except Exception as e:
                 logger.error(f"Failed to get index stats: {e}")
 
-    @with_retry(exceptions=(ProtocolError,))
     def _get_vectors(self, entry: PineconeEntry) -> list[dict]:
         return entry.create_pinecone_vectors()
 
-    @with_infinite_retry_on_429
-    @with_retry(exceptions=(ProtocolError,))
+    @with_pinecone_retry
     def _upsert(
         self, vectors: list[dict], upsert_size: int = 100, show_progress: bool = True
     ):
-        try:
-            self.index.upsert(
-                vectors=vectors,
-                batch_size=upsert_size,
-                namespace=PINECONE_NAMESPACE,
-                show_progress=show_progress,
-            )
-        except Exception as e:
-            logger.error(f"Failed to upsert vectors: {e}")
-            raise
+        self.index.upsert(
+            vectors=vectors,
+            batch_size=upsert_size,
+            namespace=PINECONE_NAMESPACE,
+            show_progress=show_progress,
+        )
 
     def upsert_entry(
         self,
