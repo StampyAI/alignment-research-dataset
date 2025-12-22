@@ -30,7 +30,6 @@ from align_data.settings import (
     USE_MODERATION,
     MAX_EMBEDDING_TOKENS,
 )
-
 if OPENAI_API_KEY:
     openai_client = OpenAI(api_key=OPENAI_API_KEY, organization=OPENAI_ORGANIZATION)
 else:
@@ -297,8 +296,6 @@ def _embed_documents_batched(
 ) -> list[list[Vector]]:
     """
     Batch and embed documents respecting API limits.
-
-    This is the uncached embedding path - called for cache misses.
 
     FIXES ERROR: "The example at index N in your batch has too many tokens and
     does not fit into the model's context window of 32000"

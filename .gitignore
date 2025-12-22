@@ -129,6 +129,10 @@ secrets/
 credentials.json
 
 data/raw/
-*.parquet
 *.log
-*.json
+
+# Large operational data files (generated locally, not for version control)
+articles_filtered_*.json
+pinecone_*.json
+to_delete.json
+exports/*.parquet

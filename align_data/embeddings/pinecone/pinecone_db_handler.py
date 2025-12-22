@@ -1,7 +1,6 @@
 # dataset/pinecone_db_handler.py
 import time
 import logging
-import re
 from typing import List, Tuple
 
 from pinecone import Pinecone, ServerlessSpec
@@ -28,22 +27,19 @@ def chunk_items(items, chunk_size):
         yield items[i : i + chunk_size]
 
 
-def with_retry(n=3, times=None, exceptions=(Exception,)):
+def with_retry(n=3, exceptions=(Exception,)):
     """Generic retry decorator with limited attempts. Used for non-Pinecone operations."""
-    # 'times' is an alias for 'n' for compatibility with other code
-    attempts = times if times is not None else n
-
     def retrier_wrapper(f):
         def wrapper(*args, **kwargs):
             last_error = None
-            for i in range(attempts):
+            for i in range(n):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
                     last_error = e
-                    logger.warning(f"Retry {i+1}/{attempts} after error: {e}")
+                    logger.warning(f"Retry {i+1}/{n} after error: {e}")
                     time.sleep(2 ** i)
-            raise last_error or TimeoutError(f"Gave up after {attempts} tries")
+            raise last_error or TimeoutError(f"Gave up after {n} tries")
         return wrapper
     return retrier_wrapper
 
@@ -53,8 +49,8 @@ def with_pinecone_retry(f):
     Single retry decorator for Pinecone operations. Handles all error types in one place.
 
     Error handling strategy:
-    - 429 (rate limit / storage limit): Infinite retry with exponential backoff (max 5min)
-      Rate limits resolve on their own. Storage limits wait for human intervention.
+    - 429 (rate limit / storage limit): Retry with exponential backoff (max 5min delay,
+      ~2 hours total before giving up)
     - ProtocolError (network): 3 retries then give up (persistent network issue)
     - Other PineconeApiException: No retry (400 bad request, etc. won't self-resolve)
     - Other Exception: 3 retries then give up (unknown transient vs permanent)
@@ -62,7 +58,9 @@ def with_pinecone_retry(f):
     def wrapper(*args, **kwargs):
         attempt_429 = 0
         attempt_other = 0
-        max_delay_429 = 300  # 5 min max for rate limits
+        max_delay_429 = 300  # 5 min max between retries
+        max_total_429 = 7200  # give up after ~2 hours of 429s
+        total_waited_429 = 0
         max_attempts_other = 3
 
         while True:
@@ -72,9 +70,15 @@ def with_pinecone_retry(f):
             except PineconeApiException as e:
                 status = getattr(e, 'status', None)
                 if status == 429:
-                    # Rate limit or storage limit - retry indefinitely
                     attempt_429 += 1
                     delay = min(2 ** attempt_429, max_delay_429)
+
+                    if total_waited_429 + delay > max_total_429:
+                        logger.error(
+                            f"429 retry exhausted after {total_waited_429}s "
+                            f"({attempt_429} attempts). Giving up."
+                        )
+                        raise
 
                     error_body = str(e.body) if (hasattr(e, 'body') and e.body is not None) else str(e)
                     is_storage = 'storage' in error_body.lower() and 'limit' in error_body.lower()
@@ -88,6 +92,7 @@ def with_pinecone_retry(f):
                         logger.warning(f"Rate limit (attempt {attempt_429}). Backing off {delay}s...")
 
                     time.sleep(delay)
+                    total_waited_429 += delay
                 else:
                     # Non-429 API error (400, 500, etc.) - don't retry, probably permanent
                     raise
