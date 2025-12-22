@@ -129,17 +129,35 @@ class PineconeAction:
         custom_sources: List[str],
         force_update: bool = False,
         log_progress: bool = True,
+        only_hashes_from: str = None,
     ):
         """
         Update the given sources. If no sources are provided, updates all sources.
 
         :param custom_sources: List of sources to update.
         :param log_progress: Whether to log progress updates.
+        :param only_hashes_from: Path to JSON file containing list of hash_ids to process exclusively (e.g., to_delete.json)
         """
+        import json
+
+        only_hashes = set()
+        if only_hashes_from:
+            with open(only_hashes_from) as f:
+                only_hashes = set(json.load(f))
+            if log_progress:
+                logger.info(f"Loaded {len(only_hashes)} hash_ids to process exclusively from {only_hashes_from}")
+
         with make_session() as session:
             articles_to_update = self._articles_by_source(
                 session, custom_sources, force_update
             )
+
+            # Filter to only articles in the specified list
+            if only_hashes:
+                articles_to_update = articles_to_update.filter(Article.id.in_(only_hashes))
+                if log_progress:
+                    logger.info(f"Processing only {len(only_hashes)} hash_ids from filter list")
+
             self._update_with_logging(session, articles_to_update, log_progress)
 
     def update_articles_by_ids(
@@ -410,17 +428,19 @@ class PineconeUpdater(PineconeAction):
         custom_sources: List[str],
         force_update: bool = False,
         log_progress: bool = True,
+        only_hashes_from: str = None,
     ):
         """
         Update the given sources. If no sources are provided, updates all sources.
 
         :param custom_sources: List of sources to update.
         :param log_progress: Whether to log progress updates.
+        :param only_hashes_from: Path to JSON file containing list of hash_ids to process exclusively (e.g., to_delete.json)
         """
 
         if log_progress:
             logger.info("Adding pinecone entries for %s", custom_sources)
-        self.adder.update(custom_sources, force_update, log_progress)
+        self.adder.update(custom_sources, force_update, log_progress, only_hashes_from=only_hashes_from)
 
         if log_progress:
             logger.info("Removing outdated pinecone entries for %s", custom_sources)
