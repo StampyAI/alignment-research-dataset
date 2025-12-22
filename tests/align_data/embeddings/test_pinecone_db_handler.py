@@ -65,8 +65,8 @@ class TestWithRetry:
 
         try:
             test_func()
-            assert False, "Should have raised TimeoutError"
-        except TimeoutError:
+            assert False, "Should have raised ValueError"
+        except ValueError:
             assert call_count == 3
 
 
