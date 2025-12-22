@@ -1,3 +1,4 @@
+import hashlib
 from typing import List, Literal, TypedDict
 
 from pydantic import BaseModel
@@ -97,7 +98,7 @@ class PineconeEntry(BaseModel):
             words_after = doc_words - words_before - chunk_words
 
             vectors.append({
-                "id": f"{self.hash_id}_{hash(embedding.text)}",
+                "id": f"{self.hash_id}_{hashlib.md5(embedding.text.encode()).hexdigest()[:16]}",
                 "values": embedding.vector,
                 "metadata": {
                     key: value
