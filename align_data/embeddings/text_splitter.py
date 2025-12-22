@@ -1,4 +1,5 @@
 import logging
+import regex  # Use regex module for atomic grouping to prevent catastrophic backtracking
 import re
 import tiktoken
 from dataclasses import dataclass
@@ -226,10 +227,49 @@ def chunks(
     """
     # Strip non-semantic garbage (URLs are kept - they're semantic)
     doc = re.sub(r"(?:\s*\n){4,}", "\n\n", doc)  # collapse blank lines
-    doc = re.sub(r'data:[a-zA-Z0-9/;,=+-]+;base64,[A-Za-z0-9+/=\s]+', '[data-uri]', doc)
+    # Data URIs with base64 content (case-insensitive, including URL-encoded variants with %XX escapes)
+    doc = re.sub(r'data:[a-zA-Z0-9/;,=+-]+;base64,[A-Za-z0-9+/=%\s]+', '[data-uri]', doc, flags=re.IGNORECASE)
+    # Also catch markdown image syntax with data URIs: ![alt](data:...)
+    doc = re.sub(r'!\[[^\]]*\]\(data:[^)]+\)', '[data-uri-image]', doc, flags=re.IGNORECASE)
     doc = re.sub(r"'{4,}", "'", doc)  # apostrophe corruption
     doc = re.sub(r'(?<![:/\w])[A-Za-z0-9+/]{80,}={0,2}', '[base64]', doc)  # raw base64
     doc = re.sub(r'(?:^|["\s])([MLHVCSQTAZmlhvcsqtaz][0-9,.\s-]{100,})(?:["\s]|$)', ' [svg] ', doc)
+    # Strip embedded JSON data arrays (e.g., Anthropic interpretability papers with feature visualizations)
+    # Pattern: repeated {"run": N, "p": [...], ...} objects - these are visualization data, not prose
+    doc = re.sub(r'(?:\{"run":\s*\d+,\s*"p":\s*\[[^\]]+\],[^}]+\},?\s*)+', '[embedded-data]', doc)
+    # Strip long numeric sequences (Plotly data, coordinates, etc.) - 20+ comma-separated numbers
+    doc = re.sub(r'(?:-?\d+\.?\d*,){20,}', '[numeric-data]', doc)
+    # Strip JSON arrays with 20+ numeric elements (Plotly color/data arrays)
+    doc = re.sub(r'\[[0-9,.\s-]{50,}\]', '[json-array]', doc)
+    # Strip Plotly colorscale arrays: [[0.0,"#440154"],[0.111,"#482878"],...]
+    doc = re.sub(r'(?:\[[\d.]+,\s*"#[0-9a-fA-F]{6}"\],?\s*){5,}', '[colorscale]', doc)
+    # Strip Plotly JSON blobs - multiline JSON with visualization properties
+    doc = re.sub(r'"(?:x|y|z|color|colorscale|line|marker|mode|type|showlegend)":\s*(?:\[[^\]]{50,}\]|"[^"]{50,}")', '[plotly-prop]', doc)
+
+    # FIXED: Use regex module with atomic grouping to prevent catastrophic backtracking
+    # Strip Plotly template/config JSON - atomic grouping prevents backtracking on nested braces
+    doc = regex.sub(r'\{"template":\{"data":(?>[^{}]*+(?:\{[^{}]*+\}[^{}]*+)*+)\}', '[plotly-template]', doc)
+    # Strip Plotly graph data objects - atomic grouping on alternatives
+    doc = regex.sub(r'\{"[a-z_]+":(?>\[[^\]]*+\]|"[^"]*+"|[\d.]+|true|false|null)(?:,"[a-z_]+":(?>\[[^\]]*+\]|"[^"]*+"|[\d.]+|true|false|null))*+\}', '[plotly-obj]', doc)
+    # Strip Plotly nested objects - atomic grouping prevents backtracking
+    doc = regex.sub(r'"(?:line|marker|colorbar|colorscale|scene|xaxis|yaxis|zaxis|layout|template|data)":\s*\{(?>[^{}]*+(?:\{[^{}]*+\}[^{}]*+)*+)\}', '[plotly-nested]', doc)
+    # Strip Plotly trace definitions - objects containing "type":"scatter*" or similar
+    doc = re.sub(r'\{[^{}]*"type":\s*"(?:scatter|scatter3d|heatmap|surface|mesh3d|histogram|contour|bar|pie)"[^{}]*\}', '[plotly-trace]', doc)
+    # Strip text arrays used for labels in Plotly
+    doc = re.sub(r'"text":\s*\["[^"]*"(?:,"[^"]*"){5,}\]', '[plotly-labels]', doc)
+    # Strip coordinate arrays (x, y, z with 5+ numeric values)
+    doc = re.sub(r'"[xyz]":\s*\[-?[\d.,\s-]{20,}\]', '[coords]', doc)
+    # Strip showlegend and similar short JSON fragments that remain
+    doc = re.sub(r'"(?:showlegend|hoverinfo|mode|scene)":\s*(?:true|false|"[^"]*")', '', doc)
+    # Collapse sequences of placeholder tokens into single placeholder
+    doc = re.sub(r'(?:\[(?:plotly-\w+|numeric-data|colorscale|coords|json-array)\],?\s*){3,}', '[data-sequence]', doc)
+    # Strip long JSON-ish tokens (>150 chars without space, containing JSON syntax)
+    def strip_long_json_tokens(m):
+        token = m.group(0)
+        if len(token) > 150 and ('{' in token or '[' in token or '":' in token):
+            return '[json-fragment]'
+        return token
+    doc = re.sub(r'\S{151,}', strip_long_json_tokens, doc)
     doc = (
         doc
         .replace("<|endofprompt|>", "<endofprompt>")

@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 import traceback
@@ -66,14 +67,10 @@ class PineconeAction:
         FIX: Fetch just IDs first (fast), then load articles in small batches.
         Each batch is a fresh query that completes in seconds.
         """
-        import time
-
         # Step 1: Fetch just the IDs (fast - no TEXT columns)
-        print(f"[DEBUG] Fetching article IDs...", flush=True)
         t0 = time.time()
-        # .with_entities() returns just the specified columns
         article_ids = [row[0] for row in articles_query.with_entities(Article.id).all()]
-        print(f"[DEBUG] Got {len(article_ids)} article IDs in {time.time()-t0:.1f}s", flush=True)
+        logger.debug("Got %d article IDs in %.1fs", len(article_ids), time.time() - t0)
 
         if log_progress:
             logger.info("Processing %s items", len(article_ids))
@@ -97,25 +94,27 @@ class PineconeAction:
         total_processed = 0
         for batch_start in batch_iter:
             batch_ids = article_ids[batch_start:batch_start + self.batch_size]
-            batch_num = batch_start // self.batch_size + 1
 
             # Load full articles for this batch only, eagerly loading summaries
             # to avoid lazy-load queries later that could fail on stale connections
-            print(f"[DEBUG] Loading batch {batch_num} ({len(batch_ids)} articles)...", flush=True)
             t0 = time.time()
             articles = session.query(Article).options(
                 joinedload(Article.summaries)
             ).filter(Article.id.in_(batch_ids)).all()
-            print(f"[DEBUG] Loaded in {time.time()-t0:.1f}s, processing...", flush=True)
+            logger.debug("Loaded %d articles in %.1fs", len(articles), time.time() - t0)
 
-            # Process through batch_entries (which does embedding)
+            # Flatten all batches from batch_entries into a single list.
+            # Normally yields one batch since outer loop already batches by batch_size,
+            # but collect all to avoid silent data loss if sizes ever diverge.
             t0 = time.time()
-            embedded_batch = list(self.batch_entries(iter(articles)))[0] if articles else []
-            print(f"[DEBUG] Embedded in {time.time()-t0:.1f}s, saving...", flush=True)
+            embedded_batch = []
+            for sub_batch in self.batch_entries(iter(articles)):
+                embedded_batch.extend(sub_batch)
+            logger.debug("Embedded in %.1fs", time.time() - t0)
 
             t0 = time.time()
             self.save_batch(session, embedded_batch)
-            print(f"[DEBUG] Saved in {time.time()-t0:.1f}s", flush=True)
+            logger.debug("Saved in %.1fs", time.time() - t0)
 
             total_processed += len(articles)
             if log_progress and hasattr(batch_iter, 'set_postfix'):
@@ -138,8 +137,6 @@ class PineconeAction:
         :param log_progress: Whether to log progress updates.
         :param only_hashes_from: Path to JSON file containing list of hash_ids to process exclusively (e.g., to_delete.json)
         """
-        import json
-
         only_hashes = set()
         if only_hashes_from:
             with open(only_hashes_from) as f:
@@ -201,7 +198,6 @@ class PineconeAction:
         RECOVERY ON FAILURE:
         - If all retries fail, batch stays in pending_addition status
         - Next run will re-query these articles and process them
-        - Embeddings are cached (vector_cache.py) so no re-embedding needed
         """
         max_retries = 3
         last_error = None
@@ -252,10 +248,10 @@ class PineconeAction:
                 return  # Continue to next batch, don't crash entire job
 
         # All retries exhausted - batch stays in pending_addition status
-        # Next run will re-process (embeddings cached, so just DB write + Pinecone upsert)
+        # Next run will re-process (just DB write + Pinecone upsert)
         logger.error(
             f"MySQL connection failed after {max_retries} attempts. "
-            f"Batch will be reprocessed on next run (embeddings are cached). Error: {last_error}"
+            f"Batch will be reprocessed on next run. Error: {last_error}"
         )
 
     def batch_entries(
@@ -293,21 +289,14 @@ class PineconeAdder(PineconeAction):
         self, article_stream: Generator[Article, None, None], log_progress: bool = True
     ) -> Iterator[List[Tuple[Article, PineconeEntry | None]]]:
         """Batch articles and embed them together using voyage-context-3."""
-        import time
         items = iter(article_stream)
-        batch_num = 0
         while True:
-            print(f"[DEBUG] batch_entries: fetching next {self.batch_size} articles from stream...", flush=True)
-            t0 = time.time()
             batch = list(islice(items, self.batch_size))
             if not batch:
-                print(f"[DEBUG] batch_entries: stream exhausted", flush=True)
                 break
-            batch_num += 1
-            print(f"[DEBUG] batch_entries: got {len(batch)} articles in {time.time()-t0:.1f}s, embedding...", flush=True)
             t0 = time.time()
             result = self._embed_batch(batch)
-            print(f"[DEBUG] batch_entries: embedded in {time.time()-t0:.1f}s", flush=True)
+            logger.debug("Embedded %d articles in %.1fs", len(batch), time.time() - t0)
             yield result
 
     def _embed_batch(
@@ -315,15 +304,13 @@ class PineconeAdder(PineconeAction):
     ) -> List[Tuple[Article, PineconeEntry | None]]:
         """Embed a batch of articles together using contextualized embeddings."""
         logger.info("Embedding batch of %s articles", len(articles))
-        import time
-        print(f"[DEBUG] _embed_batch: chunking {len(articles)} articles...", flush=True)
 
         # Build {article: chunks} for articles with content (now returns Chunk objects)
         t0 = time.time()
         chunks_by_article = {a: get_raw_chunks(a) for a in articles}
         valid_articles = [a for a in articles if chunks_by_article[a]]
         total_chunks = sum(len(chunks_by_article[a]) for a in valid_articles)
-        print(f"[DEBUG] _embed_batch: chunked in {time.time()-t0:.1f}s, {len(valid_articles)} valid articles, {total_chunks} total chunks", flush=True)
+        logger.debug("Chunked %d articles (%d chunks) in %.1fs", len(valid_articles), total_chunks, time.time() - t0)
         for a in articles:
             if not chunks_by_article[a]:
                 logger.warning(f"No chunks for {a.title}")
@@ -334,10 +321,9 @@ class PineconeAdder(PineconeAction):
         try:
             # Extract text strings for embedding API (Chunk.value)
             texts_by_article = [[c.value for c in chunks_by_article[a]] for a in valid_articles]
-            print(f"[DEBUG] _embed_batch: calling Voyage API...", flush=True)
             t0 = time.time()
             all_embeddings = embed_documents_contextualized(texts_by_article)
-            print(f"[DEBUG] _embed_batch: Voyage API returned in {time.time()-t0:.1f}s", flush=True)
+            logger.debug("Voyage API returned in %.1fs", time.time() - t0)
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Batch embedding failed: {e}")
