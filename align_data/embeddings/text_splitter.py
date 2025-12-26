@@ -1,4 +1,5 @@
 import logging
+import regex  # Use regex module for atomic grouping to prevent catastrophic backtracking
 import re
 import tiktoken
 from dataclasses import dataclass
@@ -63,6 +64,49 @@ for idx, pat in enumerate(PATTERNS):
     pat.priority = len(PATTERNS) - 1 - idx
 
 
+def extract_headings(doc: str) -> List[Tuple[int, int, str]]:
+    """Extract headings with their positions and levels.
+
+    Returns: [(position, level, text), ...] sorted by position.
+    """
+    headings = []
+
+    # Match markdown # headings (# through ######)
+    for match in re.finditer(r'^(#{1,6})\s+(.+?)$', doc, re.MULTILINE):
+        level = len(match.group(1))
+        text = match.group(2).strip()
+        headings.append((match.start(), level, text))
+
+    # Match underline-style headings (Title\n=== or Section\n---)
+    for match in re.finditer(r'^(.+?)\n(={3,}|-{3,})$', doc, re.MULTILINE):
+        level = 1 if match.group(2)[0] == '=' else 2
+        text = match.group(1).strip()
+        headings.append((match.start(), level, text))
+
+    return sorted(headings, key=lambda h: h[0])
+
+
+def heading_at_position(headings: List[Tuple[int, int, str]], pos: int) -> str | None:
+    """Get the heading context at a given position.
+
+    Returns heading hierarchy like "Methods > Data Collection" or None.
+    """
+    stack = []  # [(level, text), ...]
+
+    for h_pos, level, text in headings:
+        if h_pos > pos:
+            break
+        # Pop any headings at same or deeper level
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        stack.append((level, text))
+
+    if not stack:
+        return None
+
+    return " > ".join(text for _, text in stack)
+
+
 class Boundary(NamedTuple):
     pos: int
     pattern: BPat
@@ -74,6 +118,7 @@ class Chunk(NamedTuple):
     remain_chars: int  # will be presented as part of post-RAG prompt
     tokencount: int
     pat: BPat
+    section_heading: str | None  # heading context like "Methods > Data Collection"
 
 
 class TokenMapper:
@@ -182,10 +227,49 @@ def chunks(
     """
     # Strip non-semantic garbage (URLs are kept - they're semantic)
     doc = re.sub(r"(?:\s*\n){4,}", "\n\n", doc)  # collapse blank lines
-    doc = re.sub(r'data:[a-zA-Z0-9/;,=+-]+;base64,[A-Za-z0-9+/=\s]+', '[data-uri]', doc)
+    # Data URIs with base64 content (case-insensitive, including URL-encoded variants with %XX escapes)
+    doc = re.sub(r'data:[a-zA-Z0-9/;,=+-]+;base64,[A-Za-z0-9+/=%\s]+', '[data-uri]', doc, flags=re.IGNORECASE)
+    # Also catch markdown image syntax with data URIs: ![alt](data:...)
+    doc = re.sub(r'!\[[^\]]*\]\(data:[^)]+\)', '[data-uri-image]', doc, flags=re.IGNORECASE)
     doc = re.sub(r"'{4,}", "'", doc)  # apostrophe corruption
     doc = re.sub(r'(?<![:/\w])[A-Za-z0-9+/]{80,}={0,2}', '[base64]', doc)  # raw base64
     doc = re.sub(r'(?:^|["\s])([MLHVCSQTAZmlhvcsqtaz][0-9,.\s-]{100,})(?:["\s]|$)', ' [svg] ', doc)
+    # Strip embedded JSON data arrays (e.g., Anthropic interpretability papers with feature visualizations)
+    # Pattern: repeated {"run": N, "p": [...], ...} objects - these are visualization data, not prose
+    doc = re.sub(r'(?:\{"run":\s*\d+,\s*"p":\s*\[[^\]]+\],[^}]+\},?\s*)+', '[embedded-data]', doc)
+    # Strip long numeric sequences (Plotly data, coordinates, etc.) - 20+ comma-separated numbers
+    doc = re.sub(r'(?:-?\d+\.?\d*,){20,}', '[numeric-data]', doc)
+    # Strip JSON arrays with 20+ numeric elements (Plotly color/data arrays)
+    doc = re.sub(r'\[[0-9,.\s-]{50,}\]', '[json-array]', doc)
+    # Strip Plotly colorscale arrays: [[0.0,"#440154"],[0.111,"#482878"],...]
+    doc = re.sub(r'(?:\[[\d.]+,\s*"#[0-9a-fA-F]{6}"\],?\s*){5,}', '[colorscale]', doc)
+    # Strip Plotly JSON blobs - multiline JSON with visualization properties
+    doc = re.sub(r'"(?:x|y|z|color|colorscale|line|marker|mode|type|showlegend)":\s*(?:\[[^\]]{50,}\]|"[^"]{50,}")', '[plotly-prop]', doc)
+
+    # FIXED: Use regex module with atomic grouping to prevent catastrophic backtracking
+    # Strip Plotly template/config JSON - atomic grouping prevents backtracking on nested braces
+    doc = regex.sub(r'\{"template":\{"data":(?>[^{}]*+(?:\{[^{}]*+\}[^{}]*+)*+)\}', '[plotly-template]', doc)
+    # Strip Plotly graph data objects - atomic grouping on alternatives
+    doc = regex.sub(r'\{"[a-z_]+":(?>\[[^\]]*+\]|"[^"]*+"|[\d.]+|true|false|null)(?:,"[a-z_]+":(?>\[[^\]]*+\]|"[^"]*+"|[\d.]+|true|false|null))*+\}', '[plotly-obj]', doc)
+    # Strip Plotly nested objects - atomic grouping prevents backtracking
+    doc = regex.sub(r'"(?:line|marker|colorbar|colorscale|scene|xaxis|yaxis|zaxis|layout|template|data)":\s*\{(?>[^{}]*+(?:\{[^{}]*+\}[^{}]*+)*+)\}', '[plotly-nested]', doc)
+    # Strip Plotly trace definitions - objects containing "type":"scatter*" or similar
+    doc = re.sub(r'\{[^{}]*"type":\s*"(?:scatter|scatter3d|heatmap|surface|mesh3d|histogram|contour|bar|pie)"[^{}]*\}', '[plotly-trace]', doc)
+    # Strip text arrays used for labels in Plotly
+    doc = re.sub(r'"text":\s*\["[^"]*"(?:,"[^"]*"){5,}\]', '[plotly-labels]', doc)
+    # Strip coordinate arrays (x, y, z with 5+ numeric values)
+    doc = re.sub(r'"[xyz]":\s*\[-?[\d.,\s-]{20,}\]', '[coords]', doc)
+    # Strip showlegend and similar short JSON fragments that remain
+    doc = re.sub(r'"(?:showlegend|hoverinfo|mode|scene)":\s*(?:true|false|"[^"]*")', '', doc)
+    # Collapse sequences of placeholder tokens into single placeholder
+    doc = re.sub(r'(?:\[(?:plotly-\w+|numeric-data|colorscale|coords|json-array)\],?\s*){3,}', '[data-sequence]', doc)
+    # Strip long JSON-ish tokens (>150 chars without space, containing JSON syntax)
+    def strip_long_json_tokens(m):
+        token = m.group(0)
+        if len(token) > 150 and ('{' in token or '[' in token or '":' in token):
+            return '[json-fragment]'
+        return token
+    doc = re.sub(r'\S{151,}', strip_long_json_tokens, doc)
     doc = (
         doc
         .replace("<|endofprompt|>", "<endofprompt>")
@@ -194,6 +278,9 @@ def chunks(
 
     if not doc.strip():
         return [], {}
+
+    # Extract headings for section context (before tokenization)
+    headings = extract_headings(doc)
 
     doc_tokens = TokenMapper(doc)
     assert len(doc_tokens.char_to_token) == len(doc)
@@ -250,6 +337,7 @@ def chunks(
                     0,
                     remaining_tokens,
                     BPat("last_chunk_by_chars", [r"$(?!.)"], None, None),
+                    None,  # placeholder: section_heading
                 )
             )
             boundary_stats["last_chunk_by_chars"] += 1
@@ -287,6 +375,7 @@ def chunks(
                     len(doc) - preferred_pos,
                     doc_tokens.char_span_to_tokens(actual_start_pos, preferred_pos),
                     BPat("chars", [r"."], None, None),
+                    None,  # placeholder: section_heading
                 )
             )
             boundary_stats["emergency_fallback"] += 1
@@ -305,6 +394,7 @@ def chunks(
                 len(doc) - best_boundary.pos,
                 doc_tokens.char_span_to_tokens(actual_start_pos, best_boundary.pos),
                 best_boundary.pattern,
+                None,  # placeholder: section_heading
             )
         )
 
@@ -335,14 +425,29 @@ def chunks(
                         None,
                         None,
                     ),
+                    None,  # placeholder: section_heading
                 )
             ]
             boundary_stats["merged_last"] += 1
 
-    return result_chunks, dict(boundary_stats)
+    # Fill in section headings for all chunks
+    chunks_with_headings = [
+        Chunk(
+            chunk.start_pos,
+            chunk.value,
+            chunk.remain_chars,
+            chunk.tokencount,
+            chunk.pat,
+            heading_at_position(headings, chunk.start_pos),
+        )
+        for chunk in result_chunks
+    ]
+
+    return chunks_with_headings, dict(boundary_stats)
 
 
-def split_text(text: str) -> list[str]:
+def split_text(text: str) -> list[Chunk]:
+    """Split text into chunks with section heading metadata."""
     chunks_list, _ = chunks(
         doc=text,
         min_chunk_length=MIN_CHUNK_LENGTH,
@@ -350,7 +455,4 @@ def split_text(text: str) -> list[str]:
         preferred_length_tokens=PREFERRED_CHUNK_LENGTH,
         chunk_max_overlap=CHUNK_MAX_OVERLAP,
     )
-    # TODO: we really want to store chars before and chars after in pinecone, so we know how far into the doc we are, and can put that in the prompt if it seems to help
-
-    # But for now, extract just the text values to match old API
-    return [chunk.value for chunk in chunks_list]
+    return chunks_list

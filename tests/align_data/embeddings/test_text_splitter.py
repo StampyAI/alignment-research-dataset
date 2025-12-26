@@ -122,10 +122,10 @@ class TestChunking:
 class TestSplitText:
     """Test the split_text convenience function."""
 
-    def test_returns_strings(self):
-        """split_text should return list of strings."""
+    def test_returns_chunks(self):
+        """split_text should return list of Chunk objects."""
         result = split_text("Hello world this is a test.")
-        assert all(isinstance(s, str) for s in result)
+        assert all(hasattr(c, 'value') and hasattr(c, 'section_heading') for c in result)
 
     def test_uses_settings(self):
         """split_text should use settings.py values."""
@@ -401,3 +401,154 @@ Final thoughts here. See [this link](https://example.com) for more.
         assert "E = mc^2" in combined
         assert "hello()" in combined
         assert "Conclusion" in combined
+
+
+class TestHeadingExtraction:
+    """Tests for section heading tracking in chunks."""
+
+    def test_chunk_has_section_heading_field(self):
+        """Chunk should have section_heading field."""
+        text = "# Introduction\n\nSome content here."
+        result, _ = chunks(text, min_chunk_length=1, max_chunk_length=100,
+                          preferred_length_tokens=50, chunk_max_overlap=0)
+        assert len(result) > 0
+        assert hasattr(result[0], 'section_heading')
+
+    def test_no_heading_returns_none(self):
+        """Text without headings should have section_heading=None."""
+        text = "Just some plain text without any headings at all."
+        result, _ = chunks(text, min_chunk_length=1, max_chunk_length=100,
+                          preferred_length_tokens=50, chunk_max_overlap=0)
+        assert len(result) == 1
+        assert result[0].section_heading is None
+
+    def test_h1_heading_captured(self):
+        """H1 markdown heading should be captured."""
+        text = "# My Title\n\nContent under the title."
+        result, _ = chunks(text, min_chunk_length=1, max_chunk_length=100,
+                          preferred_length_tokens=50, chunk_max_overlap=0)
+        assert len(result) == 1
+        assert result[0].section_heading == "My Title"
+
+    def test_h2_heading_captured(self):
+        """H2 markdown heading should be captured."""
+        text = "## Section Name\n\nContent under section."
+        result, _ = chunks(text, min_chunk_length=1, max_chunk_length=100,
+                          preferred_length_tokens=50, chunk_max_overlap=0)
+        assert result[0].section_heading == "Section Name"
+
+    def test_nested_headings_show_hierarchy(self):
+        """Nested headings should show as 'H1 > H2 > H3'."""
+        # Use longer text to force splitting into separate chunks per section
+        text = """# Main Title
+
+Introduction paragraph with enough words to fill a chunk. We need this to be long enough that it actually splits into multiple pieces.
+
+## Methods
+
+Methods content here with lots of additional text to ensure this becomes its own chunk. We want to verify the heading hierarchy works.
+
+### Data Collection
+
+Details about data collection process. This section also needs enough content to become a separate chunk so we can test hierarchy tracking. The data was collected carefully.
+"""
+        result, _ = chunks(text, min_chunk_length=10, max_chunk_length=40,
+                          preferred_length_tokens=25, chunk_max_overlap=0)
+
+        # Find chunk that STARTS in the Data Collection section
+        data_chunks = [c for c in result if c.section_heading and "Data Collection" in c.section_heading]
+        assert len(data_chunks) > 0, f"No chunks found with Data Collection heading. Chunks: {[(c.value[:50], c.section_heading) for c in result]}"
+        # Check hierarchy is preserved
+        assert "Main Title" in data_chunks[0].section_heading
+        assert "Methods" in data_chunks[0].section_heading
+
+    def test_heading_hierarchy_collapses_on_same_level(self):
+        """When a new heading at same level appears, it replaces the old one."""
+        # Longer text to force multiple chunks
+        text = """# Title
+
+This is the title section with enough content to make it a separate chunk from the sections below.
+
+## Section A
+
+Content A with plenty of additional words so this becomes its own chunk. We need to verify heading tracking.
+
+## Section B
+
+Content B also has enough text to be a separate chunk. This tests that Section A is replaced by Section B.
+"""
+        result, _ = chunks(text, min_chunk_length=10, max_chunk_length=40,
+                          preferred_length_tokens=25, chunk_max_overlap=0)
+
+        # Find chunks for each section by their heading
+        chunk_a = [c for c in result if c.section_heading and "Section A" in c.section_heading]
+        chunk_b = [c for c in result if c.section_heading and "Section B" in c.section_heading]
+
+        assert len(chunk_a) > 0, f"No Section A chunks. Chunks: {[(c.value[:40], c.section_heading) for c in result]}"
+        assert len(chunk_b) > 0, f"No Section B chunks. Chunks: {[(c.value[:40], c.section_heading) for c in result]}"
+        # Section B should NOT contain Section A (same level = replaces)
+        assert "Section A" not in chunk_b[0].section_heading
+
+    def test_heading_hierarchy_collapses_on_shallower(self):
+        """When a shallower heading appears, deeper headings are cleared."""
+        # Longer text to force multiple chunks
+        text = """# Title
+
+Title section content with enough words to fill a chunk properly and separate it from subsections.
+
+## Deep Section
+
+Deep section has its own content that should become a chunk. This tests the hierarchy tracking feature.
+
+### Even Deeper
+
+Even deeper section with content that spans multiple words to create a separate chunk for testing.
+
+## New Section
+
+New section content should clear the deeper headings from the hierarchy. This verifies collapse behavior.
+"""
+        result, _ = chunks(text, min_chunk_length=10, max_chunk_length=40,
+                          preferred_length_tokens=25, chunk_max_overlap=0)
+
+        new_chunk = [c for c in result if c.section_heading and "New Section" in c.section_heading]
+        assert len(new_chunk) > 0, f"No New Section chunks. Chunks: {[(c.value[:40], c.section_heading) for c in result]}"
+        # Should have Title > New Section, NOT Title > Deep Section > Even Deeper
+        assert "Even Deeper" not in new_chunk[0].section_heading
+
+    def test_underline_style_h1(self):
+        """Underline-style H1 (===) should be captured."""
+        text = """My Title
+========
+
+Content under title.
+"""
+        result, _ = chunks(text, min_chunk_length=1, max_chunk_length=100,
+                          preferred_length_tokens=50, chunk_max_overlap=0)
+        assert result[0].section_heading == "My Title"
+
+    def test_underline_style_h2(self):
+        """Underline-style H2 (---) should be captured."""
+        text = """Section Name
+------------
+
+Content under section.
+"""
+        result, _ = chunks(text, min_chunk_length=1, max_chunk_length=100,
+                          preferred_length_tokens=50, chunk_max_overlap=0)
+        assert result[0].section_heading == "Section Name"
+
+    def test_content_before_first_heading(self):
+        """Content before any heading should have section_heading=None."""
+        text = """Some intro content without a heading.
+
+# First Heading
+
+Content under heading.
+"""
+        result, _ = chunks(text, min_chunk_length=1, max_chunk_length=50,
+                          preferred_length_tokens=25, chunk_max_overlap=0)
+
+        intro_chunk = [c for c in result if "intro content" in c.value.lower()]
+        assert len(intro_chunk) > 0
+        assert intro_chunk[0].section_heading is None
