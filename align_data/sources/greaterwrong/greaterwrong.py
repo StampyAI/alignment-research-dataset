@@ -86,7 +86,7 @@ class GreaterWrong(AlignmentDataset):
             )
             return (
                 {a.url for a in articles},
-                {(a.title.replace("\n", "").strip(), a.authors) for a in articles},
+                {(a.title.replace("\n", "").strip(), a.authors) for a in articles if a.title},
             )
 
     def not_processed(self, item):
