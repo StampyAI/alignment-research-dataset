@@ -167,13 +167,6 @@ class Article(Base):
         self.id = None  # update the hash id so it calculates a new one if needed
         return self
 
-    @validates("text")
-    def validate_text(self, key, text):
-        if text is None:
-            return None
-        # Remove or escape problematic characters
-        return text.replace("'", "''")
-
     def _set_id(self):
         id_string = self.generate_id_string()
         self.id = hashlib.md5(id_string).hexdigest()
