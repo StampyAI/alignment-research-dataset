@@ -324,7 +324,9 @@ class PineconeDB:
             for article_id in chunk:
                 article_vectors = self._find_item(article_id)
                 if article_vectors:
-                    vector_ids.extend(article_vectors)
+                    # _find_item returns paginated results: a list of pages,
+                    # each page being a list of vector ID strings. Flatten them.
+                    vector_ids.extend(vid for page in article_vectors for vid in page)
 
             if vector_ids:
                 self._del_items(vector_ids)
