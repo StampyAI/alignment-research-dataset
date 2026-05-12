@@ -32,5 +32,5 @@ transformers
 regex
 tqdm==4.66.1
 openai
-pinecone
+pinecone>=9,<10  # SDK 9 removed environment kwarg; next major may break again
 voyageai>=0.3.5  # voyage-context-3 requires 0.3.5+

@@ -14,7 +14,6 @@ from align_data.settings import (
     EMBEDDINGS_DIMS,
     PINECONE_METRIC,
     PINECONE_API_KEY,
-    PINECONE_ENVIRONMENT,
     PINECONE_NAMESPACE,
 )
 
@@ -121,12 +120,14 @@ def with_pinecone_retry(f):
 
 
 def initialize_pinecone():
-    """Initialize Pinecone client with compatibility for both API versions."""
+    """Initialize Pinecone client.
+
+    Pinecone SDK 3+ uses serverless indexes (see create_index below) and no longer
+    accepts the legacy `environment` kwarg removed in SDK 9. API key is the only
+    required argument; index region lives on ServerlessSpec.
+    """
     try:
-        return Pinecone(
-            api_key=PINECONE_API_KEY,
-            environment=PINECONE_ENVIRONMENT,
-        )
+        return Pinecone(api_key=PINECONE_API_KEY)
     except Exception as e:
         logger.error(f"Failed to initialize Pinecone: {e}")
         raise
