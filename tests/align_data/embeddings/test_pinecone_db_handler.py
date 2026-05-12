@@ -16,17 +16,19 @@ from align_data.embeddings.pinecone.pinecone_db_handler import (
 class TestPineconeInitialization:
     """Tests for Pinecone initialization."""
 
-    @patch("align_data.embeddings.pinecone.pinecone_db_handler.Pinecone")
-    def test_initialize_pinecone(self, mock_pinecone):
-        """Test initialization with the Pinecone API."""
-        mock_client = MagicMock()
-        mock_pinecone.return_value = mock_client
+    @patch("align_data.embeddings.pinecone.pinecone_db_handler.PINECONE_API_KEY", "fake-key-for-tests")
+    def test_initialize_pinecone_uses_supported_kwargs(self):
+        """initialize_pinecone must pass only kwargs the installed SDK accepts.
 
-        client = initialize_pinecone()
+        Regression: passing environment= worked through SDK 8 but Pinecone 9 (released
+        ~May 2026) removed the kwarg, breaking daily/weekly cron pipelines. Uses the
+        real Pinecone class (no mock) so a future SDK that drops another kwarg fails
+        loudly at test time instead of at 02:30 in production.
+        """
+        from pinecone import Pinecone
 
-        # Check that the API was called correctly
-        mock_pinecone.assert_called_once()
-        assert client == mock_client
+        client = initialize_pinecone()  # Real Pinecone constructor; no network on init.
+        assert isinstance(client, Pinecone)
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.Pinecone")
     def test_initialize_pinecone_with_error(self, mock_pinecone):

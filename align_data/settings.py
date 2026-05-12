@@ -78,7 +78,6 @@ OPENAI_ORGANIZATION = os.environ.get("OPENAI_ORGANIZATION")
 ### PINECONE ###
 PINECONE_INDEX_NAME = os.environ.get("PINECONE_INDEX_NAME", "stampy-chat-context-2")
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", None)
-PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT", None)
 PINECONE_METRIC = "cosine"
 PINECONE_NAMESPACE = os.environ.get(
     "PINECONE_NAMESPACE", "voyage-chunk-3-table20251208"
