@@ -6,6 +6,7 @@ from tqdm import tqdm
 import gspread
 from gspread.worksheet import Worksheet
 
+from align_data.common.retry import with_retry
 from align_data.sources.articles.google_cloud import (
     SheetRow,
     iterate_rows,
@@ -13,11 +14,9 @@ from align_data.sources.articles.google_cloud import (
     get_sheet,
     upload_file,
     OK,
-    with_retry,
 )
 from align_data.sources.articles.parsers import item_metadata, fetch
 from align_data.sources.articles.indices import fetch_all
-from align_data.sources.articles.html import with_retry
 from align_data.sources.articles.updater import ReplacerDataset
 from align_data.settings import PDFS_FOLDER_ID
 

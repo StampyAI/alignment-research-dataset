@@ -1,5 +1,4 @@
 import logging
-import time
 import urllib
 from collections import UserDict
 from pathlib import Path
@@ -121,25 +120,6 @@ def upload_file(filename, bytes_contents, mimetype, parent_id=None):
         .execute()
     )
     return media.get("id")
-
-
-def with_retry(times=3):
-    """A decorator that will retry the wrapped function up to `times` times in case of google sheets errors."""
-
-    def wrapper(f):
-        def retrier(*args, **kwargs):
-            for i in range(times):
-                try:
-                    return f(*args, **kwargs)
-                except gspread.exceptions.APIError as e:
-                    logger.error(f"{e} - retrying up to {times - i} times")
-                    # Do a logarithmic backoff
-                    time.sleep((i + 1) ** 2)
-            raise ValueError(f"Gave up after {times} tries")
-
-        return retrier
-
-    return wrapper
 
 
 def fetch_file(file_id: str):

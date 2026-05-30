@@ -8,7 +8,6 @@ os.environ["OPENAI_API_KEY"] = "sk-mock-test-key"
 from align_data.embeddings.pinecone.pinecone_db_handler import (
     PineconeDB,
     initialize_pinecone,
-    with_retry,
     strip_block,
 )
 
@@ -40,36 +39,6 @@ class TestPineconeInitialization:
             assert False, "Should have raised an exception"
         except Exception as e:
             assert "API Error" in str(e)
-
-
-class TestWithRetry:
-    """Tests for the retry decorator."""
-
-    def test_with_retry_success(self):
-        """Test successful execution with retry decorator."""
-
-        @with_retry(n=3)
-        def test_func():
-            return "success"
-
-        result = test_func()
-        assert result == "success"
-
-    def test_with_retry_failure(self):
-        """Test retry decorator with eventual failure."""
-        call_count = 0
-
-        @with_retry(n=3, exceptions=(ValueError,))
-        def test_func():
-            nonlocal call_count
-            call_count += 1
-            raise ValueError("Test error")
-
-        try:
-            test_func()
-            assert False, "Should have raised ValueError"
-        except ValueError:
-            assert call_count == 3
 
 
 class TestPineconeDB:

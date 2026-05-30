@@ -12,7 +12,8 @@ from pypdf.errors import PdfReadError
 from markdownify import MarkdownConverter
 from bs4.element import Tag
 
-from align_data.sources.articles.html import fetch, fetch_element, with_retry
+from align_data.common.retry import with_retry
+from align_data.sources.articles.html import fetch, fetch_element
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def read_pdf(filename: Path) -> str | None:
     return None
 
 
-@with_retry(times=3)
+@with_retry(times=3, exceptions=requests.exceptions.RequestException)
 def fetch_pdf(link: str) -> Dict[str, str]:
     """Return the contents of the pdf file at `link` as a markdown string.
 

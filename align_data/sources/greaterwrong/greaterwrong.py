@@ -11,6 +11,7 @@ from markdownify import markdownify
 from sqlalchemy import select
 
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.retry import with_retry
 from align_data.db.session import make_session
 from align_data.db.models import Article
 from align_data.sources.greaterwrong.config import SOURCE_CONFIG, get_source_config
@@ -154,7 +155,13 @@ class GreaterWrong(AlignmentDataset):
         }}
         """
 
+    @with_retry(exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
     def fetch_posts(self, query: str):
+        # @with_retry retries transient network blips (read timeout, connection reset);
+        # status/schema errors below are plain Exceptions and fall through immediately (a
+        # 403 bot-block or malformed GraphQL response won't self-resolve). Pagination
+        # persists earlier pages as it goes (idempotent via not_processed), so exhaustion
+        # here just aborts cleanly and resumes next run -- never a partial/corrupt write.
         url = f"{self.base_url}/graphql"
         headers = {
            # The GraphQL endpoint returns a 403 if the user agent isn't set... Makes sense, but is annoying
@@ -168,23 +175,7 @@ class GreaterWrong(AlignmentDataset):
 
         logger.info(f"Fetching posts from {url}")
 
-        # Transient network blips (read timeout, connection reset) are retried with
-        # backoff; status/schema errors below raise immediately (a 403 bot-block or a
-        # malformed GraphQL response won't self-resolve). Pagination persists earlier
-        # pages as it goes (idempotent via not_processed), so exhaustion here just
-        # aborts cleanly and resumes next run -- never a partial/corrupt write.
-        transient = (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
-        last_error = None
-        for i in range(3):
-            try:
-                res = requests.post(url, headers=headers, json={"query": query}, timeout=30)
-                break
-            except transient as e:
-                last_error = e
-                logger.warning(f"GraphQL request to {url} failed (attempt {i + 1}/3): {e}")
-                time.sleep(2 ** i)
-        else:
-            raise last_error
+        res = requests.post(url, headers=headers, json={"query": query}, timeout=30)
 
         logger.info(f"Response status code: {res.status_code}")
 

@@ -16,7 +16,7 @@ def _resp(status=200, payload=None):
     return r
 
 
-@patch("align_data.sources.stampy.stampy.time.sleep")
+@patch("align_data.common.retry.time.sleep")
 @patch("align_data.sources.stampy.stampy.requests.get")
 def test_coda_get_retries_transient_timeout(mock_get, mock_sleep):
     """A transient Coda read-timeout (the 2026-05-30 daily failure) is retried, not fatal."""
@@ -29,7 +29,7 @@ def test_coda_get_retries_transient_timeout(mock_get, mock_sleep):
     assert mock_get.call_count == 3
 
 
-@patch("align_data.sources.stampy.stampy.time.sleep")
+@patch("align_data.common.retry.time.sleep")
 @patch("align_data.sources.stampy.stampy.requests.get")
 def test_coda_get_raises_after_persistent_timeout(mock_get, mock_sleep):
     """If Coda stays unreachable, the last timeout propagates -- the fetch aborts before
@@ -40,7 +40,7 @@ def test_coda_get_raises_after_persistent_timeout(mock_get, mock_sleep):
     assert mock_get.call_count == 3
 
 
-@patch("align_data.sources.stampy.stampy.time.sleep")
+@patch("align_data.common.retry.time.sleep")
 @patch("align_data.sources.stampy.stampy.requests.get")
 def test_coda_get_does_not_retry_http_error(mock_get, mock_sleep):
     """A 4xx won't self-resolve -- fail fast on the first try, don't burn retries."""

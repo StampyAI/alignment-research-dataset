@@ -19,7 +19,7 @@ def _gql_ok(payload):
     return r
 
 
-@patch("align_data.sources.greaterwrong.greaterwrong.time.sleep")
+@patch("align_data.common.retry.time.sleep")
 @patch("align_data.sources.greaterwrong.greaterwrong.requests.post")
 def test_fetch_posts_retries_transient_error(mock_post, mock_sleep, dataset):
     """Transient GraphQL network blips (timeout/connection reset) are retried, not fatal.
@@ -35,7 +35,7 @@ def test_fetch_posts_retries_transient_error(mock_post, mock_sleep, dataset):
     assert mock_post.call_count == 3
 
 
-@patch("align_data.sources.greaterwrong.greaterwrong.time.sleep")
+@patch("align_data.common.retry.time.sleep")
 @patch("align_data.sources.greaterwrong.greaterwrong.requests.post")
 def test_fetch_posts_raises_after_persistent_transient(mock_post, mock_sleep, dataset):
     """If the endpoint stays unreachable, the last error propagates. Pagination already
@@ -46,7 +46,7 @@ def test_fetch_posts_raises_after_persistent_transient(mock_post, mock_sleep, da
     assert mock_post.call_count == 3
 
 
-@patch("align_data.sources.greaterwrong.greaterwrong.time.sleep")
+@patch("align_data.common.retry.time.sleep")
 @patch("align_data.sources.greaterwrong.greaterwrong.requests.post")
 def test_fetch_posts_does_not_retry_http_error(mock_post, mock_sleep, dataset):
     """A 403 (bot-block/auth) won't self-resolve -- fail fast, don't burn retries."""
