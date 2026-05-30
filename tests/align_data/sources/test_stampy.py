@@ -1,7 +1,53 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
+import requests
 from dateutil.parser import parse
 
 from align_data.sources.stampy import Stampy
+from align_data.sources.stampy import stampy as stampy_mod
+
+
+def _resp(status=200, payload=None):
+    r = MagicMock()
+    r.status_code = status
+    r.text = "" if payload is None else str(payload)
+    r.json.return_value = payload
+    return r
+
+
+@patch("align_data.sources.stampy.stampy.time.sleep")
+@patch("align_data.sources.stampy.stampy.requests.get")
+def test_coda_get_retries_transient_timeout(mock_get, mock_sleep):
+    """A transient Coda read-timeout (the 2026-05-30 daily failure) is retried, not fatal."""
+    mock_get.side_effect = [
+        requests.exceptions.ReadTimeout("read timed out"),
+        requests.exceptions.ReadTimeout("read timed out"),
+        _resp(200, {"items": [{"id": "c1", "name": "Question"}]}),
+    ]
+    assert stampy_mod.get_columns() == {"c1": "Question"}
+    assert mock_get.call_count == 3
+
+
+@patch("align_data.sources.stampy.stampy.time.sleep")
+@patch("align_data.sources.stampy.stampy.requests.get")
+def test_coda_get_raises_after_persistent_timeout(mock_get, mock_sleep):
+    """If Coda stays unreachable, the last timeout propagates -- the fetch aborts before
+    any DB write (get_rows materializes the full list first), so no partial corruption."""
+    mock_get.side_effect = requests.exceptions.ReadTimeout("read timed out")
+    with pytest.raises(requests.exceptions.RequestException):
+        stampy_mod.get_columns()
+    assert mock_get.call_count == 3
+
+
+@patch("align_data.sources.stampy.stampy.time.sleep")
+@patch("align_data.sources.stampy.stampy.requests.get")
+def test_coda_get_does_not_retry_http_error(mock_get, mock_sleep):
+    """A 4xx won't self-resolve -- fail fast on the first try, don't burn retries."""
+    mock_get.return_value = _resp(404, {"message": "not found"})
+    with pytest.raises(Exception):
+        stampy_mod.get_columns()
+    assert mock_get.call_count == 1
 
 
 def test_validate_coda_token():
