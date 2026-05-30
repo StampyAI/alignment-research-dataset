@@ -168,16 +168,23 @@ class GreaterWrong(AlignmentDataset):
 
         logger.info(f"Fetching posts from {url}")
 
-        try:
-            res = requests.post(
-                url,
-                headers=headers,
-                json={"query": query},
-                timeout=30,
-            )
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request to {url} failed: {e}")
-            raise
+        # Transient network blips (read timeout, connection reset) are retried with
+        # backoff; status/schema errors below raise immediately (a 403 bot-block or a
+        # malformed GraphQL response won't self-resolve). Pagination persists earlier
+        # pages as it goes (idempotent via not_processed), so exhaustion here just
+        # aborts cleanly and resumes next run -- never a partial/corrupt write.
+        transient = (requests.exceptions.Timeout, requests.exceptions.ConnectionError)
+        last_error = None
+        for i in range(3):
+            try:
+                res = requests.post(url, headers=headers, json={"query": query}, timeout=30)
+                break
+            except transient as e:
+                last_error = e
+                logger.warning(f"GraphQL request to {url} failed (attempt {i + 1}/3): {e}")
+                time.sleep(2 ** i)
+        else:
+            raise last_error
 
         logger.info(f"Response status code: {res.status_code}")
 
