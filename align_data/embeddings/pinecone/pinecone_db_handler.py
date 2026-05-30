@@ -7,6 +7,7 @@ from pinecone import Pinecone, ServerlessSpec
 from pinecone.exceptions import PineconeApiException
 from urllib3.exceptions import ProtocolError
 
+from align_data.common.retry import with_retry
 from align_data.embeddings.embedding_utils import get_embedding
 from align_data.embeddings.pinecone.pinecone_models import PineconeEntry
 from align_data.settings import (
@@ -24,23 +25,6 @@ def chunk_items(items, chunk_size):
     """Split items into chunks of specified size."""
     for i in range(0, len(items), chunk_size):
         yield items[i : i + chunk_size]
-
-
-def with_retry(n=3, exceptions=(Exception,)):
-    """Generic retry decorator with limited attempts. Used for non-Pinecone operations."""
-    def retrier_wrapper(f):
-        def wrapper(*args, **kwargs):
-            last_error = None
-            for i in range(n):
-                try:
-                    return f(*args, **kwargs)
-                except exceptions as e:
-                    last_error = e
-                    logger.warning(f"Retry {i+1}/{n} after error: {e}")
-                    time.sleep(2 ** i)
-            raise last_error or TimeoutError(f"Gave up after {n} tries")
-        return wrapper
-    return retrier_wrapper
 
 
 def with_pinecone_retry(f):
