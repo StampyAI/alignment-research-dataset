@@ -35,6 +35,37 @@ LengthFunctionType = Callable[[str], int]
 TruncateFunctionType = Callable[[str, int], str]
 
 
+def _read_with_retry(session, fn, *, what: str, max_retries: int = 3):
+    """Run a read-only DB callable, retrying dropped MySQL connections.
+
+    save_batch() already retries the *write* path, but the initial ID fetch
+    (_update_with_logging step 1) and the per-batch article load were unprotected.
+    A mid-query "2013: Lost connection to MySQL server" there killed the whole
+    daily job (seen 2026-05-24). Reads don't mutate, so retry is pure availability:
+    rollback() clears the failed transaction and pool_pre_ping (db/session.py) hands
+    the next attempt a live connection. On exhaustion we re-raise -- we can't index
+    what we can't read, so the job must fail loudly rather than embed a partial set.
+    Non-OperationalError exceptions are real bugs and propagate immediately.
+    """
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except OperationalError as e:
+            last_error = e
+            logger.warning(
+                f"MySQL connection lost during {what} "
+                f"(attempt {attempt + 1}/{max_retries}): {e}"
+            )
+            try:
+                session.rollback()
+            except OperationalError:
+                logger.debug("Rollback failed due to dead connection (expected)")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** (attempt + 1))  # 2s, 4s backoff
+    raise last_error
+
+
 class PineconeAction:
     batch_size = 10
 
@@ -69,7 +100,11 @@ class PineconeAction:
         """
         # Step 1: Fetch just the IDs (fast - no TEXT columns)
         t0 = time.time()
-        article_ids = [row[0] for row in articles_query.with_entities(Article.id).all()]
+        article_ids = _read_with_retry(
+            session,
+            lambda: [row[0] for row in articles_query.with_entities(Article.id).all()],
+            what="article ID fetch",
+        )
         logger.debug("Got %d article IDs in %.1fs", len(article_ids), time.time() - t0)
 
         if log_progress:
@@ -98,9 +133,13 @@ class PineconeAction:
             # Load full articles for this batch only, eagerly loading summaries
             # to avoid lazy-load queries later that could fail on stale connections
             t0 = time.time()
-            articles = session.query(Article).options(
-                joinedload(Article.summaries)
-            ).filter(Article.id.in_(batch_ids)).all()
+            articles = _read_with_retry(
+                session,
+                lambda ids=batch_ids: session.query(Article).options(
+                    joinedload(Article.summaries)
+                ).filter(Article.id.in_(ids)).all(),
+                what="batch article load",
+            )
             logger.debug("Loaded %d articles in %.1fs", len(articles), time.time() - t0)
 
             # Flatten all batches from batch_entries into a single list.
