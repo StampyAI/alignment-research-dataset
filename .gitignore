@@ -121,6 +121,7 @@ carado.moe/
 *.xml
 *.docx
 *.md
+!CLAUDE.md
 *.txt
 !requirements.txt
 *.epub
