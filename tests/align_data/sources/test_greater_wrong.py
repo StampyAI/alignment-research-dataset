@@ -4,11 +4,58 @@ from dateutil.parser import parse
 from unittest.mock import patch, Mock
 
 import pytest
+import requests
 
 from align_data.sources.greaterwrong.greaterwrong import (
     get_allowed_tags,
     GreaterWrong,
 )
+
+
+def _gql_ok(payload):
+    r = Mock(status_code=200, headers={})
+    r.json.return_value = payload
+    r.text = ""
+    return r
+
+
+@patch("align_data.sources.greaterwrong.greaterwrong.time.sleep")
+@patch("align_data.sources.greaterwrong.greaterwrong.requests.post")
+def test_fetch_posts_retries_transient_error(mock_post, mock_sleep, dataset):
+    """Transient GraphQL network blips (timeout/connection reset) are retried, not fatal.
+
+    Same failure class as the 05-30 Coda timeout; lesswrong/alignmentforum hit the
+    GreaterWrong endpoint nightly with no retry before this."""
+    mock_post.side_effect = [
+        requests.exceptions.ConnectionError("connection reset"),
+        requests.exceptions.ReadTimeout("read timed out"),
+        _gql_ok({"data": {"posts": {"results": []}}}),
+    ]
+    assert dataset.fetch_posts("query") == {"results": []}
+    assert mock_post.call_count == 3
+
+
+@patch("align_data.sources.greaterwrong.greaterwrong.time.sleep")
+@patch("align_data.sources.greaterwrong.greaterwrong.requests.post")
+def test_fetch_posts_raises_after_persistent_transient(mock_post, mock_sleep, dataset):
+    """If the endpoint stays unreachable, the last error propagates. Pagination already
+    persisted earlier pages (idempotent, resumed next run), so no silent corruption."""
+    mock_post.side_effect = requests.exceptions.ReadTimeout("read timed out")
+    with pytest.raises(requests.exceptions.RequestException):
+        dataset.fetch_posts("query")
+    assert mock_post.call_count == 3
+
+
+@patch("align_data.sources.greaterwrong.greaterwrong.time.sleep")
+@patch("align_data.sources.greaterwrong.greaterwrong.requests.post")
+def test_fetch_posts_does_not_retry_http_error(mock_post, mock_sleep, dataset):
+    """A 403 (bot-block/auth) won't self-resolve -- fail fast, don't burn retries."""
+    resp = Mock(status_code=403, headers={})
+    resp.text = "forbidden"
+    mock_post.return_value = resp
+    with pytest.raises(Exception):
+        dataset.fetch_posts("query")
+    assert mock_post.call_count == 1
 
 
 def test_get_allowed_tags():
