@@ -349,6 +349,63 @@ def test_playlist_collection_ids():
     assert dataset.collection_ids == ["a list id", "another id"]
 
 
+def test_playlist_authors_use_video_uploader():
+    dataset = YouTubePlaylistDataset(
+        name="test_playlist",
+        playlist_ids=["test_playlist_id"],
+    )
+    video = {
+        "kind": "youtube#playlistItem",
+        "snippet": {
+            "channelTitle": "Playlist curator",
+            "videoOwnerChannelTitle": "  Video uploader  ",
+        },
+    }
+
+    assert dataset.extract_authors(video) == ["Video uploader"]
+
+
+@pytest.mark.parametrize("uploader", [None, "", "   "])
+def test_playlist_authors_fall_back_when_uploader_empty(uploader):
+    dataset = YouTubePlaylistDataset(name="test_playlist", playlist_ids=["playlist"])
+    video = {
+        "kind": "youtube#playlistItem",
+        "snippet": {
+            "channelTitle": "  Playlist curator  ",
+            "videoOwnerChannelTitle": uploader,
+        },
+    }
+
+    assert dataset.extract_authors(video) == ["Playlist curator"]
+
+
+def test_playlist_authors_preserve_explicit_override():
+    dataset = YouTubePlaylistDataset(name="test_playlist", playlist_ids=["playlist"])
+    dataset.authors = ["Configured author"]
+    video = {
+        "kind": "youtube#playlistItem",
+        "snippet": {
+            "channelTitle": "Playlist curator",
+            "videoOwnerChannelTitle": "Video uploader",
+        },
+    }
+
+    assert dataset.extract_authors(video) == ["Configured author"]
+
+
+def test_channel_authors_still_use_channel_title():
+    dataset = YouTubeChannelDataset(name="test_channel", channel_id="channel", authors=[])
+    video = {
+        "kind": "youtube#searchResult",
+        "snippet": {
+            "channelTitle": "  Channel author  ",
+            "videoOwnerChannelTitle": "Other author",
+        },
+    }
+
+    assert dataset.extract_authors(video) == ["Channel author"]
+
+
 def test_playlist_published_date():
     dataset = YouTubePlaylistDataset(name="bla", playlist_ids=["a list id", "another id"])
     video = {
