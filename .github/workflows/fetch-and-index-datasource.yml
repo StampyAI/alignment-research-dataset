@@ -30,6 +30,10 @@ on:
 jobs:
   fetch_dataset:
     runs-on: ubuntu-latest
+    # A manual run and the nightly one must not fetch the same source at once.
+    concurrency:
+      group: fetch-${{ inputs.datasource }}
+      cancel-in-progress: false
 
     steps:
     - name: Checkout repository
@@ -68,6 +72,8 @@ jobs:
 
   update_index:
     needs: fetch_dataset
+    # Index whatever was fetched, also when the fetch job failed partway.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
 
     steps:

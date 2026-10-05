@@ -25,7 +25,7 @@ import requests
 from googleapiclient.discovery import build, Resource
 
 from align_data.settings import YOUTUBE_API_KEY, YT_PROXY_URL
-from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.alignment_dataset import AlignmentDataset, MultiDataset
 from align_data.db.models import Article
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,9 @@ MARKER_EVERY_SECONDS = 30
 # job instead of a quiet "success".
 MAX_FAILURE_SHARE = 0.2
 MAX_SILENT_FAILURES = 5
+# A proxy that hangs or refuses every request would otherwise cost
+# MINT_ATTEMPTS_VIA_PROXY * MINT_TIMEOUT per video until the job times out.
+MAX_CONSECUTIVE_FAILURES = 10
 
 
 class VideoUnavailable(Exception):
@@ -97,14 +100,16 @@ def mint_player_response(video_id: str, proxy_url: Optional[str]) -> dict:
 
         playability = data.get("playabilityStatus") or {}
         status = playability.get("status")
-        if status == "LOGIN_REQUIRED":
+        reason = playability.get("reason") or ""
+        # Age-gated and private videos also answer LOGIN_REQUIRED, with their own
+        # reason; only a bot check (or no reason at all) is worth another exit IP.
+        if status == "LOGIN_REQUIRED" and (not reason or "bot" in reason.lower()):
             last_error = "YouTube bot check rejected the request (exit IP flagged" + (
                 ")" if proxy_url else "; YT_PROXY_URL is not set)"
             )
             logger.warning(f"Mint attempt {attempt}/{attempts} for {video_id} failed: {last_error}")
             continue
         if status and status != "OK":
-            reason = playability.get("reason")
             raise VideoUnavailable(f"Video is {status}" + (f" ({reason})" if reason else ""))
         return data
     raise FetchFailed(last_error)
@@ -176,6 +181,18 @@ def captions_to_text(events: List[dict], every: int = MARKER_EVERY_SECONDS) -> s
     return "\n\n".join(paragraphs)
 
 
+def check_failures(label: str, attempted: int, failed: int):
+    """Raise when too many transcript fetches failed for the run to count as working."""
+    if failed > MAX_SILENT_FAILURES and failed / attempted > MAX_FAILURE_SHARE:
+        raise RuntimeError(
+            f"{label}: {failed} of {attempted} transcript fetches failed "
+            f"(YouTube blocking or network trouble; is YT_PROXY_URL set and working?)"
+        )
+
+
+_consecutive_failures = 0
+
+
 def fetch_transcript(video_id: str, proxy_url: Optional[str]) -> Optional[str]:
     """The video's English captions as timestamped text, or None when it has none.
 
@@ -200,6 +217,7 @@ class YouTubeDataset(AlignmentDataset):
 
     def setup(self):
         super().setup()
+        self._stats = {"attempted": 0, "failed": 0}
         if not YOUTUBE_API_KEY:
             raise ValueError("No YOUTUBE_API_KEY provided!")
         self.youtube: Resource = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
@@ -277,16 +295,25 @@ class YouTubeDataset(AlignmentDataset):
         video_id = self._get_id(video)
         url = f"https://www.youtube.com/watch?v={video_id}"
         logger.debug(f"Fetching transcript for video: {video_id} - {video.get('snippet', {}).get('title', 'Unknown title')}")
+        global _consecutive_failures
         self.stats["attempted"] += 1
         try:
             text = fetch_transcript(video_id, YT_PROXY_URL)
         except VideoUnavailable as e:
+            _consecutive_failures = 0
             logger.info(f"Skipping {url}: {e}")
             return None
         except FetchFailed as e:
             self.stats["failed"] += 1
+            _consecutive_failures += 1
             logger.error(f"Could not fetch the transcript for {url}: {e}")
+            if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                raise RuntimeError(
+                    f"{_consecutive_failures} transcript fetches failed in a row; stopping "
+                    f"(YouTube blocking or network trouble; is YT_PROXY_URL set and working?)"
+                ) from e
             return None
+        _consecutive_failures = 0
         if not text:
             logger.info(f"Skipping {url}: no English captions")
         return text
@@ -296,11 +323,7 @@ class YouTubeDataset(AlignmentDataset):
         if not attempted:
             return
         logger.info(f"{self.name}: {failed} of {attempted} transcript fetches failed")
-        if failed > MAX_SILENT_FAILURES and failed / attempted > MAX_FAILURE_SHARE:
-            raise RuntimeError(
-                f"{self.name}: {failed} of {attempted} transcript fetches failed "
-                f"(YouTube blocking or network trouble; is YT_PROXY_URL set and working?)"
-            )
+        check_failures(self.name, attempted, failed)
 
     def extract_authors(self, video):
         if self.authors:
@@ -378,3 +401,27 @@ class YouTubePlaylistDataset(YouTubeDataset):
 
     def next_page(self, collection_id: str, next_page_token: list):
         return self.list_playlist(collection_id, next_page_token)
+
+
+@dataclass
+class YouTubeMultiDataset(MultiDataset):
+    """All YouTube sources as one dataset. Also checks the failure threshold over
+    all of them together: with daily runs each channel has only a few new videos,
+    so a dead proxy would not push any single channel over it."""
+
+    def finish(self):
+        stats = [d.stats for d in self.datasets if isinstance(d, YouTubeDataset)]
+        attempted = sum(s["attempted"] for s in stats)
+        failed = sum(s["failed"] for s in stats)
+        errors = []
+        if attempted:
+            try:
+                check_failures(self.name, attempted, failed)
+            except RuntimeError as e:
+                errors.append(str(e))
+        try:
+            super().finish()
+        except RuntimeError as e:
+            errors.append(str(e))
+        if errors:
+            raise RuntimeError("; ".join(errors))

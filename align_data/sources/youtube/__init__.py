@@ -1,7 +1,7 @@
-from align_data.common.alignment_dataset import MultiDataset
 from align_data.sources.youtube.youtube import (
     YouTubeChannelDataset,
     YouTubePlaylistDataset,
+    YouTubeMultiDataset,
 )
 
 YOUTUBE_DATASETS = [
@@ -163,5 +163,5 @@ YOUTUBE_DATASETS = [
 
 
 YOUTUBE_REGISTRY = [
-    MultiDataset(name="youtube", datasets=YOUTUBE_DATASETS),
+    YouTubeMultiDataset(name="youtube", datasets=YOUTUBE_DATASETS),
 ]

@@ -462,7 +462,7 @@ PLAYER_OK = {
         }
     },
 }
-LOGIN_REQUIRED = {"playabilityStatus": {"status": "LOGIN_REQUIRED", "reason": "Sign in"}}
+LOGIN_REQUIRED = {"playabilityStatus": {"status": "LOGIN_REQUIRED", "reason": "Sign in to confirm you're not a bot"}}
 
 
 def test_fetch_transcript_mints_via_proxy_and_fetches_captions_directly():
@@ -555,3 +555,69 @@ def test_multidataset_finish_collects_failures():
     bad2.stats.update(attempted=8, failed=7)
     with pytest.raises(RuntimeError, match="bad1.*bad2"):
         MultiDataset(name="youtube", datasets=[ok, bad1, bad2]).finish()
+
+
+@pytest.mark.parametrize(
+    "reason, is_bot_check",
+    (
+        ("Sign in to confirm you're not a bot", True),
+        (None, True),
+        ("This video may be inappropriate for some users.", False),
+        ("This video is private", False),
+    ),
+)
+def test_login_required_is_a_bot_check_only_when_it_says_so(reason, is_bot_check):
+    playability = {"status": "LOGIN_REQUIRED"}
+    if reason:
+        playability["reason"] = reason
+    with patch("align_data.sources.youtube.youtube.requests.Session") as Session:
+        session = Session.return_value.__enter__.return_value
+        session.post.return_value = _response({"playabilityStatus": playability})
+        if is_bot_check:
+            with pytest.raises(yt.FetchFailed):
+                yt.mint_player_response("v1", "http://proxy")
+            assert session.post.call_count == yt.MINT_ATTEMPTS_VIA_PROXY
+        else:
+            with pytest.raises(yt.VideoUnavailable):
+                yt.mint_player_response("v1", "http://proxy")
+            assert session.post.call_count == 1
+
+
+def test_youtube_multidataset_checks_failures_across_sources():
+    # A dead proxy with daily runs: every channel has a few new videos, all failed,
+    # none over the per-source threshold on its own.
+    datasets = [YouTubeDataset(name=f"c{i}") for i in range(4)]
+    for d in datasets:
+        d.stats.update(attempted=3, failed=3)
+    with pytest.raises(RuntimeError, match="youtube: 12 of 12"):
+        yt.YouTubeMultiDataset(name="youtube", datasets=datasets).finish()
+
+
+def test_youtube_multidataset_passes_when_few_failed():
+    datasets = [YouTubeDataset(name=f"c{i}") for i in range(4)]
+    for d in datasets:
+        d.stats.update(attempted=30, failed=1)
+    yt.YouTubeMultiDataset(name="youtube", datasets=datasets).finish()
+
+
+def test_run_stops_after_many_failures_in_a_row():
+    dataset = YouTubeDataset(name="bla")
+    video = {"kind": "youtube#playlistItem", "snippet": {"resourceId": {"kind": "youtube#video", "videoId": "v1"}}}
+    with patch.object(yt, "_consecutive_failures", 0), patch.object(
+        yt, "fetch_transcript", side_effect=yt.FetchFailed("proxy down")
+    ):
+        for _ in range(yt.MAX_CONSECUTIVE_FAILURES - 1):
+            assert dataset._get_contents(video) is None
+        with pytest.raises(RuntimeError, match="in a row"):
+            dataset._get_contents(video)
+
+
+def test_a_success_resets_the_failures_in_a_row():
+    dataset = YouTubeDataset(name="bla")
+    video = {"kind": "youtube#playlistItem", "snippet": {"resourceId": {"kind": "youtube#video", "videoId": "v1"}}}
+    outcomes = [yt.FetchFailed("x")] * (yt.MAX_CONSECUTIVE_FAILURES - 1) + ["text"] + [yt.FetchFailed("x")] * (
+        yt.MAX_CONSECUTIVE_FAILURES - 1
+    )
+    with patch.object(yt, "_consecutive_failures", 0), patch.object(yt, "fetch_transcript", side_effect=outcomes):
+        for _ in outcomes:
+            dataset._get_contents(video)
