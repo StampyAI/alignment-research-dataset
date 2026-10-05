@@ -42,13 +42,7 @@ Here are the list of sources along with sample contents:
 
   - [Make a suggestion](https://bit.ly/ard-suggestion) for sources not already in the dataset
 
-- youtube - playlists & channels
-  - [AI Alignment playlist](https://www.youtube.com/playlist?list=PLCRVRLd2RhZTpdUdEzJjo3qhmX3y3skWA) and other lists
-  - [AI Explained](https://www.youtube.com/@aiexplained-official)
-  - [Evan Hubinger's AI Safety Talks](https://www.youtube.com/@aisafetytalks)
-  - [AI Safety Reading Group](https://www.youtube.com/@aisafetyreadinggroup/videos)
-  - [AiTech - TU Delft](https://www.youtube.com/@AiTechTUDelft/)
-  - [Rob Miles AI](https://www.youtube.com/@RobertMilesAI)
+- youtube - captions of the channels and playlists listed in [align_data/sources/youtube/__init__.py](align_data/sources/youtube/__init__.py), with a timestamp every 30 seconds or so (e.g. [Rob Miles AI](https://www.youtube.com/@RobertMilesAI), [AI Explained](https://www.youtube.com/@aiexplained-official), [80,000 Hours](https://www.youtube.com/@eightythousandhours))
 
 ## Keys
 
@@ -146,6 +140,7 @@ To autopopulate the metadata files, you'll need Google Cloud credentials. This i
    - Enable the Google Drive API for your project at <https://console.cloud.google.com/apis/api/drive.googleapis.com/metrics?project=><your project id>
    - Enable the Youtube API for your project at <https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=><your project id>. Note that the youtube API is quite limited in the number of requests it can perform.
      An alternative to this step is that when running the program without these enabled, an exception will be raised telling you how to enable it - you can then just open the link in the exception message
+   - YouTube blocks caption requests from cloud and datacenter IPs. Set `YT_PROXY_URL` to a rotating residential proxy (`http://user:pass@host:port`); only one ~4KB request per video goes through it. From a home connection it works without one.
 4. Navigate to the "Credentials" section, and to `+ Create Credentials`.
 5. Select "Service Account"
 6. Fill in the required information for the service account:

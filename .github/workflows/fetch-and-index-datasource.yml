@@ -30,6 +30,10 @@ on:
 jobs:
   fetch_dataset:
     runs-on: ubuntu-latest
+    # A manual run and the nightly one must not fetch the same source at once.
+    concurrency:
+      group: fetch-${{ inputs.datasource }}
+      cancel-in-progress: false
 
     steps:
     - name: Checkout repository
@@ -57,6 +61,7 @@ jobs:
         AGISF_AIRTABLE_BASE_ID: ${{ secrets.AGISF_AIRTABLE_BASE_ID }}
         AGISF_AIRTABLE_TABLE_ID: ${{ secrets.AGISF_AIRTABLE_TABLE_ID }}
         YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        YT_PROXY_URL: ${{ secrets.YT_PROXY_URL }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
         ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
@@ -67,6 +72,8 @@ jobs:
 
   update_index:
     needs: fetch_dataset
+    # Index whatever was fetched, also when the fetch job failed partway.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
 
     steps:

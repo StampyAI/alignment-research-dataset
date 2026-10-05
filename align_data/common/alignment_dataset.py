@@ -245,6 +245,9 @@ class AlignmentDataset:
         """Process a single entry."""
         raise NotImplementedError
 
+    def finish(self):
+        """Called after a fetch has been written. Raise to fail the run."""
+
     @staticmethod
     def _format_datetime(date: datetime) -> str:
         return date.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -323,6 +326,16 @@ class MultiDataset(AlignmentDataset):
         article = dataset.process_entry(item)
         article.add_meta("initial_source", article.source)
         article.source = self.name
+
+    def finish(self):
+        errors = []
+        for dataset in self.datasets:
+            try:
+                dataset.finish()
+            except Exception as e:
+                errors.append(str(e))
+        if errors:
+            raise RuntimeError("; ".join(errors))
 
     def fetch_entries(self):
         for dataset in self.datasets:
