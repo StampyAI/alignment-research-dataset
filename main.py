@@ -65,6 +65,7 @@ class AlignmentDataset:
             logger.info(f"Got dataset: {dataset}")
 
             dataset.add_entries(dataset.fetch_entries())
+            dataset.finish()
 
     def fetch_all(self, *skip) -> None:
         """

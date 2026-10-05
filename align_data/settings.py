@@ -26,6 +26,9 @@ METADATA_OUTPUT_SPREADSHEET = os.environ.get(
 
 ### YOUTUBE ###
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
+# Rotating residential proxy for the caption-URL mint (http://user:pass@host:port).
+# YouTube blocks caption requests from cloud IPs, so the scheduled runs need it.
+YT_PROXY_URL = os.environ.get("YT_PROXY_URL", "").strip() or None
 
 ### Airtable ###
 AIRTABLE_API_KEY = os.environ.get("AIRTABLE_API_KEY")

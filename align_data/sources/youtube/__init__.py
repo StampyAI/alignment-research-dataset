@@ -70,6 +70,84 @@ YOUTUBE_DATASETS = [
         channel_id="UCgqt1RE0k0MIr0LoyJRy2lg",
         authors=[],
     ),
+    YouTubeChannelDataset(
+        name="eighty_thousand_hours",
+        channel_id="UCafjal1QYJ3rb0Y9xZk1Ezg",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="ai_in_context",
+        channel_id="UCwicfou4Ewu-koikmga-bEg",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="doom_debates",
+        channel_id="UCote8RH_wwSLza2Qb0GAQJw",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="mats_research",
+        channel_id="UCnuF6PECZUanOv0Fr5bZncA",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="apollo_research",
+        channel_id="UCtgPrSMysGMqA4W_KHDOQSA",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="epoch_ai",
+        channel_id="UCKD37zEyw8vvopuMzG53IjQ",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="govai",
+        channel_id="UCC7aDrlgl_81EfnE7Hg6kRw",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="metr",
+        channel_id="UC2M-vHwEX5eQ0wFq5eB4E4A",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="bluedot_impact",
+        channel_id="UC42xehf3t1tf64kfQ7LQwxw",
+        authors=[],
+    ),
+    # Podcast and essays only: the channel also carries history lecture series, clips and shorts.
+    YouTubePlaylistDataset(
+        name="dwarkesh_patel",
+        playlist_ids=[
+            "PLd7-bHaQwnthaNDpZ32TtYONGVk95-fhF",  # Dwarkesh Podcast
+            "PLd7-bHaQwntiXHu_jwquhtA1Fk4JsUZy7",  # Essays
+        ],
+    ),
+    YouTubeChannelDataset(
+        name="species_documenting_agi",
+        channel_id="UCEENWVBdvDy-QWfuQoXC9HQ",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="siliconversations",
+        channel_id="UCaItA_xyCNvDSf-DLkzClRg",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="dr_waku",
+        channel_id="UCZf5IX90oe5gdPppMXGImwg",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="apart_research",
+        channel_id="UCnfBOJnTkE9sgjMOOsQbi2w",
+        authors=[],
+    ),
+    YouTubeChannelDataset(
+        name="the_ai_alignment_podcast",
+        channel_id="UCZ7Q7iIpn33FUVLHS73oLzw",
+        authors=[],
+    ),
     YouTubePlaylistDataset(
         name="ai_alignment_playlist",
         playlist_ids=[

@@ -19,7 +19,6 @@ google-auth-httplib2==0.1.1
 google-auth-oauthlib==1.1.0
 google-api-python-client==2.106.0
 gspread==5.12.0
-youtube-transcript-api==1.2.3
 airtable==0.4.8
 
 alembic==1.12.1
