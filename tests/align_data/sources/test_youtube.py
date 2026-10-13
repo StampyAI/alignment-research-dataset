@@ -6,6 +6,7 @@ from align_data.sources.youtube.youtube import (
     YouTubeChannelDataset,
     YouTubePlaylistDataset,
 )
+from align_data.db.models import Article
 from youtube_transcript_api._errors import (
     NoTranscriptFound,
     VideoUnavailable,
@@ -404,6 +405,42 @@ def test_channel_authors_still_use_channel_title():
     }
 
     assert dataset.extract_authors(video) == ["Channel author"]
+
+
+def test_update_authors():
+    dataset = YouTubePlaylistDataset(name="test_playlist", playlist_ids=["playlist"])
+
+    def video(video_id, uploader):
+        return {
+            "kind": "youtube#playlistItem",
+            "snippet": {
+                "resourceId": {"kind": "youtube#video", "videoId": video_id},
+                "channelTitle": "Playlist curator",
+                "videoOwnerChannelTitle": uploader,
+            },
+        }
+
+    stale = Article(url="https://www.youtube.com/watch?v=stale", authors="Playlist curator")
+    current = Article(url="https://www.youtube.com/watch?v=current", authors="Uploader 2")
+    not_in_playlist = Article(url="https://www.youtube.com/watch?v=gone", authors="Someone")
+
+    with (
+        patch.object(dataset, "setup"),
+        patch.object(
+            dataset,
+            "next_page",
+            return_value={"items": [video("stale", "Uploader 1"), video("current", "Uploader 2")]},
+        ),
+        patch("align_data.sources.youtube.youtube.make_session") as make_session,
+    ):
+        session = make_session.return_value.__enter__.return_value
+        session.scalars.return_value = [stale, current, not_in_playlist]
+
+        assert dataset.update_authors() == 1
+
+    assert stale.authors == "Uploader 1"
+    assert current.authors == "Uploader 2"
+    assert not_in_playlist.authors == "Someone"
 
 
 def test_playlist_published_date():

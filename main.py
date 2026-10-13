@@ -19,6 +19,7 @@ from align_data.sources.articles.articles import (
     update_new_items,
 )
 from align_data.sources.validate import check_articles
+from align_data.sources.youtube import YOUTUBE_DATASETS
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,19 @@ class AlignmentDataset:
             logger.info(f"Got dataset: {dataset}")
 
             dataset.add_entries(dataset.fetch_entries())
+
+    def update_youtube_authors(self, *names) -> None:
+        """
+        Recompute the authors of already fetched YouTube videos, e.g. after changing how authors are extracted.
+
+        :param List[str] names: The names of the YouTube datasets to update, e.g. ai_alignment_playlist
+        """
+        datasets = {dataset.name: dataset for dataset in YOUTUBE_DATASETS}
+        missing = set(names) - set(datasets)
+        assert not missing, f"{missing} are not valid YouTube dataset names"
+        for name in names:
+            updated = datasets[name].update_authors()
+            logger.info(f"Updated authors of {updated} articles in {name}")
 
     def fetch_all(self, *skip) -> None:
         """

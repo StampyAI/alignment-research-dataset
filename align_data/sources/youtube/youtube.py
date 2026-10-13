@@ -6,6 +6,7 @@ from typing import List, Optional, Iterable
 from xml.etree.ElementTree import ParseError
 
 from googleapiclient.discovery import build, Resource
+from sqlalchemy import select
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.proxies import WebshareProxyConfig
 from youtube_transcript_api._errors import (
@@ -16,7 +17,9 @@ from youtube_transcript_api._errors import (
 
 from align_data.settings import YOUTUBE_API_KEY
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.formatters import format_authors
 from align_data.db.models import Article
+from align_data.db.session import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +136,25 @@ class YouTubeDataset(AlignmentDataset):
             if uploader:
                 return [uploader]
         return [snippet["channelTitle"].strip()]
+
+    def update_authors(self) -> int:
+        """Recompute the authors of already fetched videos, without refetching their transcripts."""
+        self.setup()
+        authors = {
+            self.get_item_key(video): format_authors(self.extract_authors(video))
+            for video in self.items_list
+        }
+        updated = 0
+        with make_session(auto_commit=True) as session:
+            # Articles fetched via the "youtube" MultiDataset keep the dataset name in `initial_source`
+            query = select(Article).where(Article.meta["initial_source"].as_string() == self.name)
+            for article in session.scalars(query):
+                new_authors = authors.get(article.url)
+                if new_authors and new_authors != article.authors:
+                    logger.info(f"{article.url}: {article.authors!r} -> {new_authors!r}")
+                    article.authors = new_authors
+                    updated += 1
+        return updated
 
     @staticmethod
     def _extract_published_date(video) -> str | None:
