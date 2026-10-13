@@ -127,7 +127,12 @@ class YouTubeDataset(AlignmentDataset):
     def extract_authors(self, video):
         if self.authors:
             return self.authors
-        return [video["snippet"]["channelTitle"].strip()]
+        snippet = video["snippet"]
+        if video.get("kind") == "youtube#playlistItem":
+            uploader = (snippet.get("videoOwnerChannelTitle") or "").strip()
+            if uploader:
+                return [uploader]
+        return [snippet["channelTitle"].strip()]
 
     @staticmethod
     def _extract_published_date(video) -> str | None:
