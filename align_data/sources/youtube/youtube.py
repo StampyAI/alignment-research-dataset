@@ -1,24 +1,212 @@
+"""YouTube videos as articles: the text is the video's captions with timestamps.
+
+YouTube blocks caption requests from cloud IPs (GitHub Actions included), so
+the transcript is fetched in two steps, as in the Lens editor's importer:
+
+ - Only the caption-URL *mint* (one ~4KB innertube /player POST, ANDROID
+   client, `fields`-trimmed) needs a clean IP. It goes through YT_PROXY_URL
+   (a rotating residential proxy) when that is set.
+ - The minted timedtext URL is signed but not IP-locked, and `fmt` is not part
+   of its signature, so the captions themselves are fetched directly (no
+   proxy bandwidth) as json3.
+
+The ANDROID client is used because its caption URLs work without the
+proof-of-origin token that WEB-client URLs now require.
+"""
+
 import logging
+import re
+from dataclasses import dataclass
 from datetime import datetime
-from dataclasses import dataclass, field
-import os
 from typing import List, Optional, Iterable
-from xml.etree.ElementTree import ParseError
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
+import requests
 from googleapiclient.discovery import build, Resource
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.proxies import WebshareProxyConfig
-from youtube_transcript_api._errors import (
-    NoTranscriptFound,
-    VideoUnavailable,
-    TranscriptsDisabled,
-)
 
-from align_data.settings import YOUTUBE_API_KEY
-from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.settings import YOUTUBE_API_KEY, YT_PROXY_URL
+from align_data.common.alignment_dataset import AlignmentDataset, MultiDataset
 from align_data.db.models import Article
 
 logger = logging.getLogger(__name__)
+
+PLAYER_URL = "https://www.youtube.com/youtubei/v1/player"
+# Trims the ~130KB player response to the ~4KB we use -- this is the only
+# payload that crosses the (metered) proxy.
+PLAYER_FIELDS = (
+    "playabilityStatus(status,reason),"
+    "videoDetails(videoId,title,author),"
+    "captions.playerCaptionsTracklistRenderer.captionTracks(baseUrl,languageCode,kind)"
+)
+ANDROID_CONTEXT = {
+    "client": {
+        "clientName": "ANDROID",
+        "clientVersion": "20.10.38",
+        "androidSdkVersion": 30,
+        "hl": "en",
+    }
+}
+ANDROID_UA = "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip"
+# YouTube flags a few percent of residential exit IPs as bots. A rotating proxy
+# hands out a fresh exit IP per new connection, so each attempt uses its own
+# requests.Session. Without a proxy a retry would reuse the same IP, so we only
+# try once.
+MINT_ATTEMPTS_VIA_PROXY = 5
+MINT_TIMEOUT = 30
+CAPTION_TIMEOUT = 60
+# A timestamp marker starts a new paragraph at most this often.
+MARKER_EVERY_SECONDS = 30
+# A run fails when more than this share of caption fetches failed (and more
+# than MAX_SILENT_FAILURES of them), so a blocked scraper shows up as a failed
+# job instead of a quiet "success".
+MAX_FAILURE_SHARE = 0.2
+MAX_SILENT_FAILURES = 5
+# A proxy that hangs or refuses every request would otherwise cost
+# MINT_ATTEMPTS_VIA_PROXY * MINT_TIMEOUT per video until the job times out.
+MAX_CONSECUTIVE_FAILURES = 10
+
+
+class VideoUnavailable(Exception):
+    """The video itself can't be fetched (private, removed, age-gated...). Not retried."""
+
+
+class FetchFailed(Exception):
+    """The fetch failed for a reason that says nothing about the video: a bot
+    check, a network error, a bad response. Counted towards failing the run."""
+
+
+def mint_player_response(video_id: str, proxy_url: Optional[str]) -> dict:
+    attempts = MINT_ATTEMPTS_VIA_PROXY if proxy_url else 1
+    last_error = "YouTube player request failed"
+    for attempt in range(1, attempts + 1):
+        # A fresh session per attempt means a fresh connection, so a fresh exit IP.
+        with requests.Session() as session:
+            if proxy_url:
+                session.proxies = {"http": proxy_url, "https": proxy_url}
+            try:
+                resp = session.post(
+                    PLAYER_URL,
+                    params={"prettyPrint": "false", "fields": PLAYER_FIELDS},
+                    json={"videoId": video_id, "context": ANDROID_CONTEXT},
+                    headers={"User-Agent": ANDROID_UA},
+                    timeout=MINT_TIMEOUT,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except (requests.RequestException, ValueError) as e:
+                last_error = f"{type(e).__name__}: {e}"
+                logger.warning(f"Mint attempt {attempt}/{attempts} for {video_id} failed: {last_error}")
+                continue
+
+        playability = data.get("playabilityStatus") or {}
+        status = playability.get("status")
+        reason = playability.get("reason") or ""
+        # Age-gated and private videos also answer LOGIN_REQUIRED, with their own
+        # reason; only a bot check (or no reason at all) is worth another exit IP.
+        if status == "LOGIN_REQUIRED" and (not reason or "bot" in reason.lower()):
+            last_error = "YouTube bot check rejected the request (exit IP flagged" + (
+                ")" if proxy_url else "; YT_PROXY_URL is not set)"
+            )
+            logger.warning(f"Mint attempt {attempt}/{attempts} for {video_id} failed: {last_error}")
+            continue
+        if status and status != "OK":
+            raise VideoUnavailable(f"Video is {status}" + (f" ({reason})" if reason else ""))
+        return data
+    raise FetchFailed(last_error)
+
+
+def pick_caption_track(tracks: List[dict]) -> Optional[dict]:
+    """The best English track: human-written before auto-generated ("asr"),
+    then `en` before regional variants. None when there is no English track."""
+    english = [t for t in tracks if (t.get("languageCode") or "").startswith("en")]
+    if not english:
+        return None
+
+    def rank(track):
+        auto = 2 if track.get("kind") == "asr" else 0
+        lang = 0 if track.get("languageCode") == "en" else 1
+        return auto + lang
+
+    # min keeps the earliest track on ties
+    return min(english, key=rank)
+
+
+def to_json3_url(base_url: str) -> str:
+    parts = urlparse(base_url)
+    query = parse_qs(parts.query, keep_blank_values=True)
+    query["fmt"] = ["json3"]
+    return urlunparse(parts._replace(query=urlencode(query, doseq=True)))
+
+
+def fetch_caption_events(track: dict) -> List[dict]:
+    """The track's json3 caption events, fetched directly (not via the proxy)."""
+    url = to_json3_url(track["baseUrl"])
+    error = "Caption response was empty"
+    # One retry: a transient 5xx or empty body shouldn't lose the video.
+    for _ in range(2):
+        try:
+            resp = requests.get(url, headers={"User-Agent": ANDROID_UA}, timeout=CAPTION_TIMEOUT)
+            resp.raise_for_status()
+            if resp.content:
+                return resp.json().get("events") or []
+        except (requests.RequestException, ValueError) as e:
+            error = f"{type(e).__name__}: {e}"
+    raise FetchFailed(f"Caption fetch failed: {error}")
+
+
+def format_timestamp(seconds: float) -> str:
+    seconds = int(seconds)
+    hours, rest = divmod(seconds, 3600)
+    minutes, secs = divmod(rest, 60)
+    return f"[{hours}:{minutes:02}:{secs:02}]" if hours else f"[{minutes:02}:{secs:02}]"
+
+
+def captions_to_text(events: List[dict], every: int = MARKER_EVERY_SECONDS) -> str:
+    """Join caption events into paragraphs, each starting with a timestamp,
+    a new paragraph at most every `every` seconds."""
+    paragraphs, current, start = [], [], None
+    for event in events:
+        text = "".join(seg.get("utf8", "") for seg in event.get("segs") or [])
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            continue
+        at = event.get("tStartMs", 0) / 1000
+        if start is None or at - start >= every:
+            if current:
+                paragraphs.append(f"{format_timestamp(start)} {' '.join(current)}")
+            current, start = [], at
+        current.append(text)
+    if current:
+        paragraphs.append(f"{format_timestamp(start)} {' '.join(current)}")
+    return "\n\n".join(paragraphs)
+
+
+def check_failures(label: str, attempted: int, failed: int):
+    """Raise when too many transcript fetches failed for the run to count as working."""
+    if failed > MAX_SILENT_FAILURES and failed / attempted > MAX_FAILURE_SHARE:
+        raise RuntimeError(
+            f"{label}: {failed} of {attempted} transcript fetches failed "
+            f"(YouTube blocking or network trouble; is YT_PROXY_URL set and working?)"
+        )
+
+
+_consecutive_failures = 0
+
+
+def fetch_transcript(video_id: str, proxy_url: Optional[str]) -> Optional[str]:
+    """The video's English captions as timestamped text, or None when it has none.
+
+    Raises VideoUnavailable for videos that can't be fetched, and FetchFailed
+    for everything else that went wrong.
+    """
+    player = mint_player_response(video_id, proxy_url)
+    tracks = ((player.get("captions") or {}).get("playerCaptionsTracklistRenderer") or {}).get(
+        "captionTracks"
+    ) or []
+    track = pick_caption_track(tracks)
+    if not track:
+        return None
+    return captions_to_text(fetch_caption_events(track)) or None
 
 
 class YouTubeDataset(AlignmentDataset):
@@ -29,6 +217,7 @@ class YouTubeDataset(AlignmentDataset):
 
     def setup(self):
         super().setup()
+        self._stats = {"attempted": 0, "failed": 0}
         if not YOUTUBE_API_KEY:
             raise ValueError("No YOUTUBE_API_KEY provided!")
         self.youtube: Resource = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
@@ -61,6 +250,19 @@ class YouTubeDataset(AlignmentDataset):
             if not next_page_token:
                 return
 
+    def list_playlist(self, playlist_id: str, next_page_token) -> dict:
+        """One page of a playlist (1 quota unit per page)."""
+        return (
+            self.youtube.playlistItems()
+            .list(
+                part="snippet,contentDetails",
+                playlistId=playlist_id,
+                maxResults=50,
+                pageToken=next_page_token,
+            )
+            .execute()
+        )
+
     @property
     def items_list(self):
         return (
@@ -83,46 +285,45 @@ class YouTubeDataset(AlignmentDataset):
             raise ValueError("Invalid video item; missing videoId")
         return f"https://www.youtube.com/watch?v={video_id}"
 
-    def _get_transcript_api(self):
-        """
-        Lazily construct the transcript client so callers (and tests) don't
-        need to remember to call setup() before fetching transcripts.
-        """
-        if not hasattr(self, "_transcript_api"):
-            self._transcript_api = YouTubeTranscriptApi()
-        return self._transcript_api
+    @property
+    def stats(self) -> dict:
+        if not hasattr(self, "_stats"):
+            self._stats = {"attempted": 0, "failed": 0}
+        return self._stats
 
     def _get_contents(self, video):
         video_id = self._get_id(video)
+        url = f"https://www.youtube.com/watch?v={video_id}"
         logger.debug(f"Fetching transcript for video: {video_id} - {video.get('snippet', {}).get('title', 'Unknown title')}")
+        global _consecutive_failures
+        self.stats["attempted"] += 1
         try:
-            transcript = (
-                self._get_transcript_api()
-                .list(video_id)
-                .find_transcript(["en", "en-GB"])
-                .fetch()
-                .to_raw_data()
-            )
-            return "\n".join([i["text"] for i in transcript])
-        except (NoTranscriptFound, VideoUnavailable):
+            text = fetch_transcript(video_id, YT_PROXY_URL)
+        except VideoUnavailable as e:
+            _consecutive_failures = 0
+            logger.info(f"Skipping {url}: {e}")
             return None
-        except TranscriptsDisabled:
-            logger.error(
-                f"Transcripts disabled for https://www.youtube.com/watch?v={video_id} - skipping"
-            )
+        except FetchFailed as e:
+            self.stats["failed"] += 1
+            _consecutive_failures += 1
+            logger.error(f"Could not fetch the transcript for {url}: {e}")
+            if _consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                raise RuntimeError(
+                    f"{_consecutive_failures} transcript fetches failed in a row; stopping "
+                    f"(YouTube blocking or network trouble; is YT_PROXY_URL set and working?)"
+                ) from e
             return None
-        except ParseError as e:
-            logger.warning(
-                f"Empty or malformed transcript XML for https://www.youtube.com/watch?v={video_id} "
-                f"(ParseError: {e}) - likely deleted/private video or corrupted transcript data - skipping"
-            )
-            return None
-        except Exception as e:
-            logger.error(
-                f"Unexpected error fetching transcript for https://www.youtube.com/watch?v={video_id}: "
-                f"{type(e).__name__}: {e} - skipping"
-            )
-            return None
+        _consecutive_failures = 0
+        if not text:
+            logger.info(f"Skipping {url}: no English captions")
+        return text
+
+    def finish(self):
+        attempted, failed = self.stats["attempted"], self.stats["failed"]
+        if not attempted:
+            return
+        logger.info(f"{self.name}: {failed} of {attempted} transcript fetches failed")
+        check_failures(self.name, attempted, failed)
 
     def extract_authors(self, video):
         if self.authors:
@@ -136,8 +337,19 @@ class YouTubeDataset(AlignmentDataset):
 
     @staticmethod
     def _extract_published_date(video) -> str | None:
-        snippet = video.get("snippet", {}) if isinstance(video, dict) else {}
-        return snippet.get("publishTime") or snippet.get("publishedAt")
+        if not isinstance(video, dict):
+            return None
+        # contentDetails.videoPublishedAt is when the video went up; a playlist
+        # item's snippet.publishedAt is when it was added to the playlist.
+        details = video.get("contentDetails") or {}
+        snippet = video.get("snippet") or {}
+        return details.get("videoPublishedAt") or snippet.get("publishTime") or snippet.get("publishedAt")
+
+    @staticmethod
+    def _get_published_date(date) -> datetime | None:  # type: ignore[override]
+        if isinstance(date, dict):
+            date = YouTubeDataset._extract_published_date(date)
+        return AlignmentDataset._get_published_date(date)
 
     def process_entry(self, video) -> Article | None:
         video_url = self.get_item_key(video)
@@ -153,12 +365,17 @@ class YouTubeDataset(AlignmentDataset):
                 "title": video["snippet"]["title"],
                 "source": self.name,
                 "source_type": "youtube",
-                "date_published": self._get_published_date(
-                    self._extract_published_date(video)
-                ),
+                "date_published": self._get_published_date(video),
                 "authors": self.extract_authors(video),
             }
         )
+
+
+def uploads_playlist_id(channel_id: str) -> str:
+    """Every channel's uploads are a playlist whose id is the channel id with UC -> UU."""
+    if not channel_id.startswith("UC"):
+        raise ValueError(f"Not a channel id: {channel_id}")
+    return "UU" + channel_id[2:]
 
 
 @dataclass
@@ -171,26 +388,9 @@ class YouTubeChannelDataset(YouTubeDataset):
         return [self.channel_id]
 
     def next_page(self, collection_id, next_page_token):
-        return (
-            self.youtube.search()
-            .list(
-                part="snippet",
-                channelId=collection_id,
-                maxResults=50,
-                pageToken=next_page_token,
-            )
-            .execute()
-        )
-
-    @staticmethod
-    def _extract_published_date(video) -> str | None:
-        return video.get("snippet", {}).get("publishTime")
-
-    @staticmethod
-    def _get_published_date(date) -> datetime | None:  # type: ignore[override]
-        if isinstance(date, dict):
-            date = date.get("snippet", {}).get("publishTime")
-        return AlignmentDataset._get_published_date(date)
+        # The uploads playlist lists every video at 1 quota unit per page;
+        # search().list costs 100 per page and stops at about 500 results.
+        return self.list_playlist(uploads_playlist_id(collection_id), next_page_token)
 
 
 @dataclass
@@ -203,23 +403,28 @@ class YouTubePlaylistDataset(YouTubeDataset):
         return self.playlist_ids
 
     def next_page(self, collection_id: str, next_page_token: list):
-        return (
-            self.youtube.playlistItems()
-            .list(
-                part="snippet",
-                playlistId=collection_id,
-                maxResults=50,
-                pageToken=next_page_token,
-            )
-            .execute()
-        )
+        return self.list_playlist(collection_id, next_page_token)
 
-    @staticmethod
-    def _extract_published_date(video) -> str | None:
-        return video.get("snippet", {}).get("publishedAt")
 
-    @staticmethod
-    def _get_published_date(date) -> datetime | None:  # type: ignore[override]
-        if isinstance(date, dict):
-            date = date.get("snippet", {}).get("publishedAt")
-        return AlignmentDataset._get_published_date(date)
+@dataclass
+class YouTubeMultiDataset(MultiDataset):
+    """All YouTube sources as one dataset. Also checks the failure threshold over
+    all of them together: with daily runs each channel has only a few new videos,
+    so a dead proxy would not push any single channel over it."""
+
+    def finish(self):
+        stats = [d.stats for d in self.datasets if isinstance(d, YouTubeDataset)]
+        attempted = sum(s["attempted"] for s in stats)
+        failed = sum(s["failed"] for s in stats)
+        errors = []
+        if attempted:
+            try:
+                check_failures(self.name, attempted, failed)
+            except RuntimeError as e:
+                errors.append(str(e))
+        try:
+            super().finish()
+        except RuntimeError as e:
+            errors.append(str(e))
+        if errors:
+            raise RuntimeError("; ".join(errors))
