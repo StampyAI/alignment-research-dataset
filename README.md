@@ -141,6 +141,7 @@ To autopopulate the metadata files, you'll need Google Cloud credentials. This i
    - Enable the Youtube API for your project at <https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=><your project id>. Note that the youtube API is quite limited in the number of requests it can perform.
      An alternative to this step is that when running the program without these enabled, an exception will be raised telling you how to enable it - you can then just open the link in the exception message
    - YouTube blocks caption requests from cloud and datacenter IPs. Set `YT_PROXY_URL` to a rotating residential proxy (`http://user:pass@host:port`); only one ~4KB request per video goes through it. From a home connection it works without one.
+     **Production note:** the `YT_PROXY_URL` repo secret currently points to an IPRoyal residential proxy paid for by [Lens Academy](https://lensacademy.org), not by StampyAI. If it stops working, the YouTube fetch fails loudly instead of silently skipping videos. Moving it to a StampyAI-owned account is a TODO.
 4. Navigate to the "Credentials" section, and to `+ Create Credentials`.
 5. Select "Service Account"
 6. Fill in the required information for the service account:

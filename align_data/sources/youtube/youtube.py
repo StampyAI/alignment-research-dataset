@@ -329,8 +329,11 @@ class YouTubeDataset(AlignmentDataset):
         if self.authors:
             return self.authors
         snippet = video["snippet"]
-        # In a playlist, channelTitle is the playlist's owner; videoOwnerChannelTitle is the video's.
-        return [(snippet.get("videoOwnerChannelTitle") or snippet["channelTitle"]).strip()]
+        if video.get("kind") == "youtube#playlistItem":
+            uploader = (snippet.get("videoOwnerChannelTitle") or "").strip()
+            if uploader:
+                return [uploader]
+        return [snippet["channelTitle"].strip()]
 
     @staticmethod
     def _extract_published_date(video) -> str | None:

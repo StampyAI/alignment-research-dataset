@@ -1,8 +1,8 @@
-name: Daily dataset updates (formerly weekly)
+name: Weekly dataset updates
 on:
   workflow_dispatch: # allow manual triggering
   schedule:
-    - cron: "0 1 * * *"  # Every day at 01:00, after the other daily fetch starts
+    - cron: "0 0 * * 0"  # Every Sunday at midnight
 
 jobs:
   fetch_and_index:
