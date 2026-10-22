@@ -299,6 +299,14 @@ There are Datasets defined for various types of data sources - first check if an
 
 The scraper code and dataset are maintained by [StampyAI](http://stampy.ai) / [AI Safety Info](http://aisafety.info). [Learn more](https://coda.io/d/AI-Safety-Info_dfau7sl2hmG/Get-involved_susRF#_lufSr) or join us on [Rob Miles AI Discord server](https://discord.gg/vjFSCDyMCy?channel=1125882422731472896). For dataset-specific questions, join the "Alignment Research Dataset dev" thread of the #💻-stampy-dev-forum channel.
 
+### Start here
+
+You don't need permission to start:
+
+1. Pick an issue labelled [`good first issue`](https://github.com/StampyAI/alignment-research-dataset/labels/good%20first%20issue) and comment on it so nobody else picks the same one. These can be done without production API keys; a local MySQL (see [Database Setup](#4-database-setup)) is enough.
+2. Open a draft PR early, even if it's not finished. If you're stuck, ask your question in the PR.
+3. We aim to review PRs within a week.
+
 ### Ways to contribute
 
   - **Suggest content**: Use [this form](https://bit.ly/ard-suggestion) to suggest sources not already in the dataset
