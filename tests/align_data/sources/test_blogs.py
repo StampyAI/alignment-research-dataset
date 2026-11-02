@@ -1,11 +1,17 @@
+import json
+from pathlib import Path
 from unittest.mock import patch, Mock
 
+import feedparser
 import pytest
+import requests
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
 from align_data.sources.blogs import (
     AXRPDataset,
+    BLOG_DATASETS,
+    BLOG_REGISTRY,
     CaradoMoe,
     ColdTakes,
     GenerativeInk,
@@ -454,6 +460,116 @@ def test_substack_blog_process_entry():
         "title": "the article title",
         "url": "http://example.org/bla",
     }
+
+
+def test_substack_blog_skips_archive_bylines():
+    dataset = SubstackBlog(name="blog", url="https://blog.substack.com")
+    contents = {"entries": [{"link": "http://example.org/bla", "title": "t"}]}
+    with patch("feedparser.parse", return_value=contents):
+        with patch("align_data.sources.blogs.substack_blog.requests.get") as get:
+            assert dataset.items_list == ["http://example.org/bla"]
+    get.assert_not_called()
+
+
+BLUEDOT_FIXTURES = Path(__file__).parent / "fixtures"
+_FEEDPARSER_PARSE = feedparser.parse
+
+
+def test_bluedot_registered_with_blogs():
+    bluedot = next(dataset for dataset in BLOG_DATASETS if dataset.name == "bluedot")
+    assert isinstance(bluedot, SubstackBlog)
+    assert bluedot.url == "https://blog.bluedot.org"
+    assert bluedot.feed_url == "https://blog.bluedot.org/feed"
+    blogs = next(dataset for dataset in BLOG_REGISTRY if dataset.name == "blogs")
+    assert bluedot in blogs.datasets
+
+
+def test_bluedot_feed_fixture():
+    dataset = SubstackBlog(name="bluedot", url="https://blog.bluedot.org")
+    feed_path = BLUEDOT_FIXTURES / "bluedot_feed.xml"
+    archive = json.loads((BLUEDOT_FIXTURES / "bluedot_archive.json").read_text())
+
+    def parse_feed(source, *args, **kwargs):
+        assert source == "https://blog.bluedot.org/feed"
+        return _FEEDPARSER_PARSE(str(feed_path))
+
+    def get_archive(url, *args, **kwargs):
+        assert url.startswith("https://blog.bluedot.org/api/v1/archive?")
+        return Mock(raise_for_status=lambda: None, json=lambda: archive)
+
+    with (
+        patch("feedparser.parse", side_effect=parse_feed),
+        patch(
+            "align_data.sources.blogs.substack_blog.requests.get",
+            side_effect=get_archive,
+        ),
+    ):
+        urls = dataset.items_list
+
+    assert urls == [
+        "https://blog.bluedot.org/p/principles",
+        "https://blog.bluedot.org/p/biosecurity-strategy",
+        "https://blog.bluedot.org/p/interpreting-latent-reasoning-in",
+        "https://blog.bluedot.org/p/can-ai-help-humanity-make-better",
+    ]
+    by_url = {url: dataset.process_entry(url).to_dict() for url in urls}
+    assert by_url["https://blog.bluedot.org/p/principles"] == {
+        "authors": ["Dewi Erwan"],
+        "date_published": "2026-10-29T04:52:56Z",
+        "id": None,
+        "source": "bluedot",
+        "source_type": "blog",
+        "summaries": [],
+        "text": "Your culture is how your company makes decisions when you are not there.",
+        "title": "BlueDot’s Principles: How We Work",
+        "url": "https://blog.bluedot.org/p/principles",
+    }
+    assert by_url["https://blog.bluedot.org/p/biosecurity-strategy"]["authors"] == [
+        "O.H. Scharfman",
+        "Chris Strahle",
+    ]
+    biosecurity = by_url["https://blog.bluedot.org/p/biosecurity-strategy"]
+    assert biosecurity["title"] == "Biosecurity Strategy"
+    assert biosecurity["date_published"] == "2026-10-13T19:03:12Z"
+    assert biosecurity["text"] == "Biology is becoming programmable."
+    latent = by_url["https://blog.bluedot.org/p/interpreting-latent-reasoning-in"]
+    assert latent["authors"] == ["Tristan von Busch"]
+    assert latent["date_published"] == "2026-03-24T14:30:53Z"
+    assert latent["title"] == "Interpreting Latent Reasoning in the Depth-Recurrent Transformer"
+    assert "Tristan von Busch" in latent["text"]
+    hackathon = by_url["https://blog.bluedot.org/p/can-ai-help-humanity-make-better"]
+    assert hackathon["authors"] == [
+        "Joshua Landes",
+        "Harry Waterman",
+        "Alex Csaky",
+        "Ben Norman",
+    ]
+    assert hackathon["title"] == "Can AI Help Humanity Make Better Decisions?"
+    assert hackathon["date_published"] == "2026-10-02T23:16:13Z"
+    assert hackathon["text"] == (
+        "Ben and Alex recently published a new report on AI for epistemics and coordination."
+    )
+
+
+def test_bluedot_feed_keeps_rss_author_when_archive_fails():
+    dataset = SubstackBlog(name="bluedot", url="https://blog.bluedot.org")
+    feed_path = BLUEDOT_FIXTURES / "bluedot_feed.xml"
+
+    def parse_feed(source, *args, **kwargs):
+        return _FEEDPARSER_PARSE(str(feed_path))
+
+    with (
+        patch("feedparser.parse", side_effect=parse_feed),
+        patch(
+            "align_data.sources.blogs.substack_blog._get_archive_page",
+            side_effect=requests.ConnectionError("archive down"),
+        ),
+    ):
+        dataset.items_list
+
+    entry = dataset.process_entry("https://blog.bluedot.org/p/can-ai-help-humanity-make-better")
+    assert entry.to_dict()["authors"] == ["Joshua Landes"]
+    assert entry.to_dict()["title"] == "Can AI Help Humanity Make Better Decisions?"
 
 
 WORDPRESS_FEED = {

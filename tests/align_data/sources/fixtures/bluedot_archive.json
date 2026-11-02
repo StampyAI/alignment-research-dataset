@@ -1,0 +1,20 @@
+[
+  {
+    "canonical_url": "https://blog.bluedot.org/p/biosecurity-strategy",
+    "slug": "biosecurity-strategy",
+    "publishedBylines": [
+      {"name": "O.H. Scharfman"},
+      {"name": "Chris Strahle"}
+    ]
+  },
+  {
+    "canonical_url": "https://blog.bluedot.org/p/can-ai-help-humanity-make-better",
+    "slug": "can-ai-help-humanity-make-better",
+    "publishedBylines": [
+      {"name": "Joshua Landes"},
+      {"name": "Harry Waterman"},
+      {"name": "Alex Csaky"},
+      {"name": "Ben Norman"}
+    ]
+  }
+]

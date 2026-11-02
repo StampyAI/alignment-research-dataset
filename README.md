@@ -18,6 +18,7 @@ Here are the list of sources along with sample contents:
 
   - [AI Impacts](https://aiimpacts.org/)
   - [AI Safety Camp](https://aisafety.camp/)
+  - [BlueDot Impact](https://blog.bluedot.org/)
   - [carado.moe](https://carado.moe/)
   - [Cold Takes](https://www.cold-takes.com/)
   - [DeepMind technical blogs](https://www.deepmind.com/blog-categories/technical-blogs)

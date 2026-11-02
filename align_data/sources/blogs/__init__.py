@@ -52,6 +52,10 @@ BLOG_DATASETS = [
         name="ml_safety_newsletter",
         url="https://newsletter.mlsafety.org",
     ),
+    SubstackBlog(
+        name="bluedot",
+        url="https://blog.bluedot.org",
+    ),
     EleutherAI(name="eleuther.ai", url="https://blog.eleuther.ai/"),
     OpenAIResearch(name="openai.research", url="https://openai.com/research"),
     DeepMindTechnicalBlog(
