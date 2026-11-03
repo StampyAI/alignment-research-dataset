@@ -463,6 +463,7 @@ class PineconeUpdater(PineconeAction):
         :param only_hashes_from: Path to JSON file containing list of hash_ids to process exclusively (e.g., to_delete.json)
         """
 
+        self.pinecone_db.log_stats("before update")
         if log_progress:
             logger.info("Adding pinecone entries for %s", custom_sources)
         self.adder.update(custom_sources, force_update, log_progress, only_hashes_from=only_hashes_from)
@@ -473,6 +474,7 @@ class PineconeUpdater(PineconeAction):
 
         if log_progress:
             logger.info("Pinecone update completed")
+        self.pinecone_db.log_stats("after update")
 
     def update_articles_by_ids(
         self, hash_ids: List[int], force_update: bool = False, log_progress: bool = True

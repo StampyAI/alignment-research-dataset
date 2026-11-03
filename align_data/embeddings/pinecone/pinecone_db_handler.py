@@ -144,11 +144,15 @@ class PineconeDB:
             raise
 
         if log_index_stats:
-            try:
-                index_stats_response = self.index.describe_index_stats()
-                logger.info(f"{self.index_name}:\n{index_stats_response}")
-            except Exception as e:
-                logger.error(f"Failed to get index stats: {e}")
+            self.log_stats()
+
+    def log_stats(self, when: str = ""):
+        """Log vector counts. If they don't move while articles are added, writes are blocked."""
+        try:
+            index_stats_response = self.index.describe_index_stats()
+            logger.info(f"{self.index_name} {when}:\n{index_stats_response}")
+        except Exception as e:
+            logger.error(f"Failed to get index stats: {e}")
 
     def _get_vectors(self, entry: PineconeEntry) -> list[dict]:
         return entry.create_pinecone_vectors()

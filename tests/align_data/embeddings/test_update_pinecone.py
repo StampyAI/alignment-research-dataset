@@ -8,7 +8,7 @@ os.environ.setdefault("OPENAI_API_KEY", "sk-mock-test-key")
 
 from sqlalchemy.exc import OperationalError
 
-from align_data.embeddings.pinecone.update_pinecone import _read_with_retry
+from align_data.embeddings.pinecone.update_pinecone import PineconeUpdater, _read_with_retry
 
 
 def _op_error():
@@ -67,3 +67,13 @@ def test_read_with_retry_does_not_retry_other_errors(mock_sleep):
 
     with pytest.raises(ValueError):
         _read_with_retry(session, read, what="ID fetch")
+
+
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDeleter")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeAdder")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDB")
+def test_update_logs_index_stats_before_and_after(mock_db, mock_adder, mock_deleter):
+    # A vector count that doesn't change across runs is how we notice the index refusing writes.
+    PineconeUpdater().update(["all"], log_progress=False)
+    calls = mock_db.return_value.log_stats.call_args_list
+    assert [c.args for c in calls] == [("before update",), ("after update",)]
