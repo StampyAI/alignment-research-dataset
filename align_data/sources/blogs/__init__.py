@@ -5,6 +5,7 @@ from align_data.sources.blogs.blogs import (
     ColdTakes,
     GenerativeInk,
     CaradoMoe,
+    GhostBlog,
     EleutherAI,
     OpenAIResearch,
     DeepMindTechnicalBlog,
@@ -43,6 +44,11 @@ BLOG_DATASETS = [
         name="carado.moe",
         url="https://carado.moe",
         authors=["Tamsin Leake"],
+    ),
+    GhostBlog(
+        name="heim_blog",
+        url="https://blog.heim.xyz",
+        authors=["Lennart Heim"],
     ),
     SubstackBlog(
         name="importai",

@@ -1,10 +1,14 @@
+import os
 from unittest.mock import patch, Mock
 
+import feedparser
 import pytest
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
 from align_data.sources.blogs import (
+    BLOG_DATASETS,
+    BLOG_REGISTRY,
     AXRPDataset,
     CaradoMoe,
     ColdTakes,
@@ -913,3 +917,92 @@ def test_axrp_dataset_process_entry():
         "title": "Something or other with your momma",
         "url": "https://ble.ble.com/ble/ble",
     }
+
+
+# Lennart Heim's blog (blog.heim.xyz) - a Ghost blog. The fixture is a copy of the live RSS
+# feed trimmed to two entries with shortened bodies.
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+HEIM_FEED = os.path.join(FIXTURES_DIR, "heim_feed.xml")
+HEIM_POSTS = [
+    "https://blog.heim.xyz/chinas-ai-models-are-closing-the-gap/",
+    "https://blog.heim.xyz/share-of-ai-chips/",
+]
+
+_real_feedparser_parse = feedparser.parse
+
+
+def _blogs_multidataset():
+    return next(d for d in BLOG_REGISTRY if d.name == "blogs")
+
+
+def test_blog_dataset_names_are_unique():
+    names = [dataset.name for dataset in BLOG_DATASETS]
+    assert sorted(names) == sorted(set(names))
+
+
+def test_heim_blog_is_registered_in_blogs():
+    from align_data.sources.blogs.blogs import GhostBlog
+
+    blogs = _blogs_multidataset()
+    assert "heim_blog" in blogs.names
+    dataset = dict(zip(blogs.names, blogs.datasets))["heim_blog"]
+    assert isinstance(dataset, GhostBlog)
+    assert dataset.url == "https://blog.heim.xyz"
+    assert dataset.feed_url == "https://blog.heim.xyz/rss/"
+    assert dataset.authors == ["Lennart Heim"]
+
+
+@pytest.fixture
+def heim_blog():
+    blogs = _blogs_multidataset()
+    if "heim_blog" not in blogs.names:
+        pytest.fail("heim_blog is not registered in BLOG_DATASETS")
+    dataset = dict(zip(blogs.names, blogs.datasets))["heim_blog"]
+    # Serve the saved feed instead of hitting the network
+    with patch(
+        "feedparser.parse", side_effect=lambda url: _real_feedparser_parse(HEIM_FEED)
+    ) as parse:
+        dataset.items_list
+    parse.assert_called_once_with("https://blog.heim.xyz/rss/")
+    return dataset
+
+
+def test_heim_fixture_is_well_formed():
+    feed = _real_feedparser_parse(HEIM_FEED)
+    assert not feed.bozo, getattr(feed, "bozo_exception", None)
+    assert feed.feed["title"] == "Blog - Lennart Heim"
+
+
+def test_heim_blog_items_list(heim_blog):
+    assert list(heim_blog.items) == HEIM_POSTS
+
+
+def test_heim_blog_process_entry(heim_blog):
+    entry = heim_blog.process_entry(HEIM_POSTS[0]).to_dict()
+    text = entry.pop("text")
+    assert entry == {
+        "authors": ["Lennart Heim"],
+        "date_published": "2025-04-29T05:51:00Z",
+        "id": None,
+        "source": "heim_blog",
+        "source_type": "blog",
+        "summaries": [],
+        "title": "China's AI Models Are Closing the Gap—But America’s Real Advantage Lies Elsewhere",
+        "url": HEIM_POSTS[0],
+    }
+    # Full text comes from the feed itself (content:encoded), with no extra page fetch
+    assert text.startswith("![China's AI Models Are Closing the Gap")
+    assert (
+        "*This commentary originally appeared on* [*ChinaTalk*](https://www.chinatalk.media/"
+        in text
+    )
+    assert text.endswith("overreacting to predictable Chinese advancements.")
+
+
+def test_heim_blog_process_entry_second_post(heim_blog):
+    entry = heim_blog.process_entry(HEIM_POSTS[1]).to_dict()
+    assert entry["authors"] == ["Lennart Heim"]
+    assert entry["title"] == "What share of all chips are high-end data center AI chips?"
+    assert entry["date_published"] == "2024-02-01T19:13:06Z"
+    assert entry["url"] == HEIM_POSTS[1]
+    assert entry["text"].endswith("### Share of data center AI chips of high-end chips")

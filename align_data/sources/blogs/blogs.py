@@ -40,6 +40,14 @@ class CaradoMoe(RSSDataset):
         return self._extract_markdown(meta.find_next_sibling("div"))
 
 
+class GhostBlog(RSSDataset):
+    """A blog hosted on Ghost. Its RSS feed lives at /rss/ and carries the full post text."""
+
+    @property
+    def feed_url(self):
+        return f"{self.url}/rss/"
+
+
 class EleutherAI(HTMLDataset):
     item_selector = "div.archive-entry"
     text_selector = "div.post-content"

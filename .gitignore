@@ -119,6 +119,7 @@ waitbutwhy/
 carado.moe/
 *.jsonl
 *.xml
+!tests/**/*.xml
 *.docx
 *.md
 !CLAUDE.md
