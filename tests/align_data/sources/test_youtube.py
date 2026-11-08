@@ -678,3 +678,48 @@ def test_a_success_resets_the_failures_in_a_row():
     with patch.object(yt, "_consecutive_failures", 0), patch.object(yt, "fetch_transcript", side_effect=outcomes):
         for _ in outcomes:
             dataset._get_contents(video)
+
+
+@pytest.mark.parametrize("malformed", [None, [], ["bad"]])
+def test_mint_player_response_rejects_non_object_json(malformed):
+    with patch("align_data.sources.youtube.youtube.requests.Session") as Session:
+        session = Session.return_value.__enter__.return_value
+        session.post.return_value = _response(malformed)
+
+        with pytest.raises(FetchFailed, match="Malformed player response"):
+            yt.mint_player_response("v1", None)
+
+
+@pytest.mark.parametrize("malformed", [None, []])
+def test_fetch_caption_events_rejects_non_object_json(malformed):
+    with patch(
+        "align_data.sources.youtube.youtube.requests.get",
+        return_value=_response(malformed),
+    ):
+        with pytest.raises(FetchFailed, match="Malformed caption response"):
+            yt.fetch_caption_events(
+                {"baseUrl": "https://www.youtube.com/api/timedtext?v=v1&fmt=srv3"}
+            )
+
+
+def test_get_contents_continues_after_fetch_failed():
+    dataset = YouTubeDataset(name="bla")
+
+    bad_video = {
+        "kind": "youtube#searchResult",
+        "id": {"kind": "youtube#video", "videoId": "bad_video"},
+    }
+    good_video = {
+        "kind": "youtube#searchResult",
+        "id": {"kind": "youtube#video", "videoId": "good_video"},
+    }
+
+    with patch.object(yt, "_consecutive_failures", 0), patch.object(
+        yt,
+        "fetch_transcript",
+        side_effect=[FetchFailed("Malformed player response"), "valid transcript"],
+    ):
+        assert dataset._get_contents(bad_video) is None
+        assert dataset._get_contents(good_video) == "valid transcript"
+
+    assert dataset.stats == {"attempted": 2, "failed": 1}
