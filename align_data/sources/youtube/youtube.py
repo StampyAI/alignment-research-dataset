@@ -14,6 +14,7 @@ The ANDROID client is used because its caption URLs work without the
 proof-of-origin token that WEB-client URLs now require.
 """
 
+
 import logging
 import re
 from dataclasses import dataclass
@@ -98,7 +99,16 @@ def mint_player_response(video_id: str, proxy_url: Optional[str]) -> dict:
                 logger.warning(f"Mint attempt {attempt}/{attempts} for {video_id} failed: {last_error}")
                 continue
 
+        if not isinstance(data, dict):
+            raise FetchFailed("Malformed player response: expected a JSON object")
+
         playability = data.get("playabilityStatus") or {}
+
+        if not isinstance(playability, dict):
+            raise FetchFailed(
+                "Malformed player response: playabilityStatus must be a JSON object"
+            )
+
         status = playability.get("status")
         reason = playability.get("reason") or ""
         # Age-gated and private videos also answer LOGIN_REQUIRED, with their own
@@ -148,7 +158,17 @@ def fetch_caption_events(track: dict) -> List[dict]:
             resp = requests.get(url, headers={"User-Agent": ANDROID_UA}, timeout=CAPTION_TIMEOUT)
             resp.raise_for_status()
             if resp.content:
-                return resp.json().get("events") or []
+                data = resp.json()
+
+                if not isinstance(data, dict):
+                    raise FetchFailed("Malformed caption response: expected a JSON object")
+
+                events = data.get("events") or []
+
+                if not isinstance(events, list):
+                    raise FetchFailed("Malformed caption response: events must be a list")
+
+                return events
         except (requests.RequestException, ValueError) as e:
             error = f"{type(e).__name__}: {e}"
     raise FetchFailed(f"Caption fetch failed: {error}")
