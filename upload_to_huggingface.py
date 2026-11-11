@@ -5,8 +5,10 @@ Usage: HF_TOKEN=<token> python upload_to_huggingface.py [<dataset name> | all] [
 
 With --dry-run, the files that would be uploaded (including the dataset card) are written to
 data/huggingface/ instead, so they can be checked with `datasets.load_dataset("data/huggingface")`.
+If HF_TOKEN is set, the dry run also prints who the token belongs to and its rights.
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -121,6 +123,15 @@ def make_card(names):
     return f"---\n{header}---\n\n{CARD_BODY.read_text()}"
 
 
+def check_token(api):
+    """Print who the token belongs to and its rights on the org, without changing anything."""
+    info = api.whoami()
+    role = info.get("auth", {}).get("accessToken", {}).get("role")
+    org_roles = {org["name"]: org.get("roleInOrg") for org in info.get("orgs", [])}
+    org = REPO_ID.split("/")[0]
+    print(f"HF token: user {info['name']}, token role {role}, {org} role {org_roles.get(org)}")
+
+
 def main(selected, dry_run):
     names = ALL_DATASETS if selected == "all" else [selected]
     missing = [n for n in names if n not in ALL_DATASETS or not (DATA_DIR / f"{n}.jsonl").exists()]
@@ -137,6 +148,8 @@ def main(selected, dry_run):
         uploads.append(path)
 
     if dry_run:
+        if os.environ.get("HF_TOKEN"):
+            check_token(HfApi())
         local = [n for n in ALL_DATASETS if (OUT_DIR / f"{n}.jsonl").exists()]
         (OUT_DIR / "README.md").write_text(make_card(local))
         print(f"Dry run: files written to {OUT_DIR}")
