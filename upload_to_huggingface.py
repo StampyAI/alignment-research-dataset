@@ -1,151 +1,169 @@
 #!/usr/bin/env python3
-import subprocess
+"""Upload the jsonl files made by `python main.py generate_jsonl_files` to Hugging Face.
+
+Usage: HF_TOKEN=<token> python upload_to_huggingface.py [<dataset name> | all] [--dry-run]
+
+With --dry-run, the files that would be uploaded (including the dataset card) are written to
+data/huggingface/ instead, so they can be checked with `datasets.load_dataset("data/huggingface")`.
+"""
+import json
 import sys
 from pathlib import Path
-import requests
-import gdown
-from gdown.download_folder import _parse_google_drive_file
+
 import jsonlines
-from huggingface_hub import login
-from huggingface_hub import HfApi
+import yaml
+from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
 
+from align_data import ALL_DATASETS
 
-GDOCS_FOLDER = "https://drive.google.com/drive/folders/1n4i0J4CuSfNmrUkKPyTFKJU0XWYLtRF8"
-DATASOURCES = [
-    "agentmodels",
-    "aiimpacts",
-    "aisafety.camp",
-    "aisafety.info",
-    "ai_alignment_playlist",
-    "ai_explained",
-    "ai_safety_talks",
-    "ai_safety_reading_group",
-    "ai_tech_tu_delft",
-    "alignmentforum",
-    "arbital",
-    "arxiv",
-    "carado.moe",
-    "cold_takes",
-    "deepmind_blog",
-    "deepmind_technical_blog",
-    "distill",
-    "eaforum",
-    "eleuther.ai",
-    "generative.ink",
-    "gwern_blog",
-    "importai",
-    "jsteinhardt_blog",
-    "lesswrong",
-    "miri",
-    "ml_safety_newsletter",
-    "openai.research",
-    "rob_miles_ai_safety",
-    "special_docs",
-    "vkrakovna_blog",
-    "yudkowsky_blog",
+REPO_ID = "StampyAI/alignment-research-dataset"
+DATA_DIR = Path("data")
+OUT_DIR = DATA_DIR / "huggingface"
+CARD_BODY = Path(__file__).parent / "huggingface_card.md"
+# The old loading script. Recent `datasets` releases no longer run loading scripts, so the
+# configs are now declared in the card instead.
+OBSOLETE_FILES = ["alignment-research-dataset.py"]
+
+# Every row gets exactly these columns, so all files share one schema. Other keys are dropped
+# (e.g. `comments`, which is arbitrarily nested).
+FEATURES = [
+    {"name": "id", "dtype": "string"},
+    {"name": "source", "dtype": "string"},
+    {"name": "title", "dtype": "string"},
+    {"name": "text", "dtype": "large_string"},
+    {"name": "url", "dtype": "string"},
+    {"name": "date_published", "dtype": "string"},
+    {"name": "authors", "sequence": "string"},
+    {"name": "summary", "sequence": "string"},
+    {"name": "source_type", "dtype": "string"},
+    {"name": "book_title", "dtype": "string"},
+    {"name": "karma", "dtype": "int32"},
+    {"name": "votes", "dtype": "int32"},
+    {"name": "words", "dtype": "int32"},
+    {"name": "comment_count", "dtype": "int32"},
+    {"name": "tags", "sequence": "string"},
+    {"name": "modified_at", "dtype": "string"},
+    {"name": "alias", "dtype": "string"},
+    {"name": "data_last_modified", "dtype": "string"},
+    {"name": "abstract", "dtype": "string"},
+    {"name": "author_comment", "dtype": "string"},
+    {"name": "journal_ref", "dtype": "string"},
+    {"name": "doi", "dtype": "string"},
+    {"name": "primary_category", "dtype": "string"},
+    {"name": "categories", "sequence": "string"},
+    {"name": "initial_source", "dtype": "string"},
+    {"name": "bibliography_bib", "list": [{"name": "title", "dtype": "string"}]},
 ]
 
 
-def upload(api, filename, repo_name):
-    print(f"Uploading {filename} as {repo_name}/{filename.name}")
-    api.upload_file(
-        path_or_fileobj=filename,
-        path_in_repo=filename.name,
-        repo_id=f"StampyAI/{repo_name}",
-        repo_type="dataset",
-    )
-
-
-def get_gdoc_names(url):
-    if "?" in url:
-        url += "&hl=en"
-    else:
-        url += "?hl=en"
-
-    res = requests.get(url)
-
-    if res.status_code != 200:
+def to_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
         return None
 
-    _, id_name_type_iter = _parse_google_drive_file(url=url, content=res.text)
-    return [(id, name) for id, name, filetype in id_name_type_iter if name.endswith(".jsonl")]
+
+def to_str_list(value):
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(v) for v in value]
 
 
-def upload_data_file(api, name, repo_name):
-    """Upload the file with the given `name` to HF."""
-    data = Path("data/")
-    filename = data / name
-
-    # Don't download it if it exists locally
-    if not filename.exists():
-        print(f"{filename} not found!")
-        return
-
-    try:
-        # Check that the dowloaded file really contains json lines
-        with jsonlines.open(filename) as reader:
-            reader.read()
-    except (jsonlines.InvalidLineError, EOFError) as e:
-        print(e)
-    else:
-        upload(api, filename, repo_name)
+def normalize(row):
+    """Map a row from `Article.to_dict()` onto the shared schema."""
+    out = {}
+    for feature in FEATURES:
+        name = feature["name"]
+        value = row.get("summaries") if name == "summary" else row.get(name)
+        if name == "bibliography_bib":
+            value = [{"title": b.get("title")} for b in value or [] if isinstance(b, dict)]
+        elif "sequence" in feature or "list" in feature:
+            value = to_str_list(value)
+        elif feature.get("dtype") == "int32":
+            value = to_int(value)
+        elif value is not None and not isinstance(value, str):
+            value = json.dumps(value)
+        out[name] = value
+    return out
 
 
-def download_file(repo_name, filename, api):
-    headers = {"Authorization": f"Bearer {api.token}"}
-    url = f"https://huggingface.co/datasets/StampyAI/{repo_name}/raw/main/{filename.name}"
-    response = requests.get(url, headers=headers)
+def write_normalized(name):
+    """Write a normalized copy of data/<name>.jsonl to OUT_DIR, returning its path and row count."""
+    source, target = DATA_DIR / f"{name}.jsonl", OUT_DIR / f"{name}.jsonl"
+    seen, count = set(), 0
+    with jsonlines.open(source) as reader, jsonlines.open(target, "w") as writer:
+        for row in reader:
+            if not row.get("id") or row["id"] in seen or row.get("text") in (None, "", "n/a"):
+                continue
+            seen.add(row["id"])
+            writer.write(normalize(row))
+            count += 1
+    return target, count
 
-    if response.status_code == 200:
-        with open(filename, "wb") as file:
-            file.write(response.content)
+
+def make_card(names):
+    """Build the dataset card: generated YAML metadata followed by `huggingface_card.md`."""
+    configs = [{"config_name": "all", "data_files": [f"{n}.jsonl" for n in names], "default": True}]
+    configs += [{"config_name": n, "data_files": f"{n}.jsonl"} for n in names]
+    metadata = {
+        "language": ["en"],
+        "license": "other",
+        "license_name": "various",
+        "size_categories": ["10K<n<100K"],
+        "task_categories": ["question-answering"],
+        "pretty_name": "alignment-research-dataset",
+        "configs": configs,
+        "dataset_info": [{"config_name": c["config_name"], "features": FEATURES} for c in configs],
+    }
+    header = yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True)
+    return f"---\n{header}---\n\n{CARD_BODY.read_text()}"
 
 
-def update_readme(api, files, repo_name):
-    """Update the HuggingFace README with the new metadata.
-
-    Huggingface doesn't seem to provide a nice way of updating the README metadata, hence this
-    mucking around.
-    """
-    # Pretend to create the repo locally
-    repo = Path(repo_name)
-    repo.mkdir(exist_ok=True)
-
-    # Fetch the current README and dataset script
-    for filename in ["README.md", f"{repo_name}.py"]:
-        download_file(repo_name, repo / filename, api)
-
-    # Copy over all jsonl files that have been updated, and update the README to have the
-    # current metadata
-    for filename in files:
-        target = Path("data") / filename
-        (repo / filename).write_text(target.read_text())
-        output = subprocess.check_output(
-            ["datasets-cli", "test", repo_name, "--save_info", f"--name={target.stem}"]
+def main(selected, dry_run):
+    names = ALL_DATASETS if selected == "all" else [selected]
+    missing = [n for n in names if n not in ALL_DATASETS or not (DATA_DIR / f"{n}.jsonl").exists()]
+    if missing:
+        sys.exit(
+            f"Missing data files for {missing}. Run `python main.py generate_jsonl_files` first"
         )
 
-    # Now upload the updated README
-    upload(api, repo / "README.md", repo_name)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    uploads = []
+    for name in names:
+        path, count = write_normalized(name)
+        print(f"{path}: {count} rows")
+        uploads.append(path)
+
+    if dry_run:
+        local = [n for n in ALL_DATASETS if (OUT_DIR / f"{n}.jsonl").exists()]
+        (OUT_DIR / "README.md").write_text(make_card(local))
+        print(f"Dry run: files written to {OUT_DIR}")
+        return
+
+    api = HfApi()  # reads the token from HF_TOKEN
+    remote_files = set(api.list_repo_files(REPO_ID, repo_type="dataset"))
+    # The card lists every dataset that will be on HF after this commit, not just this run's
+    card_names = [n for n in ALL_DATASETS if n in names or f"{n}.jsonl" in remote_files]
+
+    operations = [CommitOperationAdd(path_in_repo=p.name, path_or_fileobj=p) for p in uploads]
+    operations.append(
+        CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=make_card(card_names).encode())
+    )
+    operations += [
+        CommitOperationDelete(path_in_repo=f) for f in OBSOLETE_FILES if f in remote_files
+    ]
+
+    commit = api.create_commit(
+        repo_id=REPO_ID,
+        repo_type="dataset",
+        operations=operations,
+        commit_message=f"Update {', '.join(names)} from the ARD database",
+    )
+    print(f"Uploaded: {commit.commit_url}")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or not sys.argv[1]:
-        print("Usage: python upload_to_huggingface <token> <datasource name | all>")
-        sys.exit(2)
-
-    token = sys.argv[1]
-    # login(sys.argv[1])
-    api = HfApi(token=token)
-
-    files = DATASOURCES
-    if len(sys.argv) > 2 and sys.argv[2] != "all":
-        files = [item for item in files if item == sys.argv[2]]
-
-    data = Path("data/")
-    for name in files:
-        upload_data_file(api, name + ".jsonl", "alignment-research-dataset")
-
-    update_readme(api, files, "alignment-research-dataset")
-    update_readme(api, files, "ard-private")
-
-    print("done")
+    args = [a for a in sys.argv[1:] if a != "--dry-run"]
+    main(args[0] if args else "all", dry_run="--dry-run" in sys.argv)

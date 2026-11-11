@@ -26,12 +26,14 @@ on:
           - agentmodels
           - agisf
           - aisafety.info
+          - alignment_newsletter
           - alignmentforum
           - arbital
           - arxiv
           - blogs
           - distill
           - eaforum
+          - indices
           - lesswrong
           - special_docs
           - youtube
@@ -61,7 +63,9 @@ jobs:
       run: python main.py generate_jsonl_files ${{ inputs.datasource }}
 
     - name: Setup Huggingface client
-      run: pip install huggingface_hub gdown jsonlines datasets
+      run: pip install huggingface_hub
 
     - name: Upload files
-      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
+      env:
+        HF_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+      run: python upload_to_huggingface.py ${{ inputs.datasource }}
