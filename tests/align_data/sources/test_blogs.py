@@ -1,13 +1,16 @@
 from unittest.mock import patch, Mock
 
+import feedparser
 import pytest
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
 from align_data.sources.blogs import (
     AXRPDataset,
+    BLOG_DATASETS,
     CaradoMoe,
     ColdTakes,
+    EpochAI,
     GenerativeInk,
     GwernBlog,
     MediumParser,
@@ -913,3 +916,122 @@ def test_axrp_dataset_process_entry():
         "title": "Something or other with your momma",
         "url": "https://ble.ble.com/ble/ble",
     }
+
+
+# Trimmed from the real https://epoch.ai/atom.xml (feed header plus its first
+# entry). Note the entry has a summary but no full text: the article text has
+# to come from the fetched page.
+EPOCH_ATOM_FEED = """<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://epoch.ai/</id>
+    <title>Epoch AI \u2014 Latest</title>
+    <updated>2026-11-09T00:00:00.000Z</updated>
+    <author>
+        <name>Epoch AI</name>
+        <uri>https://epoch.ai/</uri>
+    </author>
+    <link rel="alternate" href="https://epoch.ai/"/>
+    <link rel="self" href="https://epoch.ai/atom.xml"/>
+    <entry>
+        <title type="html"><![CDATA[Inference Performance Index: changing the way we measure inference capacity]]></title>
+        <id>https://epoch.ai/publications/inference-performance-index</id>
+        <link href="https://epoch.ai/publications/inference-performance-index"/>
+        <updated>2026-11-09T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[Comparing AI hardware for inference beyond FLOP/s with memory and inter-chip communication]]></summary>
+        <author>
+            <name>Jason Li</name>
+        </author>
+        <category term="Chips"/>
+        <published>2026-11-09T00:00:00.000Z</published>
+    </entry>
+</feed>
+"""
+
+# Trimmed from the real page at
+# https://epoch.ai/publications/inference-performance-index : the article
+# body lives in a div.article-content, and starts with these two sentences.
+EPOCH_ARTICLE_HTML = """
+<html><body>
+<div class="formatted-text content-body article-content">
+  <p>Inference performance improvements can be much larger than changes in raw compute speed (FLOP/s) suggest.</p>
+  <p>Comparing FLOP/s alone would therefore underestimate GB300\u2019s inference capacity relative to H100 by a factor of ten.</p>
+</div>
+</body></html>
+"""
+
+
+def test_epoch_ai_feed_url():
+    dataset = EpochAI(name="epoch.ai", url="https://epoch.ai")
+    assert dataset.feed_url == "https://epoch.ai/atom.xml"
+
+
+def test_epoch_ai_process_entry():
+    dataset = EpochAI(name="epoch.ai", url="https://epoch.ai")
+    parsed_feed = feedparser.parse(EPOCH_ATOM_FEED)
+    with patch("feedparser.parse", return_value=parsed_feed):
+        assert dataset.items_list == [
+            "https://epoch.ai/publications/inference-performance-index"
+        ]
+
+    with patch("requests.get", return_value=Mock(content=EPOCH_ARTICLE_HTML)):
+        entry = dataset.process_entry(
+            "https://epoch.ai/publications/inference-performance-index"
+        )
+
+    assert entry.to_dict() == {
+        "authors": ["Jason Li"],
+        "date_published": "2026-11-09T00:00:00Z",
+        "id": None,
+        "source": "epoch.ai",
+        "source_type": "blog",
+        "summaries": [],
+        "text": (
+            "Inference performance improvements can be much larger than "
+            "changes in raw compute speed (FLOP/s) suggest.\n\n\n"
+            "Comparing FLOP/s alone would therefore underestimate GB300\u2019s "
+            "inference capacity relative to H100 by a factor of ten."
+        ),
+        "title": "Inference Performance Index: changing the way we measure inference capacity",
+        "url": "https://epoch.ai/publications/inference-performance-index",
+    }
+
+
+def test_epoch_ai_substack_process_entry():
+    dataset = SubstackBlog(name="epochai", url="https://epochai.substack.com")
+    assert dataset.feed_url == "https://epochai.substack.com/feed"
+    contents = {
+        "entries": [
+            {
+                "link": "https://epochai.substack.com/p/the-epoch-brief-november-11-2026",
+                "title": "The Epoch Brief - November 11, 2026",
+                "pubDate": "Wed, 11 Nov 2026 17:18:46 GMT",
+                "content": [{"value": SAMPLE_HTML}],
+                "authors": [{"name": "Cathy Bogaart"}],
+            }
+        ]
+    }
+    with patch("feedparser.parse", return_value=contents):
+        dataset.items_list
+
+    entry = dataset.process_entry(
+        "https://epochai.substack.com/p/the-epoch-brief-november-11-2026"
+    )
+    assert entry.to_dict() == {
+        "authors": ["Cathy Bogaart"],
+        "date_published": "2026-11-11T17:18:46Z",
+        "id": None,
+        "source": "epochai",
+        "source_type": "blog",
+        "summaries": [],
+        "text": "bla bla bla [a link](http://ble.com) bla bla",
+        "title": "The Epoch Brief - November 11, 2026",
+        "url": "https://epochai.substack.com/p/the-epoch-brief-november-11-2026",
+    }
+
+
+def test_epoch_ai_sources_registered():
+    by_name = {dataset.name: dataset for dataset in BLOG_DATASETS}
+    assert isinstance(by_name["epoch.ai"], EpochAI)
+    assert by_name["epoch.ai"].feed_url == "https://epoch.ai/atom.xml"
+    assert isinstance(by_name["epochai"], SubstackBlog)
+    assert by_name["epochai"].feed_url == "https://epochai.substack.com/feed"

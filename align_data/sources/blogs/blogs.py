@@ -40,6 +40,24 @@ class CaradoMoe(RSSDataset):
         return self._extract_markdown(meta.find_next_sibling("div"))
 
 
+class EpochAI(RSSDataset):
+    """Epoch AI's main site, via its Atom feed.
+
+    The feed entries carry a summary only, no full text, so the article
+    text is extracted from the fetched page instead.
+    """
+
+    @property
+    def feed_url(self):
+        return "https://epoch.ai/atom.xml"
+
+    def _get_text(self, item):
+        if "content" in item:
+            return super()._get_text(item)
+        contents = item["soup"]
+        return self._extract_markdown(contents.select_one("div.article-content"))
+
+
 class EleutherAI(HTMLDataset):
     item_selector = "div.archive-entry"
     text_selector = "div.post-content"

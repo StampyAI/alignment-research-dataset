@@ -6,6 +6,7 @@ from align_data.sources.blogs.blogs import (
     GenerativeInk,
     CaradoMoe,
     EleutherAI,
+    EpochAI,
     OpenAIResearch,
     DeepMindTechnicalBlog,
     TransformerCircuits,
@@ -51,6 +52,14 @@ BLOG_DATASETS = [
     SubstackBlog(
         name="ml_safety_newsletter",
         url="https://newsletter.mlsafety.org",
+    ),
+    EpochAI(
+        name="epoch.ai",
+        url="https://epoch.ai",
+    ),
+    SubstackBlog(
+        name="epochai",
+        url="https://epochai.substack.com",
     ),
     EleutherAI(name="eleuther.ai", url="https://blog.eleuther.ai/"),
     OpenAIResearch(name="openai.research", url="https://openai.com/research"),
