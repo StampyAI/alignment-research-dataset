@@ -78,6 +78,16 @@ from datasets import load_dataset
 data = load_dataset('StampyAI/alignment-research-dataset', 'lesswrong')
 ```
 
+## Changes since the November 2023 version
+
+- The data is refreshed from the current ARD database. The previous upload was from November 2023, and `blogs`, `youtube` and `agisf` dated from August 2023.
+- Only rows that pass the ARD's validity checks are included.
+- Every source now has the same columns, so the `all` config and the per-source configs share one schema.
+- `summary` is now filled in where a summary exists. It was always empty before.
+- The raw jsonl files follow the same schema: `summaries` became `summary`, and keys outside the schema (such as `comments` and `bibliography`) are dropped.
+- The loading script is gone. `load_dataset` reads the files directly and no longer runs remote code.
+- The licence field changed from MIT to "other". See below.
+
 ## Licence
 
 The texts belong to their original authors and publishers, and each stays under its own licence and terms. This dataset gathers publicly available writing for research on AI alignment; check the original source before reusing a text elsewhere. The MIT licence covers the [scraper code](https://github.com/StampyAI/alignment-research-dataset), not the texts.

@@ -145,7 +145,12 @@ def main(selected, dry_run):
     for name in names:
         path, count = write_normalized(name)
         print(f"{path}: {count} rows")
-        uploads.append(path)
+        if count:
+            uploads.append(path)
+        else:  # e.g. alignment_newsletter, which only adds summaries to other articles
+            path.unlink()
+            print(f"Skipping {name}: no rows")
+    names = [p.stem for p in uploads]
 
     if dry_run:
         if os.environ.get("HF_TOKEN"):
