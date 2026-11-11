@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 import logging
 
-import feedparser
+import requests
 from tqdm import tqdm
 
-from align_data.common.html_dataset import RSSDataset
+from align_data.common.html_dataset import RSSDataset, fetch_feed
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,18 @@ class WordpressBlog(RSSDataset):
                 paged_url = f"{self.feed_url}?paged={page_number}"
                 logger.info(f"Fetching {paged_url}")
 
-                feed = feedparser.parse(paged_url)
+                try:
+                    feed = fetch_feed(paged_url)
+                except requests.exceptions.HTTPError as e:
+                    # WordPress answers /feed?paged=N past the last page with a 404,
+                    # so that is the end of pagination. A 404 on the first page means
+                    # the feed URL itself is broken, and anything else is a real error.
+                    if page_number > 1 and e.response is not None and e.response.status_code == 404:
+                        logger.info(
+                            f"{self.name}: page {page_number} returned 404, stopping pagination"
+                        )
+                        break
+                    raise
                 title = feed.get("feed", {}).get("title")
                 if not title or title == prev_title:
                     break

@@ -1092,7 +1092,9 @@ def _resp(content=b"", status=200):
     """A fake `requests.Response` whose `raise_for_status` raises on 4xx/5xx like the real one."""
     resp = Mock(content=content, status_code=status)
     if status >= 400:
-        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(f"{status} error")
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            f"{status} error", response=resp
+        )
     return resp
 
 

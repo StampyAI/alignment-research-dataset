@@ -14,6 +14,7 @@ from bs4.element import Tag
 
 from align_data.common.retry import with_retry
 from align_data.sources.articles.html import fetch, fetch_element
+from align_data.settings import REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ def fetch_pdf(link: str) -> Dict[str, str]:
 
 def get_arxiv_link(doi: str) -> str | None:
     """Find the URL to the pdf of the given arXiv DOI."""
-    res = requests.get(f"https://doi.org/api/handles/{doi}")
+    res = requests.get(f"https://doi.org/api/handles/{doi}", timeout=REQUEST_TIMEOUT)
     if res.status_code != 200:
         return None
 

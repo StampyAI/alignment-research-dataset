@@ -14,8 +14,25 @@ from markdownify import markdownify
 
 from align_data.db.models import Article
 from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.retry import with_retry
+from align_data.settings import REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
+
+
+@with_retry(exceptions=(requests.exceptions.Timeout, requests.exceptions.ConnectionError))
+def fetch_feed(url: str) -> feedparser.FeedParserDict:
+    """Fetch and parse the RSS/Atom feed at `url`.
+
+    Fetches through requests rather than letting feedparser fetch the URL itself:
+    feedparser uses urllib with no timeout, so a stalled server hangs the run
+    forever, and it returns an empty feed on a 404 without raising, so a broken
+    feed URL goes unnoticed. Here a bad status raises (it won't self-resolve) and
+    transient network errors are retried, per the CLAUDE.md retry policy.
+    """
+    resp = requests.get(url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
+    resp.raise_for_status()
+    return feedparser.parse(resp.content)
 
 
 @dataclass
@@ -46,7 +63,7 @@ class HTMLDataset(AlignmentDataset):
     @property
     def items_list(self) -> ResultSet[Tag]:
         logger.info(f"Fetching entries from {self.url}")
-        response = requests.get(self.url, allow_redirects=True)
+        response = requests.get(self.url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
         soup = BeautifulSoup(response.content, "html.parser")
         articles = soup.select(self.item_selector)
         logger.info(f"Found {len(articles)} articles")
@@ -82,7 +99,7 @@ class HTMLDataset(AlignmentDataset):
 
     def fetch_contents(self, url: str):
         logger.info(f"Fetching {url}")
-        resp = requests.get(url, allow_redirects=True)
+        resp = requests.get(url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
         return BeautifulSoup(resp.content, "html.parser")
 
     def _get_title(self, contents):
@@ -156,7 +173,7 @@ class RSSDataset(HTMLDataset):
             return item
 
         logger.info("Fetching {}".format(url))
-        resp = requests.get(url, allow_redirects=True)
+        resp = requests.get(url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
         soup = BeautifulSoup(resp.content, "html.parser")
         return dict(
             self.items[url],
@@ -169,7 +186,7 @@ class RSSDataset(HTMLDataset):
     @property
     def items_list(self):
         logger.info(f"Fetching entries from {self.feed_url}")
-        feed = feedparser.parse(self.feed_url)
+        feed = fetch_feed(self.feed_url)
         self.items = {
             url: item
             for item in feed["entries"]
