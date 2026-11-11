@@ -139,7 +139,9 @@ def test_process_entry():
         ]
     }
     # Setup the items list contents
-    with patch("feedparser.parse", return_value=items):
+    with patch("requests.get", return_value=Mock(content=b"")), patch(
+        "feedparser.parse", return_value=items
+    ):
         dataset.items_list
 
     with patch("requests.get", return_value=Mock(content=contents)):

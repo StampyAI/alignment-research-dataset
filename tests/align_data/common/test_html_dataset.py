@@ -1,9 +1,11 @@
 from unittest.mock import patch, Mock
 
 import pytest
+import requests
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
+from align_data import settings
 from align_data.common.html_dataset import HTMLDataset, RSSDataset
 
 
@@ -300,5 +302,113 @@ def test_rss_dataset_items_list():
         ]
     }
 
-    with patch("feedparser.parse", return_value=contents):
+    with patch("requests.get", return_value=_resp()), patch(
+        "feedparser.parse", return_value=contents
+    ):
         assert dataset.items_list == [f"http://example.org/article-{i}" for i in range(5)]
+
+
+# --- Network timeouts and loud feed failures (#254) ---------------------------
+#
+# `feedparser.parse(url)` fetches through urllib with no timeout, and returns an
+# empty feed on a 404 without raising. These pin the fixed behaviour: feeds are
+# fetched with requests (with a timeout) and the body handed to feedparser, a bad
+# status is loud, transient errors are retried per the CLAUDE.md policy, and every
+# other requests.get carries a timeout. Hosts use `.invalid` so that nothing here
+# can reach the network even while the implementation is missing.
+
+SAMPLE_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example feed</title>
+    <link>http://feed.invalid</link>
+    <item>
+      <title>Article no 0</title>
+      <link>http://feed.invalid/article-0</link>
+    </item>
+    <item>
+      <title>Article no 1</title>
+      <link>http://feed.invalid/article-1</link>
+    </item>
+  </channel>
+</rss>
+"""
+SAMPLE_FEED_LINKS = ["http://feed.invalid/article-0", "http://feed.invalid/article-1"]
+
+
+def _resp(content=b"", status=200):
+    """A fake `requests.Response` whose `raise_for_status` raises on 4xx/5xx like the real one."""
+    resp = Mock(content=content, status_code=status)
+    if status >= 400:
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(f"{status} error")
+    return resp
+
+
+def test_rss_dataset_items_list_fetches_feed_with_timeout():
+    """The feed is fetched via requests with a timeout and the body handed to feedparser,
+    rather than feedparser fetching the URL itself (urllib, no timeout -- can hang forever)."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch("requests.get", return_value=_resp(SAMPLE_FEED)) as mock_get:
+        assert dataset.items_list == SAMPLE_FEED_LINKS
+
+    mock_get.assert_called_once()
+    assert mock_get.call_args.args[0] == "http://feed.invalid/rss.xml"
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_rss_dataset_items_list_raises_on_http_error(mock_sleep):
+    """A 404 feed is loud rather than silently empty, and is not retried (it won't self-resolve)."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch("requests.get", return_value=_resp(status=404)) as mock_get:
+        with pytest.raises(requests.exceptions.HTTPError):
+            dataset.items_list
+    assert mock_get.call_count == 1
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_rss_dataset_items_list_retries_transient_errors(mock_sleep):
+    """Connection resets and read timeouts are retried, per the CLAUDE.md retry policy."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch(
+        "requests.get",
+        side_effect=[
+            requests.exceptions.ConnectionError("connection reset"),
+            requests.exceptions.ReadTimeout("read timed out"),
+            _resp(SAMPLE_FEED),
+        ],
+    ) as mock_get:
+        assert dataset.items_list == SAMPLE_FEED_LINKS
+    assert mock_get.call_count == 3
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_rss_dataset_items_list_raises_after_persistent_timeout(mock_sleep):
+    """If the host stays unreachable the last error propagates instead of the run hanging."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch(
+        "requests.get", side_effect=requests.exceptions.ReadTimeout("read timed out")
+    ) as mock_get:
+        with pytest.raises(requests.exceptions.RequestException):
+            dataset.items_list
+    assert mock_get.call_count == 3
+
+
+def test_html_dataset_items_list_passes_timeout(html_dataset):
+    with patch("requests.get", return_value=Mock(content="<article></article>")) as mock_get:
+        html_dataset.items_list
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+def test_html_dataset_fetch_contents_passes_timeout(html_dataset):
+    with patch("requests.get", return_value=Mock(content=SAMPLE_HTML)) as mock_get:
+        html_dataset.fetch_contents("http://example.com/article")
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+def test_rss_dataset_fetch_contents_passes_timeout():
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    dataset.items = {"http://bla.bla": {}}
+    with patch("requests.get", return_value=Mock(content="<div>bla</div>")) as mock_get:
+        dataset.fetch_contents("http://bla.bla")
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
