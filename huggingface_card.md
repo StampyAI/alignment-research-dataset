@@ -86,6 +86,7 @@ data = load_dataset('StampyAI/alignment-research-dataset', 'lesswrong')
 - `summary` is now filled in where a summary exists. It was always empty before.
 - The raw jsonl files follow the same schema: `summaries` became `summary`, and keys outside the schema (such as `comments` and `bibliography`) are dropped.
 - The loading script is gone. `load_dataset` reads the files directly and no longer runs remote code.
+- Through `load_dataset`, `date_published` now reads as `2021-09-02 20:00:00` (UTC) instead of `2021-09-02T20:00:00Z`. The raw files keep the ISO format.
 - The licence field changed from MIT to "other". See below.
 
 ## Licence
