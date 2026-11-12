@@ -11,6 +11,7 @@ from align_data.sources.blogs import (
     CaradoMoe,
     ColdTakes,
     EpochAI,
+    EpochNewsletter,
     GenerativeInk,
     GwernBlog,
     MediumParser,
@@ -1033,5 +1034,53 @@ def test_epoch_ai_sources_registered():
     by_name = {dataset.name: dataset for dataset in BLOG_DATASETS}
     assert isinstance(by_name["epoch.ai"], EpochAI)
     assert by_name["epoch.ai"].feed_url == "https://epoch.ai/atom.xml"
-    assert isinstance(by_name["epochai"], SubstackBlog)
+    assert isinstance(by_name["epochai"], EpochNewsletter)
     assert by_name["epochai"].feed_url == "https://epochai.substack.com/feed"
+
+
+def test_epoch_newsletter_skips_main_site_duplicates():
+    dataset = EpochNewsletter(name="epochai", url="https://epochai.substack.com")
+    substack_contents = {
+        "entries": [
+            {
+                # Cross-posted from the main site under the same title.
+                "link": "https://epochai.substack.com/p/the-nvidia-sized-hole-in-us-gdp",
+                "title": "The Nvidia-sized hole in US GDP statistics",
+                "pubDate": "Wed, 11 Nov 2026 17:18:46 GMT",
+                "content": [{"value": SAMPLE_HTML}],
+                "authors": [{"name": "Cathy Bogaart"}],
+            },
+            {
+                # Same title as a main-site article, different case/punctuation.
+                "link": "https://epochai.substack.com/p/9-big-questions-benchmarks",
+                "title": "9 Big Questions Benchmarks Can Help Answer!",
+                "pubDate": "Wed, 11 Nov 2026 17:18:46 GMT",
+                "content": [{"value": SAMPLE_HTML}],
+                "authors": [{"name": "Cathy Bogaart"}],
+            },
+            {
+                # Newsletter-only digest: kept.
+                "link": "https://epochai.substack.com/p/the-epoch-brief-november-11-2026",
+                "title": "The Epoch Brief - November 11, 2026",
+                "pubDate": "Wed, 11 Nov 2026 17:18:46 GMT",
+                "content": [{"value": SAMPLE_HTML}],
+                "authors": [{"name": "Cathy Bogaart"}],
+            },
+        ]
+    }
+    main_site_feed = {
+        "entries": [
+            {"title": "The Nvidia-sized hole in US GDP statistics"},
+            {"title": "9 big questions benchmarks can help answer"},
+        ]
+    }
+
+    def fake_parse(url):
+        if "epoch.ai/atom.xml" in url:
+            return main_site_feed
+        return substack_contents
+
+    with patch("feedparser.parse", side_effect=fake_parse):
+        assert dataset.items_list == [
+            "https://epochai.substack.com/p/the-epoch-brief-november-11-2026"
+        ]

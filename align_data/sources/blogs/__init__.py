@@ -7,6 +7,7 @@ from align_data.sources.blogs.blogs import (
     CaradoMoe,
     EleutherAI,
     EpochAI,
+    EpochNewsletter,
     OpenAIResearch,
     DeepMindTechnicalBlog,
     TransformerCircuits,
@@ -57,7 +58,7 @@ BLOG_DATASETS = [
         name="epoch.ai",
         url="https://epoch.ai",
     ),
-    SubstackBlog(
+    EpochNewsletter(
         name="epochai",
         url="https://epochai.substack.com",
     ),
