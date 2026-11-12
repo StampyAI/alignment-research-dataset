@@ -1,6 +1,8 @@
 import logging
+import re
 from urllib.parse import urljoin
 
+import feedparser
 import requests
 from bs4 import BeautifulSoup
 from dateutil.parser import ParserError
@@ -8,6 +10,7 @@ from tqdm import tqdm
 
 from align_data.sources.articles.parsers import item_metadata
 from align_data.common.html_dataset import HTMLDataset, RSSDataset
+from align_data.sources.blogs.substack_blog import SubstackBlog
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +41,57 @@ class CaradoMoe(RSSDataset):
         contents = item["soup"]
         meta = contents.find("p", {"class": "postmeta"})
         return self._extract_markdown(meta.find_next_sibling("div"))
+
+
+class EpochAI(RSSDataset):
+    """Epoch AI's main site, via its Atom feed.
+
+    The feed entries carry a summary only, no full text, so the article
+    text is extracted from the fetched page instead.
+    """
+
+    @property
+    def feed_url(self):
+        return "https://epoch.ai/atom.xml"
+
+    def _get_text(self, item):
+        if "content" in item:
+            return super()._get_text(item)
+        contents = item["soup"]
+        return self._extract_markdown(contents.select_one("div.article-content"))
+
+
+def _normalize_title(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+class EpochNewsletter(SubstackBlog):
+    """Epoch AI's newsletter, via its Substack feed.
+
+    Skips posts that duplicate an article already published on the main
+    site: the newsletter cross-posts main-site articles under the same
+    title, and the two would otherwise be stored (and indexed) twice,
+    since article ids are derived from the URL alone. Digests such as
+    "The Epoch Brief", which only appear in the newsletter, are kept.
+    """
+
+    @property
+    def main_site_titles(self):
+        feed = feedparser.parse(EpochAI(name="epoch.ai", url="https://epoch.ai").feed_url)
+        return {_normalize_title(entry["title"]) for entry in feed["entries"] if entry.get("title")}
+
+    @property
+    def items_list(self):
+        urls = super().items_list
+        main_site_titles = self.main_site_titles
+        kept = []
+        for url in urls:
+            if _normalize_title(self.items[url].get("title", "")) in main_site_titles:
+                logger.info(f"Skipping {url}: title already on the epoch.ai main site")
+                continue
+            kept.append(url)
+        self.items = {url: self.items[url] for url in kept}
+        return kept
 
 
 class EleutherAI(HTMLDataset):
