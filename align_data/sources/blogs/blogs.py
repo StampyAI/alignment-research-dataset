@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 from dateutil.parser import ParserError
 from tqdm import tqdm
 
@@ -46,6 +47,17 @@ class GhostBlog(RSSDataset):
     @property
     def feed_url(self):
         return f"{self.url}/rss/"
+
+    def _content_soup(self, item):
+        """Leave out the cover image, which Ghost puts in the feed as a bare <img> before the post.
+
+        Images in the post itself are wrapped (e.g. in a <figure>), so they are not affected.
+        """
+        soup = super()._content_soup(item)
+        first = soup and next((e for e in soup.contents if str(e).strip()), None)
+        if isinstance(first, Tag) and first.name == "img":
+            first.extract()
+        return soup
 
 
 class EleutherAI(HTMLDataset):

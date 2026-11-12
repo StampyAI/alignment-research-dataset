@@ -21,7 +21,7 @@ from align_data.sources.blogs import (
     DeepMindTechnicalBlog,
     TransformerCircuits,
 )
-from align_data.sources.blogs.blogs import EleutherAI
+from align_data.sources.blogs.blogs import EleutherAI, GhostBlog
 
 
 SAMPLE_HTML = """
@@ -941,8 +941,6 @@ def test_blog_dataset_names_are_unique():
 
 
 def test_heim_blog_is_registered_in_blogs():
-    from align_data.sources.blogs.blogs import GhostBlog
-
     blogs = _blogs_multidataset()
     assert "heim_blog" in blogs.names
     dataset = dict(zip(blogs.names, blogs.datasets))["heim_blog"]
@@ -954,10 +952,8 @@ def test_heim_blog_is_registered_in_blogs():
 
 @pytest.fixture
 def heim_blog():
-    blogs = _blogs_multidataset()
-    if "heim_blog" not in blogs.names:
-        pytest.fail("heim_blog is not registered in BLOG_DATASETS")
-    dataset = dict(zip(blogs.names, blogs.datasets))["heim_blog"]
+    # A fresh instance, so that nothing leaks into the shared one in BLOG_DATASETS
+    dataset = GhostBlog(name="heim_blog", url="https://blog.heim.xyz", authors=["Lennart Heim"])
     # Serve the saved feed instead of hitting the network
     with patch(
         "feedparser.parse", side_effect=lambda url: _real_feedparser_parse(HEIM_FEED)
@@ -965,6 +961,13 @@ def heim_blog():
         dataset.items_list
     parse.assert_called_once_with("https://blog.heim.xyz/rss/")
     return dataset
+
+
+def test_heim_blog_fixture_leaves_registered_dataset_alone(heim_blog):
+    blogs = _blogs_multidataset()
+    registered = dict(zip(blogs.names, blogs.datasets))["heim_blog"]
+    assert registered is not heim_blog
+    assert not getattr(registered, "items", None)
 
 
 def test_heim_fixture_is_well_formed():
@@ -991,11 +994,11 @@ def test_heim_blog_process_entry(heim_blog):
         "url": HEIM_POSTS[0],
     }
     # Full text comes from the feed itself (content:encoded), with no extra page fetch
-    assert text.startswith("![China's AI Models Are Closing the Gap")
-    assert (
+    # ... and the cover image that Ghost puts in front of the post body is left out
+    assert text.startswith(
         "*This commentary originally appeared on* [*ChinaTalk*](https://www.chinatalk.media/"
-        in text
     )
+    assert "storage.ghost.io" not in text
     assert text.endswith("overreacting to predictable Chinese advancements.")
 
 
@@ -1005,4 +1008,70 @@ def test_heim_blog_process_entry_second_post(heim_blog):
     assert entry["title"] == "What share of all chips are high-end data center AI chips?"
     assert entry["date_published"] == "2024-02-01T19:13:06Z"
     assert entry["url"] == HEIM_POSTS[1]
+    assert entry["text"].startswith("*by Lennart Heim and Konstantin Pilz.*")
     assert entry["text"].endswith("### Share of data center AI chips of high-end chips")
+
+
+def _ghost_text(html, ignored_selectors=()):
+    dataset = GhostBlog(name="bla", url="https://ble.ble.com")
+    dataset.ignored_selectors = list(ignored_selectors)
+    return dataset._get_text({"content": [{"value": html}]})
+
+
+def test_ghost_blog_drops_leading_cover_image():
+    html = '<img alt="The title" src="https://ble.ble.com/cover.jpg" /><p>bla</p>'
+    assert _ghost_text(html) == "bla"
+
+
+def test_ghost_blog_drops_cover_image_after_whitespace():
+    assert _ghost_text('\n  <img src="https://ble.ble.com/cover.jpg" />\n<p>bla</p>') == "bla"
+
+
+def test_ghost_blog_drops_only_the_first_image():
+    html = (
+        '<img src="https://ble.ble.com/cover.jpg" />'
+        '<img src="https://ble.ble.com/2.jpg" />'
+        "<p>bla</p>"
+    )
+    assert _ghost_text(html) == "![](https://ble.ble.com/2.jpg)bla"
+
+
+@pytest.mark.parametrize(
+    "html, text",
+    (
+        # no cover image at all
+        ("<p>bla</p>", "bla"),
+        # an image further down is part of the post
+        (
+            '<p>bla</p><img alt="fig" src="https://ble.ble.com/fig.jpg" />',
+            "bla\n\n![fig](https://ble.ble.com/fig.jpg)",
+        ),
+        # an image card in the post body is wrapped in a <figure>, so it is not a cover image
+        (
+            '<figure><img alt="fig" src="https://ble.ble.com/fig.jpg" /></figure><p>bla</p>',
+            "![fig](https://ble.ble.com/fig.jpg)bla",
+        ),
+        # text in front of the image means the image is not leading
+        (
+            'intro <img alt="fig" src="https://ble.ble.com/fig.jpg" />',
+            "intro ![fig](https://ble.ble.com/fig.jpg)",
+        ),
+    ),
+)
+def test_ghost_blog_keeps_other_images(html, text):
+    assert _ghost_text(html) == text
+
+
+def test_ghost_blog_cover_image_dropped_before_ignored_selectors():
+    html = (
+        '<img src="https://ble.ble.com/cover.jpg" />'
+        "<p>bla</p>"
+        '<div class="subscribe">Subscribe</div>'
+    )
+    assert _ghost_text(html, ignored_selectors=["div.subscribe"]) == "bla"
+
+
+@pytest.mark.parametrize("item", ({}, {"content": []}, {"content": [{"value": ""}]}))
+def test_ghost_blog_get_text_missing(item):
+    dataset = GhostBlog(name="bla", url="https://ble.ble.com")
+    assert not dataset._get_text(item)
