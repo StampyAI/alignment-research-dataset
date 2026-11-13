@@ -248,6 +248,28 @@ def test_rss_dataset_get_text():
     )
 
 
+def test_rss_dataset_get_text_ignored_selectors():
+    """Feed content honors ignored_selectors, the same way page content does in HTMLDataset."""
+    dataset = RSSDataset(name="bla", url="http://example.org")
+    dataset.ignored_selectors = ["footer", "div.subscribe"]
+    html = (
+        "<p>keep this</p>"
+        '<div class="subscribe">Subscribe now</div>'
+        "<p>and this</p>"
+        "<footer>Share this post</footer>"
+    )
+    assert dataset._get_text({"content": [{"value": html}]}) == "keep this\n\nand this"
+
+
+def test_rss_dataset_get_text_does_not_change_the_item():
+    dataset = RSSDataset(name="bla", url="http://example.org")
+    dataset.ignored_selectors = ["footer"]
+    html = "<p>keep this</p><footer>Share this post</footer>"
+    item = {"content": [{"value": html}]}
+    dataset._get_text(item)
+    assert item == {"content": [{"value": html}]}
+
+
 def test_rss_datasetfetch_contents_with_contents():
     dataset = RSSDataset(name="bla", url="http://example.org")
     dataset.items = {"http://bla.bla": {"content": "contents"}}

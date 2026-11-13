@@ -94,10 +94,14 @@ class HTMLDataset(AlignmentDataset):
         if not article:
             return None
 
-        for selector in self.ignored_selectors:
-            for elem in article.select(selector):
-                elem.extract()
+        self._strip_ignored(article)
         return self._extract_markdown(article)
+
+    def _strip_ignored(self, element):
+        """Remove everything matching `ignored_selectors` from the given element."""
+        for selector in self.ignored_selectors:
+            for elem in element.select(selector):
+                elem.extract()
 
     def _find_date(self, items):
         for i in items:
@@ -133,8 +137,18 @@ class RSSDataset(HTMLDataset):
         return super()._get_published_date(date_published)
 
     def _get_text(self, item):
-        text = item.get("content") and item["content"][0].get("value")
-        return self._extract_markdown(text)
+        soup = self._content_soup(item)
+        if not soup:
+            return None
+
+        self._strip_ignored(soup)
+        return self._extract_markdown(soup)
+
+    @staticmethod
+    def _content_soup(item):
+        """Parse the post body that the feed carries, if there is one."""
+        html = item.get("content") and item["content"][0].get("value")
+        return BeautifulSoup(html, "html.parser") if html else None
 
     def fetch_contents(self, url: str):
         item = self.items[url]
