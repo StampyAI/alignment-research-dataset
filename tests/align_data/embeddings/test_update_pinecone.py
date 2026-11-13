@@ -8,7 +8,7 @@ os.environ.setdefault("OPENAI_API_KEY", "sk-mock-test-key")
 
 from sqlalchemy.exc import OperationalError
 
-from align_data.embeddings.pinecone.update_pinecone import _read_with_retry
+from align_data.embeddings.pinecone.update_pinecone import PineconeUpdater, _read_with_retry
 
 
 def _op_error():
@@ -67,3 +67,42 @@ def test_read_with_retry_does_not_retry_other_errors(mock_sleep):
 
     with pytest.raises(ValueError):
         _read_with_retry(session, read, what="ID fetch")
+
+
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDeleter")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeAdder")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDB")
+def test_update_logs_index_stats_around_the_work(mock_db, mock_adder, mock_deleter):
+    # A vector count that doesn't change across runs is how we notice the index refusing writes.
+    calls = MagicMock()
+    calls.attach_mock(mock_db.return_value.log_stats, "log_stats")
+    calls.attach_mock(mock_adder.return_value.update, "add")
+    calls.attach_mock(mock_deleter.return_value.update, "remove")
+
+    PineconeUpdater().update(["all"], log_progress=False)
+
+    assert [c[0] for c in calls.mock_calls] == ["log_stats", "add", "remove", "log_stats"]
+    assert calls.mock_calls[0].args == ("before update",)
+    assert calls.mock_calls[-1].args == ("after update",)
+
+
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDeleter")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeAdder")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDB")
+def test_update_logs_index_stats_when_adder_raises(mock_db, mock_adder, mock_deleter):
+    mock_adder.return_value.update.side_effect = RuntimeError("storage limit")
+
+    with pytest.raises(RuntimeError):
+        PineconeUpdater().update(["all"], log_progress=False)
+
+    calls = mock_db.return_value.log_stats.call_args_list
+    assert [c.args for c in calls] == [("before update",), ("after update",)]
+
+
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDeleter")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeAdder")
+@patch("align_data.embeddings.pinecone.update_pinecone.PineconeDB")
+def test_update_articles_by_ids_logs_index_stats(mock_db, mock_adder, mock_deleter):
+    PineconeUpdater().update_articles_by_ids([1, 2], log_progress=False)
+    calls = mock_db.return_value.log_stats.call_args_list
+    assert [c.args for c in calls] == [("before update by ID",), ("after update by ID",)]

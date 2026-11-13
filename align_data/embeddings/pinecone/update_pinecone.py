@@ -463,31 +463,39 @@ class PineconeUpdater(PineconeAction):
         :param only_hashes_from: Path to JSON file containing list of hash_ids to process exclusively (e.g., to_delete.json)
         """
 
-        if log_progress:
-            logger.info("Adding pinecone entries for %s", custom_sources)
-        self.adder.update(custom_sources, force_update, log_progress, only_hashes_from=only_hashes_from)
+        self.pinecone_db.log_stats("before update")
+        try:
+            if log_progress:
+                logger.info("Adding pinecone entries for %s", custom_sources)
+            self.adder.update(custom_sources, force_update, log_progress, only_hashes_from=only_hashes_from)
 
-        if log_progress:
-            logger.info("Removing outdated pinecone entries for %s", custom_sources)
-        self.remover.update(custom_sources, force_update, log_progress)
+            if log_progress:
+                logger.info("Removing outdated pinecone entries for %s", custom_sources)
+            self.remover.update(custom_sources, force_update, log_progress)
 
-        if log_progress:
-            logger.info("Pinecone update completed")
+            if log_progress:
+                logger.info("Pinecone update completed")
+        finally:
+            self.pinecone_db.log_stats("after update")
 
     def update_articles_by_ids(
         self, hash_ids: List[int], force_update: bool = False, log_progress: bool = True
     ):
         """Update the Pinecone entries of specific articles based on their hash_ids."""
-        if log_progress:
-            logger.info("Adding pinecone entries by hash_id")
-        self.adder.update_articles_by_ids(hash_ids, force_update, log_progress)
+        self.pinecone_db.log_stats("before update by ID")
+        try:
+            if log_progress:
+                logger.info("Adding pinecone entries by hash_id")
+            self.adder.update_articles_by_ids(hash_ids, force_update, log_progress)
 
-        if log_progress:
-            logger.info("Removing outdated pinecone entries by hash_id")
-        self.remover.update_articles_by_ids(hash_ids, force_update, log_progress)
+            if log_progress:
+                logger.info("Removing outdated pinecone entries by hash_id")
+            self.remover.update_articles_by_ids(hash_ids, force_update, log_progress)
 
-        if log_progress:
-            logger.info("Pinecone update by ID completed")
+            if log_progress:
+                logger.info("Pinecone update by ID completed")
+        finally:
+            self.pinecone_db.log_stats("after update by ID")
 
 
 def get_raw_chunks(article: Article) -> List[Chunk]:
