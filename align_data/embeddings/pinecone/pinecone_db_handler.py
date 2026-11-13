@@ -124,7 +124,6 @@ class PineconeDB:
         values_dims: int = EMBEDDINGS_DIMS,
         metric: str = PINECONE_METRIC,
         create_index: bool = False,
-        log_index_stats: bool = False,
     ):
         self.index_name = index_name
         self.values_dims = values_dims
@@ -143,11 +142,9 @@ class PineconeDB:
             logger.error(f"Failed to access Pinecone index: {e}")
             raise
 
-        if log_index_stats:
-            self.log_stats()
-
-    def log_stats(self, when: str = ""):
-        """Log vector counts. If they don't move while articles are added, writes are blocked."""
+    def log_stats(self, when: str):
+        """Log vector counts. Counts that stay flat across runs while articles are added suggest blocked writes
+        (a single before/after pair can lag, as serverless stats are eventually consistent)."""
         try:
             index_stats_response = self.index.describe_index_stats()
             logger.info(f"{self.index_name} {when}:\n{index_stats_response}")

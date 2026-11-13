@@ -60,7 +60,6 @@ class TestPineconeDB:
             values_dims=1536,
             metric="cosine",
             create_index=False,
-            log_index_stats=False,
         )
 
         # Verify client initialization
@@ -70,24 +69,16 @@ class TestPineconeDB:
         mock_client.Index.assert_called_once_with("test-index")
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
-    def test_init_with_stats(self, mock_initialize):
-        """Test PineconeDB initialization with stats logging."""
-        mock_client = MagicMock()
-        mock_initialize.return_value = mock_client
+    def test_log_stats(self, mock_initialize):
+        """log_stats fetches index stats, and a stats error doesn't propagate."""
+        mock_index = mock_initialize.return_value.Index.return_value
+        db = PineconeDB(index_name="test-index")
 
-        # Create a test index
-        mock_index = MagicMock()
-        mock_index.describe_index_stats.return_value = {"total_vector_count": 100}
-        mock_client.Index.return_value = mock_index
-
-        # Initialize PineconeDB with stats
-        db = PineconeDB(
-            index_name="test-index",
-            log_index_stats=True,
-        )
-
-        # Verify stats were requested
+        db.log_stats("before update")
         mock_index.describe_index_stats.assert_called_once()
+
+        mock_index.describe_index_stats.side_effect = Exception("API Error")
+        db.log_stats("after update")
 
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.initialize_pinecone")
     @patch("align_data.embeddings.pinecone.pinecone_db_handler.ServerlessSpec")
