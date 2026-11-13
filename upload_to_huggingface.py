@@ -26,6 +26,31 @@ CARD_BODY = Path(__file__).parent / "huggingface_card.md"
 # configs are now declared in the card instead.
 OBSOLETE_FILES = ["alignment-research-dataset.py"]
 
+# Commercial books from the special_docs "ebooks" sheet. We have no permission to republish them,
+# so they're never exported (see #262). "Smarter Than Us" is left in: MIRI publishes it free.
+EXCLUDED_URLS = {
+    "https://www.goodreads.com/book/show/698866.The_Myth_of_the_Rational_Voter",
+    "https://www.goodreads.com/book/show/2659696-global-catastrophic-risks",
+    "https://www.goodreads.com/en/book/show/44154569",  # The AI Does Not Hate You
+    "https://www.goodreads.com/book/show/34272565-life-3-0",
+    "https://www.goodreads.com/book/show/50489349-the-alignment-problem",
+    "https://www.goodreads.com/book/show/32763109-2016-international-symposium-on-experimental-robotics",
+    "https://www.goodreads.com/book/show/27543.Artificial_Intelligence",  # A Modern Approach
+    "https://www.goodreads.com/book/show/39204073-on-the-future",
+    "https://www.goodreads.com/book/show/34540069-robot-sex",
+    "https://www.goodreads.com/book/show/26831944-the-age-of-em",
+    "https://link.springer.com/book/10.1007/978-3-662-54033-6",  # The Technological Singularity: Managing the Journey
+    "https://www.goodreads.com/book/show/20527133-superintelligence",
+    "https://www.goodreads.com/book/show/55605905-the-technological-singularity",
+    "https://www.goodreads.com/book/show/38471807-solomon-s-code",
+    "https://www.goodreads.com/book/show/48570420-the-precipice",
+    "https://www.goodreads.com/book/show/42283306-end-times",
+    "https://www.goodreads.com/book/show/23316526-the-second-machine-age",
+    "https://www.goodreads.com/book/show/44767248-human-compatible",
+    "https://www.goodreads.com/book/show/53730358-a-citizen-s-guide-to-artificial-intelligence",
+    "https://www.goodreads.com/book/show/30528889-fundamental-issues-of-artificial-intelligence",
+}
+
 # Every row gets exactly these columns, so all files share one schema. Other keys are dropped
 # (e.g. `comments`, which is arbitrarily nested).
 FEATURES = [
@@ -99,6 +124,8 @@ def write_normalized(name):
         for row in reader:
             if not row.get("id") or row["id"] in seen or row.get("text") in (None, "", "n/a"):
                 continue
+            if row.get("url") in EXCLUDED_URLS:
+                continue
             seen.add(row["id"])
             writer.write(normalize(row))
             count += 1
@@ -162,6 +189,11 @@ def main(selected, dry_run):
 
     api = HfApi()  # reads the token from HF_TOKEN
     remote_files = set(api.list_repo_files(REPO_ID, repo_type="dataset"))
+    if not names:
+        sys.exit("Nothing to upload")
+    if selected != "all" and any(f in remote_files for f in OBSOLETE_FILES):
+        # The other files on HF still have the 2023 schema, which the new card would contradict
+        sys.exit("The first upload in the new format must be `all`")
     # The card lists every dataset that will be on HF after this commit, not just this run's
     card_names = [n for n in ALL_DATASETS if n in names or f"{n}.jsonl" in remote_files]
 
