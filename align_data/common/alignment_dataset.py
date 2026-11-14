@@ -86,7 +86,7 @@ class AlignmentDataset:
         filepath = out_path / filename
 
         with jsonlines.open(filepath, "w") as jsonl_writer:
-            for article in self.read_entries():
+            for article in self.read_entries(valid_only=True):
                 jsonl_writer.write(article.to_dict())
         return filepath.resolve()
 
@@ -94,10 +94,12 @@ class AlignmentDataset:
     def _query_items(self) -> Select[Tuple[Article]]:
         return select(Article).where(Article.source == self.name)
 
-    def read_entries(self, sort_by=None) -> Iterable[Article]:
+    def read_entries(self, sort_by=None, valid_only=False) -> Iterable[Article]:
         """Iterate through all the saved entries."""
         with make_session() as session:
             query = self._query_items.options(joinedload(Article.summaries))
+            if valid_only:
+                query = query.where(Article.is_valid)
             if sort_by is not None:
                 query = query.order_by(sort_by)
 

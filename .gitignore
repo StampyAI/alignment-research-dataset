@@ -123,6 +123,7 @@ carado.moe/
 *.docx
 *.md
 !CLAUDE.md
+!huggingface_card.md
 *.txt
 !requirements.txt
 *.epub

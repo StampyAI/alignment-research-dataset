@@ -1,22 +1,14 @@
 name: Synch uploaded jsonl files to HuggingFace
 
+# Manual only for now: nothing schedules or calls this workflow. Whether to run it automatically
+# (e.g. after the weekly fetch) is still open, see #256.
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      datasource:
-        type: string
-        required: true
-      db_user:
-        type: string
-        required: true
-      db_password:
-        type: string
-        required: true
-      db_host:
-        type: string
-        required: true
-  workflow_dispatch: # allow manual triggering
-    inputs:
+      dry_run:
+        description: 'Dry run: check the token and save the files as a workflow artifact instead of uploading them'
+        type: boolean
+        default: true
       datasource:
         description: 'The datasource to process'
         type: choice
@@ -26,12 +18,14 @@ on:
           - agentmodels
           - agisf
           - aisafety.info
+          - alignment_newsletter
           - alignmentforum
           - arbital
           - arxiv
           - blogs
           - distill
           - eaforum
+          - indices
           - lesswrong
           - special_docs
           - youtube
@@ -54,14 +48,24 @@ jobs:
 
     - name: Generate dataset file
       env:
-        ARD_DB_USER: ${{ secrets.ARD_DB_USER || inputs.db_user }}
-        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD || inputs.db_password }}
-        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST || inputs.db_host }}
+        ARD_DB_USER: ${{ secrets.ARD_DB_USER }}
+        ARD_DB_PASSWORD: ${{ secrets.ARD_DB_PASSWORD }}
+        ARD_DB_HOST: ${{ secrets.ARD_DB_HOST }}
         ARD_DB_NAME: alignment_research_dataset
       run: python main.py generate_jsonl_files ${{ inputs.datasource }}
 
     - name: Setup Huggingface client
-      run: pip install huggingface_hub gdown jsonlines datasets
+      run: pip install huggingface_hub
 
     - name: Upload files
-      run: python upload_to_huggingface.py ${{ secrets.HUGGINGFACE_TOKEN }} ${{ inputs.datasource }}
+      env:
+        HF_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+      run: python upload_to_huggingface.py ${{ inputs.datasource }} ${{ inputs.dry_run && '--dry-run' || '' }}
+
+    - name: Save dry run output
+      if: inputs.dry_run
+      uses: actions/upload-artifact@v7
+      with:
+        name: huggingface-dry-run
+        path: data/huggingface/
+        retention-days: 7
