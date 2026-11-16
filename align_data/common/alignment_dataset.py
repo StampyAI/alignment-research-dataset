@@ -302,6 +302,14 @@ class SummaryDataset(AlignmentDataset):
 class MultiDataset(AlignmentDataset):
     datasets: List[AlignmentDataset]
 
+    continue_on_error: bool = False
+    """Whether a sub-dataset that raises while fetching is skipped so the ones after it
+    still run. The run is then failed at the end, by `finish()`. Meant for groups of
+    unrelated sites, where one being down says nothing about the others."""
+
+    _fetch_errors: List[str] = field(default_factory=list, init=False, repr=False)
+    """The sub-datasets skipped because of `continue_on_error`, for `finish()` to report."""
+
     @property
     def names(self):
         return [dataset.name for dataset in self.datasets]
@@ -328,7 +336,7 @@ class MultiDataset(AlignmentDataset):
         article.source = self.name
 
     def finish(self):
-        errors = []
+        errors = list(self._fetch_errors)
         for dataset in self.datasets:
             try:
                 dataset.finish()
@@ -339,9 +347,17 @@ class MultiDataset(AlignmentDataset):
 
     def fetch_entries(self):
         for dataset in self.datasets:
-            for article in dataset.fetch_entries():
-                if article.source != self.name:
-                    article.add_meta("initial_source", article.source)
-                    article.source = self.name
-                logger.info(f"Yielding article from {article.source}")
-                yield article
+            try:
+                for article in dataset.fetch_entries():
+                    if article.source != self.name:
+                        article.add_meta("initial_source", article.source)
+                        article.source = self.name
+                    logger.info(f"Yielding article from {article.source}")
+                    yield article
+            except Exception as e:
+                if not self.continue_on_error:
+                    raise
+                # Correct or loud: carry on with the other sub-datasets, and let
+                # finish() fail the run so this one doesn't go unnoticed.
+                logger.exception(f"{self.name}: fetching {dataset.name} failed, skipping it")
+                self._fetch_errors.append(f"{dataset.name}: {type(e).__name__}: {e}")

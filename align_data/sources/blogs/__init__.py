@@ -69,5 +69,6 @@ BLOG_DATASETS = [
 
 
 BLOG_REGISTRY = [
-    MultiDataset(name="blogs", datasets=BLOG_DATASETS),
+    # The blogs are unrelated sites: one of them being down must not stop the rest.
+    MultiDataset(name="blogs", datasets=BLOG_DATASETS, continue_on_error=True),
 ]

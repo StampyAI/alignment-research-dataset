@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from align_data.sources.articles.parsers import item_metadata
 from align_data.common.html_dataset import HTMLDataset, RSSDataset
+from align_data.settings import REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,10 @@ class DeepMindTechnicalBlog(HTMLDataset):
             while True:
                 logger.info(f"Fetching entries from {self.url}")
                 response = requests.get(
-                    self.url, allow_redirects=True, params={"73df3071_page": page}
+                    self.url,
+                    allow_redirects=True,
+                    params={"73df3071_page": page},
+                    timeout=REQUEST_TIMEOUT,
                 )
                 soup = BeautifulSoup(response.content, "html.parser")
                 items = soup.select(self.item_selector)

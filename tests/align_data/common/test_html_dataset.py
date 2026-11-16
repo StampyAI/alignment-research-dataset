@@ -1,10 +1,13 @@
 from unittest.mock import patch, Mock
 
+import feedparser
 import pytest
+import requests
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
-from align_data.common.html_dataset import HTMLDataset, RSSDataset
+from align_data import settings
+from align_data.common.html_dataset import HTMLDataset, InvalidFeedError, RSSDataset, fetch_feed
 
 
 @pytest.fixture
@@ -300,5 +303,189 @@ def test_rss_dataset_items_list():
         ]
     }
 
-    with patch("feedparser.parse", return_value=contents):
+    with patch("requests.get", return_value=_resp()), patch(
+        "feedparser.parse", return_value=contents
+    ):
         assert dataset.items_list == [f"http://example.org/article-{i}" for i in range(5)]
+
+
+# --- Network timeouts and loud feed failures (#254) ---------------------------
+#
+# `feedparser.parse(url)` fetches through urllib with no timeout, and returns an
+# empty feed on a 404 without raising. These pin the fixed behaviour: feeds are
+# fetched with requests (with a timeout) and the body handed to feedparser, a bad
+# status is loud, transient errors are retried per the CLAUDE.md policy, and every
+# other requests.get carries a timeout. Hosts use `.invalid` so that nothing here
+# can reach the network even while the implementation is missing.
+
+SAMPLE_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example feed</title>
+    <link>http://feed.invalid</link>
+    <item>
+      <title>Article no 0</title>
+      <link>http://feed.invalid/article-0</link>
+    </item>
+    <item>
+      <title>Article no 1</title>
+      <link>http://feed.invalid/article-1</link>
+    </item>
+  </channel>
+</rss>
+"""
+SAMPLE_FEED_LINKS = ["http://feed.invalid/article-0", "http://feed.invalid/article-1"]
+
+
+def _resp(content=b"", status=200):
+    """A fake `requests.Response` whose `raise_for_status` raises on 4xx/5xx like the real one."""
+    resp = Mock(content=content, status_code=status)
+    if status >= 400:
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            f"{status} error", response=resp
+        )
+    return resp
+
+
+def test_rss_dataset_items_list_fetches_feed_with_timeout():
+    """The feed is fetched via requests with a timeout and the body handed to feedparser,
+    rather than feedparser fetching the URL itself (urllib, no timeout -- can hang forever)."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch("requests.get", return_value=_resp(SAMPLE_FEED)) as mock_get:
+        assert dataset.items_list == SAMPLE_FEED_LINKS
+
+    mock_get.assert_called_once()
+    assert mock_get.call_args.args[0] == "http://feed.invalid/rss.xml"
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_rss_dataset_items_list_raises_on_http_error(mock_sleep):
+    """A 404 feed is loud rather than silently empty, and is not retried (it won't self-resolve)."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch("requests.get", return_value=_resp(status=404)) as mock_get:
+        with pytest.raises(requests.exceptions.HTTPError):
+            dataset.items_list
+    assert mock_get.call_count == 1
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_rss_dataset_items_list_retries_transient_errors(mock_sleep):
+    """Connection resets and read timeouts are retried, per the CLAUDE.md retry policy."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch(
+        "requests.get",
+        side_effect=[
+            requests.exceptions.ConnectionError("connection reset"),
+            requests.exceptions.ReadTimeout("read timed out"),
+            _resp(SAMPLE_FEED),
+        ],
+    ) as mock_get:
+        assert dataset.items_list == SAMPLE_FEED_LINKS
+    assert mock_get.call_count == 3
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_rss_dataset_items_list_raises_after_persistent_timeout(mock_sleep):
+    """If the host stays unreachable the last error propagates instead of the run hanging."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch(
+        "requests.get", side_effect=requests.exceptions.ReadTimeout("read timed out")
+    ) as mock_get:
+        with pytest.raises(requests.exceptions.RequestException):
+            dataset.items_list
+    assert mock_get.call_count == 3
+
+
+def test_html_dataset_items_list_passes_timeout(html_dataset):
+    with patch("requests.get", return_value=Mock(content="<article></article>")) as mock_get:
+        html_dataset.items_list
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+def test_html_dataset_fetch_contents_passes_timeout(html_dataset):
+    with patch("requests.get", return_value=Mock(content=SAMPLE_HTML)) as mock_get:
+        html_dataset.fetch_contents("http://example.com/article")
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+def test_rss_dataset_fetch_contents_passes_timeout():
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    dataset.items = {"http://bla.bla": {}}
+    with patch("requests.get", return_value=Mock(content="<div>bla</div>")) as mock_get:
+        dataset.fetch_contents("http://bla.bla")
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+# --- Feeds that answer 200 but are not usable feeds (#254) ---------------------
+#
+# A dead or moved source does not always fail with an HTTP error: a parked domain,
+# a maintenance page or an empty body all come back as 200. feedparser does not
+# raise on those, it returns no entries (usually with `bozo` set), so the source
+# would quietly ingest nothing. These pin that such a response is loud, while a
+# real feed that just has no posts, or a slightly malformed feed that still has
+# posts, keeps working.
+
+PARKING_PAGE = b"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>feed.invalid is parked</title>
+<link rel="stylesheet" href="park.css"></head>
+<body><p>This domain is parked<br>Buy it & more</p><img src=logo.png></body></html>
+"""
+EMPTY_RSS_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Example feed</title><link>http://feed.invalid</link></channel></rss>
+"""
+EMPTY_ATOM_FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Example feed</title></feed>
+"""
+# cut off in the middle of the third item: feedparser sets `bozo` but still returns two entries
+TRUNCATED_FEED = SAMPLE_FEED[: SAMPLE_FEED.rindex(b"</item>")] + b"</item><item><title>Article no 2</ti"
+# broken XML (bare `&`) and no posts
+MALFORMED_EMPTY_FEED = EMPTY_RSS_FEED.replace(b"Example feed", b"Example & feed")
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        PARKING_PAGE,
+        b"",
+        b"Service temporarily unavailable",
+        b'{"error": "not found"}',
+        # well-formed XML that is not a feed: feedparser does not even set `bozo` here
+        b'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body><p>hi</p></body></html>',
+        MALFORMED_EMPTY_FEED,
+    ),
+    ids=("parking-page", "empty-body", "plain-text", "json", "xhtml", "malformed-empty-feed"),
+)
+@patch("align_data.common.retry.time.sleep")
+def test_rss_dataset_items_list_raises_when_response_is_not_a_feed(mock_sleep, body):
+    """A 200 that is not a usable feed is loud rather than an empty blog, and is not retried."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch("requests.get", return_value=_resp(body)) as mock_get:
+        with pytest.raises(InvalidFeedError, match="http://feed.invalid/rss.xml"):
+            dataset.items_list
+    assert mock_get.call_count == 1
+
+
+@pytest.mark.parametrize("body", (EMPTY_RSS_FEED, EMPTY_ATOM_FEED), ids=("rss", "atom"))
+def test_rss_dataset_items_list_accepts_valid_feed_without_posts(body):
+    """A real feed with no posts (e.g. a brand new blog) is not an error."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch("requests.get", return_value=_resp(body)):
+        assert dataset.items_list == []
+
+
+def test_rss_dataset_items_list_accepts_malformed_feed_with_posts():
+    """`bozo` alone is not an error: many live feeds are slightly malformed but usable."""
+    dataset = RSSDataset(name="bla", url="http://feed.invalid")
+    with patch("requests.get", return_value=_resp(TRUNCATED_FEED)):
+        assert dataset.items_list == SAMPLE_FEED_LINKS
+
+
+def test_fetch_feed_identifies_itself_as_feedparser():
+    """Feeds used to be fetched by feedparser itself, under feedparser's User-Agent. Some
+    sources answer the default python-requests User-Agent with a 403 instead (checked live
+    2026-11-13: aiimpacts.org on every page, intelligence.org and yudkowsky.net past the last
+    page), so the fetch keeps identifying itself the way it always has."""
+    with patch("requests.get", return_value=_resp(SAMPLE_FEED)) as mock_get:
+        fetch_feed("http://feed.invalid/rss.xml")
+    assert mock_get.call_args.kwargs["headers"]["User-Agent"] == feedparser.USER_AGENT

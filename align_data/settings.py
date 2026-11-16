@@ -90,6 +90,10 @@ PINECONE_NAMESPACE = os.environ.get(
 LW_GRAPHQL_ACCESS = os.environ.get("LW_GRAPHQL_ACCESS")
 
 ### MISCELLANEOUS ###
+# Seconds before a blog/feed HTTP fetch gives up. Without one, a server that
+# accepts the connection and then stalls blocks the daily run forever (#254).
+REQUEST_TIMEOUT = 30
+
 MIN_CONFIDENCE = float(os.environ.get("MIN_CONFIDENCE") or "0.5")
 if MIN_CONFIDENCE < 0 or MIN_CONFIDENCE > 1:
     raise ValueError(f"MIN_CONFIDENCE must be between 0 and 1 - got {MIN_CONFIDENCE}")

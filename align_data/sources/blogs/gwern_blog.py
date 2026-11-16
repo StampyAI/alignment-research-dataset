@@ -4,6 +4,7 @@ import logging
 import requests
 
 from align_data.common.html_dataset import HTMLDataset
+from align_data.settings import REQUEST_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class GwernBlog(HTMLDataset):
 
     def _get_article(self, url):
         logger.info("Fetching {}".format(url))
-        return requests.get(url, allow_redirects=True)
+        return requests.get(url, allow_redirects=True, timeout=REQUEST_TIMEOUT)
 
     @staticmethod
     def _get_title(contents):

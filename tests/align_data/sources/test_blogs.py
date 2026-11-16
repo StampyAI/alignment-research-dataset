@@ -3,9 +3,13 @@ from unittest.mock import patch, Mock
 
 import feedparser
 import pytest
+import requests
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
+from align_data import settings
+from align_data.common.alignment_dataset import MultiDataset
+from align_data.common.html_dataset import InvalidFeedError, RSSDataset
 from align_data.sources.blogs import (
     BLOG_DATASETS,
     BLOG_REGISTRY,
@@ -444,7 +448,9 @@ def test_substack_blog_process_entry():
         ]
     }
     # Setup the items list contents
-    with patch("feedparser.parse", return_value=contents):
+    with patch("requests.get", return_value=_resp()), patch(
+        "feedparser.parse", return_value=contents
+    ):
         dataset.items_list
 
     assert dataset.process_entry("http://example.org/bla").to_dict() == {
@@ -488,8 +494,9 @@ def test_wordpress_blog_setup():
     assert blog.name == "blog_name"
 
 
+@patch("requests.get", return_value=Mock(content=b""))
 @patch("feedparser.parse", return_value=WORDPRESS_FEED)
-def test_wordpress_blog_items_list(feedparser_parse):
+def test_wordpress_blog_items_list(feedparser_parse, requests_get):
     blog = WordpressBlog(name="blog", url="https://www.bla.yudkowsky.net")
     assert blog.items_list == ["https://www.yudkowsky.net/other/fiction/prospiracy-theory"]
 
@@ -512,8 +519,9 @@ def test_wordpress_blog_get_published_date():
     assert date_published == parse("2023-06-26T13:40:01Z")
 
 
+@patch("requests.get", return_value=Mock(content=b""))
 @patch("feedparser.parse", return_value=WORDPRESS_FEED)
-def test_wordpress_blog_process_entry(feedparser_parse):
+def test_wordpress_blog_process_entry(feedparser_parse, requests_get):
     blog = WordpressBlog(
         name="blog_name",
         url="https://www.bla.yudkowsky.net",
@@ -955,11 +963,13 @@ def heim_blog():
     # A fresh instance, so that nothing leaks into the shared one in BLOG_DATASETS
     dataset = GhostBlog(name="heim_blog", url="https://blog.heim.xyz", authors=["Lennart Heim"])
     # Serve the saved feed instead of hitting the network
-    with patch(
-        "feedparser.parse", side_effect=lambda url: _real_feedparser_parse(HEIM_FEED)
-    ) as parse:
+    with open(HEIM_FEED, "rb") as f:
+        feed = f.read()
+    with patch("requests.get", return_value=_resp(feed)) as mock_get:
         dataset.items_list
-    parse.assert_called_once_with("https://blog.heim.xyz/rss/")
+    mock_get.assert_called_once()
+    assert mock_get.call_args.args[0] == "https://blog.heim.xyz/rss/"
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
     return dataset
 
 
@@ -1075,3 +1085,138 @@ def test_ghost_blog_cover_image_dropped_before_ignored_selectors():
 def test_ghost_blog_get_text_missing(item):
     dataset = GhostBlog(name="bla", url="https://ble.ble.com")
     assert not dataset._get_text(item)
+
+
+# --- Network timeouts and loud feed failures (#254) ---------------------------
+
+
+def _resp(content=b"", status=200):
+    """A fake `requests.Response` whose `raise_for_status` raises on 4xx/5xx like the real one."""
+    resp = Mock(content=content, status_code=status)
+    if status >= 400:
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            f"{status} error", response=resp
+        )
+    return resp
+
+
+def _wp_feed(title, link):
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>{title}</title>
+    <link>https://www.bla.yudkowsky.net</link>
+    <item><title>{title}</title><link>{link}</link></item>
+  </channel>
+</rss>
+""".encode()
+
+
+def test_wordpress_blog_items_list_stops_on_404_past_last_page():
+    """WordPress answers `/feed?paged=N` past the last page with a 404 (checked live
+    2026-11-11). That 404 ends pagination and must not be mistaken for a dead feed."""
+    blog = WordpressBlog(name="blog", url="https://www.bla.yudkowsky.net")
+    pages = {
+        1: _resp(_wp_feed("Blog", "https://www.bla.yudkowsky.net/post-1")),
+        2: _resp(_wp_feed("Blog - Page 2", "https://www.bla.yudkowsky.net/post-2")),
+        3: _resp(status=404),
+    }
+
+    def getter(url, *args, **kwargs):
+        assert kwargs["timeout"] == settings.REQUEST_TIMEOUT
+        return pages[int(url.rsplit("paged=", 1)[1])]
+
+    with patch("requests.get", getter):
+        assert blog.items_list == [
+            "https://www.bla.yudkowsky.net/post-1",
+            "https://www.bla.yudkowsky.net/post-2",
+        ]
+
+
+def test_wordpress_blog_items_list_raises_when_feed_is_dead():
+    """A 404 on the *first* page means the feed URL is broken: loud, not an empty blog."""
+    blog = WordpressBlog(name="blog", url="https://www.bla.yudkowsky.net")
+    with patch("requests.get", return_value=_resp(status=404)):
+        with pytest.raises(requests.exceptions.HTTPError):
+            blog.items_list
+
+
+def test_wordpress_blog_items_list_raises_when_feed_is_not_a_feed():
+    """A first page that answers 200 with something other than a feed (e.g. a parked
+    domain) is loud too, not an empty blog."""
+    blog = WordpressBlog(name="blog", url="https://www.bla.yudkowsky.net")
+    page = b"<!DOCTYPE html><html><head><title>Parked</title></head><body><p>Parked<br></body></html>"
+    with patch("requests.get", return_value=_resp(page)):
+        with pytest.raises(InvalidFeedError):
+            blog.items_list
+
+
+def test_deepmind_technical_items_list_passes_timeout():
+    dataset = DeepMindTechnicalBlog(name="bla", url="http://bla.com")
+    with patch("requests.get", return_value=Mock(content="")) as mock_get:
+        assert dataset.items_list == []
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+def test_gwern_get_article_passes_timeout():
+    dataset = GwernBlog(name="gwern_blog", url="https://www.gwern.net/", authors=["Gwern Branwen"])
+    with patch("requests.get", return_value="article contents") as mock_get:
+        dataset._get_article("http://bla.com")
+    assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+# --- One dead blog must not stop the other blogs (#254) ------------------------
+
+
+def test_only_the_blogs_group_continues_past_a_failing_source():
+    """Blogs are independent sites, so one being down says nothing about the rest. The
+    other groups keep stopping at the first error (YouTube relies on that to stop the
+    run when its proxy is down)."""
+    from align_data.sources.agisf import AGISF_DATASETS
+    from align_data.sources.articles import ARTICLES_REGISTRY
+    from align_data.sources.youtube import YOUTUBE_REGISTRY
+
+    def multi(registry):
+        return [d for d in registry if isinstance(d, MultiDataset)]
+
+    assert [d.continue_on_error for d in multi(BLOG_REGISTRY)] == [True]
+    others = multi(AGISF_DATASETS) + multi(ARTICLES_REGISTRY) + multi(YOUTUBE_REGISTRY)
+    assert len(others) == 3
+    assert not any(d.continue_on_error for d in others)
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_blogs_run_fetches_the_blogs_after_a_dead_feed(mock_sleep):
+    """The real failure this is for: a dead feed in the middle of the blogs list. The
+    blogs after it are still fetched, and the run fails at the end naming the dead one."""
+    feed = _wp_feed("Alive", "https://alive.bla/post")
+
+    def get(url, **kwargs):
+        if "dead.bla" in url:
+            return _resp(b"Not found", status=404)
+        if "gone.bla" in url:
+            raise requests.exceptions.ConnectionError("Name or service not known")
+        if url == "https://alive.bla/rss.xml":
+            return _resp(feed)
+        raise AssertionError(f"unexpected fetch of {url}")
+
+    blogs = MultiDataset(
+        name="blogs",
+        datasets=[
+            WordpressBlog(name="dead", url="https://dead.bla"),
+            RSSDataset(name="gone", url="https://gone.bla"),
+            RSSDataset(name="alive", url="https://alive.bla"),
+        ],
+        continue_on_error=True,
+    )
+    with patch("requests.get", side_effect=get), patch.object(
+        RSSDataset, "_load_outputted_items", return_value=set()
+    ), patch.object(RSSDataset, "process_entry", side_effect=lambda url: Mock(source="alive", url=url)):
+        fetched = [article.url for article in blogs.fetch_entries()]
+
+    assert fetched == ["https://alive.bla/post"]
+    with pytest.raises(RuntimeError) as err:
+        blogs.finish()
+    assert "dead: HTTPError" in str(err.value)
+    assert "gone: ConnectionError" in str(err.value)
+    assert "alive" not in str(err.value)
