@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
 from align_data import settings
+from align_data.common.html_dataset import InvalidFeedError
 from align_data.sources.blogs import (
     BLOG_DATASETS,
     BLOG_REGISTRY,
@@ -1136,6 +1137,16 @@ def test_wordpress_blog_items_list_raises_when_feed_is_dead():
     blog = WordpressBlog(name="blog", url="https://www.bla.yudkowsky.net")
     with patch("requests.get", return_value=_resp(status=404)):
         with pytest.raises(requests.exceptions.HTTPError):
+            blog.items_list
+
+
+def test_wordpress_blog_items_list_raises_when_feed_is_not_a_feed():
+    """A first page that answers 200 with something other than a feed (e.g. a parked
+    domain) is loud too, not an empty blog."""
+    blog = WordpressBlog(name="blog", url="https://www.bla.yudkowsky.net")
+    page = b"<!DOCTYPE html><html><head><title>Parked</title></head><body><p>Parked<br></body></html>"
+    with patch("requests.get", return_value=_resp(page)):
+        with pytest.raises(InvalidFeedError):
             blog.items_list
 
 
