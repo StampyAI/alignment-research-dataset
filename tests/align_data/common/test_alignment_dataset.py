@@ -6,7 +6,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
-from align_data.common.alignment_dataset import AlignmentDataset
+from align_data.common.alignment_dataset import AlignmentDataset, MultiDataset
 
 
 @pytest.fixture
@@ -288,3 +288,162 @@ def test_format_datatime(dataset):
 def test_format_datatime_ignore_timezone(dataset):
     dt = datetime.fromisoformat("2022-01-01T00:00:00+04:00")
     assert dataset._format_datetime(dt) == "2022-01-01T00:00:00Z"
+
+
+# --- MultiDataset: one failing sub-dataset must not stop the others (#254) -----
+#
+# A MultiDataset runs its sub-datasets one after another. With `continue_on_error`
+# a sub-dataset that raises is skipped, the ones after it still run, and the run
+# is failed at the end by `finish()` so the failure is not silent. Without it (the
+# default) the first error still stops the run straight away, as before.
+
+
+@dataclass
+class _GroupedDataset(AlignmentDataset):
+    """A sub-dataset yielding one article per number, failing where it is told to."""
+
+    nums: List[int]
+    fail_listing: bool = False  # raise while listing items, like a dead feed
+    fail_on: int | None = None  # raise while processing this item
+    finish_error: str | None = None
+    finished: bool = False
+    done_key = "number"
+
+    @property
+    def items_list(self):
+        if self.fail_listing:
+            raise ConnectionError(f"{self.name} is unreachable")
+        return self.nums
+
+    def get_item_key(self, item) -> str:
+        return str(item)
+
+    def _load_outputted_items(self):
+        return set()
+
+    def process_entry(self, item):
+        if item == self.fail_on:
+            raise ValueError(f"cannot process {item}")
+        return self.make_data_entry(
+            {
+                "text": f"line {item}",
+                "source": self.name,
+                "title": str(item),
+                "url": f"http://{self.name}.bla?page={item}",
+                "number": item,
+                "authors": [],
+            }
+        )
+
+    def finish(self):
+        self.finished = True
+        if self.finish_error:
+            raise RuntimeError(self.finish_error)
+
+
+def _group(*datasets, **kwargs):
+    return MultiDataset(name="group", datasets=list(datasets), **kwargs)
+
+
+def _numbers(articles):
+    return [a.meta["number"] for a in articles]
+
+
+def test_multidataset_continues_past_a_sub_dataset_that_cannot_list_its_items():
+    group = _group(
+        _GroupedDataset(name="first", nums=[1, 2]),
+        _GroupedDataset(name="dead", nums=[3, 4], fail_listing=True),
+        _GroupedDataset(name="last", nums=[5, 6]),
+        continue_on_error=True,
+    )
+    articles = list(group.fetch_entries())
+    assert _numbers(articles) == [1, 2, 5, 6]
+    # the healthy ones are stored the same way as in a run without failures
+    assert {a.source for a in articles} == {"group"}
+    assert [a.meta["initial_source"] for a in articles] == ["first", "first", "last", "last"]
+
+
+def test_multidataset_keeps_what_a_sub_dataset_yielded_before_it_failed():
+    group = _group(
+        _GroupedDataset(name="first", nums=[1, 2]),
+        _GroupedDataset(name="flaky", nums=[3, 4, 5], fail_on=4),
+        _GroupedDataset(name="last", nums=[6]),
+        continue_on_error=True,
+    )
+    assert _numbers(group.fetch_entries()) == [1, 2, 3, 6]
+
+
+def test_multidataset_finish_fails_the_run_naming_what_failed_to_fetch():
+    datasets = [
+        _GroupedDataset(name="first", nums=[1]),
+        _GroupedDataset(name="dead", nums=[2], fail_listing=True),
+        _GroupedDataset(name="flaky", nums=[3], fail_on=3),
+        _GroupedDataset(name="last", nums=[4]),
+    ]
+    group = _group(*datasets, continue_on_error=True)
+    list(group.fetch_entries())
+    with pytest.raises(RuntimeError) as err:
+        group.finish()
+    message = str(err.value)
+    assert "dead: ConnectionError: dead is unreachable" in message
+    assert "flaky: ValueError: cannot process 3" in message
+    assert "first" not in message and "last" not in message
+    # every sub-dataset still gets its own finish()
+    assert all(d.finished for d in datasets)
+
+
+def test_multidataset_finish_reports_fetch_and_finish_failures_together():
+    group = _group(
+        _GroupedDataset(name="dead", nums=[1], fail_listing=True),
+        _GroupedDataset(name="last", nums=[2], finish_error="last: too many failed"),
+        continue_on_error=True,
+    )
+    list(group.fetch_entries())
+    with pytest.raises(RuntimeError, match="dead is unreachable.*last: too many failed"):
+        group.finish()
+
+
+def test_multidataset_finish_passes_when_nothing_failed():
+    group = _group(
+        _GroupedDataset(name="first", nums=[1]),
+        _GroupedDataset(name="last", nums=[2]),
+        continue_on_error=True,
+    )
+    assert _numbers(group.fetch_entries()) == [1, 2]
+    group.finish()
+
+
+def test_multidataset_logs_the_failure_when_it_happens(caplog):
+    group = _group(
+        _GroupedDataset(name="dead", nums=[1], fail_listing=True), continue_on_error=True
+    )
+    with caplog.at_level("ERROR"):
+        list(group.fetch_entries())
+    assert any(
+        r.levelname == "ERROR" and "dead" in r.getMessage() and r.exc_info for r in caplog.records
+    )
+
+
+def test_multidataset_stops_at_the_first_error_by_default():
+    """Unchanged behaviour for groups that don't opt in (e.g. YouTube, which raises on
+    purpose to stop the whole run when its proxy is down)."""
+    last = _GroupedDataset(name="last", nums=[5, 6])
+    group = _group(
+        _GroupedDataset(name="first", nums=[1, 2]),
+        _GroupedDataset(name="dead", nums=[3, 4], fail_listing=True),
+        last,
+    )
+    seen = []
+    with pytest.raises(ConnectionError, match="dead is unreachable"):
+        for article in group.fetch_entries():
+            seen.append(article.meta["number"])
+    assert seen == [1, 2]
+
+
+def test_multidataset_does_not_swallow_an_interrupted_run():
+    """Only errors are isolated: stopping the run (Ctrl-C, a cancelled job) still stops it."""
+    dataset = _GroupedDataset(name="first", nums=[1])
+    group = _group(dataset, _GroupedDataset(name="last", nums=[2]), continue_on_error=True)
+    with patch.object(_GroupedDataset, "process_entry", side_effect=KeyboardInterrupt):
+        with pytest.raises(KeyboardInterrupt):
+            list(group.fetch_entries())

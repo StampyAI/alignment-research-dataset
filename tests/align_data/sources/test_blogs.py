@@ -8,7 +8,8 @@ from bs4 import BeautifulSoup
 from dateutil.parser import parse
 
 from align_data import settings
-from align_data.common.html_dataset import InvalidFeedError
+from align_data.common.alignment_dataset import MultiDataset
+from align_data.common.html_dataset import InvalidFeedError, RSSDataset
 from align_data.sources.blogs import (
     BLOG_DATASETS,
     BLOG_REGISTRY,
@@ -1162,3 +1163,60 @@ def test_gwern_get_article_passes_timeout():
     with patch("requests.get", return_value="article contents") as mock_get:
         dataset._get_article("http://bla.com")
     assert mock_get.call_args.kwargs["timeout"] == settings.REQUEST_TIMEOUT
+
+
+# --- One dead blog must not stop the other blogs (#254) ------------------------
+
+
+def test_only_the_blogs_group_continues_past_a_failing_source():
+    """Blogs are independent sites, so one being down says nothing about the rest. The
+    other groups keep stopping at the first error (YouTube relies on that to stop the
+    run when its proxy is down)."""
+    from align_data.sources.agisf import AGISF_DATASETS
+    from align_data.sources.articles import ARTICLES_REGISTRY
+    from align_data.sources.youtube import YOUTUBE_REGISTRY
+
+    def multi(registry):
+        return [d for d in registry if isinstance(d, MultiDataset)]
+
+    assert [d.continue_on_error for d in multi(BLOG_REGISTRY)] == [True]
+    others = multi(AGISF_DATASETS) + multi(ARTICLES_REGISTRY) + multi(YOUTUBE_REGISTRY)
+    assert len(others) == 3
+    assert not any(d.continue_on_error for d in others)
+
+
+@patch("align_data.common.retry.time.sleep")
+def test_blogs_run_fetches_the_blogs_after_a_dead_feed(mock_sleep):
+    """The real failure this is for: a dead feed in the middle of the blogs list. The
+    blogs after it are still fetched, and the run fails at the end naming the dead one."""
+    feed = _wp_feed("Alive", "https://alive.bla/post")
+
+    def get(url, **kwargs):
+        if "dead.bla" in url:
+            return _resp(b"Not found", status=404)
+        if "gone.bla" in url:
+            raise requests.exceptions.ConnectionError("Name or service not known")
+        if url == "https://alive.bla/rss.xml":
+            return _resp(feed)
+        raise AssertionError(f"unexpected fetch of {url}")
+
+    blogs = MultiDataset(
+        name="blogs",
+        datasets=[
+            WordpressBlog(name="dead", url="https://dead.bla"),
+            RSSDataset(name="gone", url="https://gone.bla"),
+            RSSDataset(name="alive", url="https://alive.bla"),
+        ],
+        continue_on_error=True,
+    )
+    with patch("requests.get", side_effect=get), patch.object(
+        RSSDataset, "_load_outputted_items", return_value=set()
+    ), patch.object(RSSDataset, "process_entry", side_effect=lambda url: Mock(source="alive", url=url)):
+        fetched = [article.url for article in blogs.fetch_entries()]
+
+    assert fetched == ["https://alive.bla/post"]
+    with pytest.raises(RuntimeError) as err:
+        blogs.finish()
+    assert "dead: HTTPError" in str(err.value)
+    assert "gone: ConnectionError" in str(err.value)
+    assert "alive" not in str(err.value)
